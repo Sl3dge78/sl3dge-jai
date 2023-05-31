@@ -498,15 +498,17 @@ Font :: struct {
     width : float;
 
     init :: (path: string, size: float) -> Font, bool {
-        self : Font = ---;
-        
         font_data, success := read_entire_file(path);
         if !success {
             assert(false, "Unable to load font from %", path);
             return .{}, false;
         }
-        
-        
+        result, success2 := from_data(font_data, size);
+        return result, success2;
+    }
+
+    from_data :: (font_data: string, size: float) -> Font, bool {   
+        self : Font = ---;
         bitmap : [512*512]u8 = ---;
         
         pack_context : stbtt_pack_context = ---;
@@ -542,7 +544,6 @@ Font :: struct {
         self.line_height = (ascent - descent + line_gap) * scale;
         return self, true;
     }
-
     deinit :: (font: *Font) {
         // Nothing to deinit
     }

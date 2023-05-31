@@ -1,0 +1,208 @@
+/*
+    This file handles the game's resources.
+    Resources are static assets that aren't modified by the game itself. Like shaders, 3d models, audio files, ...
+    1. At compile time, we generate the contents of the Resource struct by browsing inside the res/ folder.
+       Add file types by adding cases to the multiple if extension == 
+    2. At runtime, we use File_Watcher to check for changes in the res folder, and hotreload assets
+        We generate a function called get_res_ptr which returns the address and type of the struct member
+        associated with a particular file.
+
+    As future upgrades, we can imagine lazyly loading/offloading assets as required.
+*/
+
+Resource_Info :: struct {
+    path : string;
+    pointer: *void;
+    type: Type;
+    load: (*Resource_Info) -> bool;
+}
+
+Extension_Info :: struct {
+    ext: string;
+    load: (*Resource_Info) -> bool;
+    type: (path: string) -> string;
+}
+
+extension_infos := Extension_Info.[
+    .{"var", load_var_file, get_var_type},
+    .{"ttf", load_font_file, get_font_type},
+    .{"glsl", load_shader, get_shader_type},
+];
+
+resources : Resources;
+
+Resources :: struct {
+    watcher : File_Watcher.File_Watcher;
+
+    font16 : Font;
+    // Creates all members with names = to the filenames
+    #insert #run -> string {
+        #import "File_Utilities";
+
+        builders : [3]String_Builder;
+
+        set_working_directory("bin");
+        defer set_working_directory("../");
+
+        // Prepare the get_res_ptr function
+        print_to_builder(*builders[1], "get_res_ptr :: (path: string) -> *void, Type {\nif path == {\n");
+
+        // Prepare the array of resource infos
+        print_to_builder(*builders[2], "infos := Resource_Info.[\n");
+
+        for_all_files :: (info: *File_Visit_Info, user_data: [3]String_Builder) {
+            // log("%", info.full_name);
+            path, basename, extension := path_decomp(info.full_name);
+            ext_info := get_ext_info(extension);
+            if !ext_info then return;
+            
+            // Add a case to the get_res_ptr function call
+            print_to_builder(*user_data[1], "case \"%\"; return *resources.%2, type_of(resources.%2);\n", info.full_name, basename);
+            // Add an entry in the resource info array
+            print_to_builder(*user_data[2], ".{\"%\", null, type_of(null), null},\n", info.full_name);
+            // Add the asset to the struct
+            print_to_builder(*user_data[0], "%: %;\n", basename, ext_info.type(info.full_name));
+        }
+
+        visit_files("res", true, builders, for_all_files);
+
+        // Close the resource info array
+        print_to_builder(*builders[2], "];\n");
+
+        // Add a default case 
+        print_to_builder(*builders[1], "case; return null, type_of(null);\n");
+        print_to_builder(*builders[1], "}\n"); // Close the if ==
+        print_to_builder(*builders[1], "}\n"); // Close the procedure
+
+        // Concatenate all builders
+        print_to_builder(*builders[0], "%\n", builder_to_string(*builders[1])); 
+        print_to_builder(*builders[0], "%\n", builder_to_string(*builders[2]));
+
+        return builder_to_string(*builders[0]);
+    };
+
+    get_ext_info :: (ext: string) -> *Extension_Info {
+        for * extension_infos {
+            if it.ext == ext then return it;
+        }
+        return null;
+    }
+
+    init :: () {
+        // Initialize the file watcher and fill the resource_info array with run time info
+        File_Watcher.init(*resources.watcher, on_file_change);
+        File_Watcher.add_directories(*resources.watcher, "res");
+
+        for *info: resources.infos {
+            ptr, type := get_res_ptr(info.path);
+            info.pointer = ptr;
+            info.type = type;
+            ext := path_extension(info.path);
+            ext_info := get_ext_info(ext);
+            assert(ext_info != null, tprint("No extension info for file %", info.path));
+            info.load = ext_info.load;
+        }
+    }
+
+    deinit :: () {
+        File_Watcher.deinit(resources.watcher);
+    }
+
+    update :: () {
+        File_Watcher.process_changes(*resources.watcher);
+    }
+
+    load_all :: () {
+        resources.font16 = Font.init("res/font.ttf", 16);
+        for *resources.infos {
+            it.load(it);
+        }
+    }
+
+    get_resource_info :: (path: string) -> *Resource_Info {
+        return null;
+    }
+
+    on_file_change :: (watcher: *File_Watcher.File_Watcher(void), change: *File_Watcher.File_Change, user_data: *void) {
+        info : *Resource_Info;
+        for *resources.infos {
+            if it.path == change.full_path {
+                info = it;
+                break;
+            }
+        }
+        if !info then return;
+        log("File % has changed", change.full_path);
+        info.load(info);
+    }
+}
+
+// .var files
+get_var_type :: (file: string) -> string {
+    builder : String_Builder;
+    contents := read_entire_file(file);
+    defer free(contents);
+    lines := split(contents, "\n");
+    print_to_builder(*builder, "struct {\n", path_basename(file));
+    for line: lines {
+        decomp := split(trim(line), "=");
+        if decomp.count != 2 then continue;
+        print_to_builder(*builder, "%: float =%;\n", decomp[0], decomp[1]);
+    }
+    print_to_builder(*builder, "};\n");
+
+    return builder_to_string(*builder);
+}
+
+load_var_file :: (info: *Resource_Info) -> bool {
+    contents := read_entire_file(info.path);
+    defer free(contents);
+    ti: *Type_Info_Struct = xx info.type;
+
+    find_member_offset :: (ti: *Type_Info_Struct, name: string) -> bool, s64 {
+        for ti.members {
+            if it.name == name {
+                return true, it.offset_in_bytes;
+            }
+        }
+        return false, 0;
+    }; 
+
+    lines := split(contents, "\n");
+    for line: lines {
+        decomp := split(trim(line), "=");
+        if decomp.count != 2 then continue;
+        ok, offset := find_member_offset(ti, trim(decomp[0]));
+        if !ok {
+            log("Couldn't find % in struct !", decomp[0]);
+            continue;
+        }
+        addr : *float = cast(*float)(cast(*u8)info.pointer + offset);
+        val := parse_float(*trim(decomp[1]));
+        << addr = val;
+    }
+    return true;
+}
+
+// .ttf files
+load_font_file :: (info: *Resource_Info) -> bool {
+    << cast(*Font)info.pointer = Font.init(info.path, 8);
+    return true;
+}
+
+get_font_type :: (path: string) -> string {
+    return "Font";
+}
+
+// .glsl files
+load_shader :: (info: *Resource_Info) -> bool {
+    temp := Shader.load_from_file(info.path);
+    if temp.handle != 0 {
+        << cast(*Shader)info.pointer = temp;
+    }
+   return true;
+}
+
+get_shader_type :: (path: string) -> string {
+    return "Shader";
+}
