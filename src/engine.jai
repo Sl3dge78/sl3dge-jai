@@ -19,9 +19,12 @@ Engine :: struct {
 
         global_engine.renderer = Renderer.init(global_engine.window);
         global_engine.default_font = Font.from_data(default_font_data, 8);
+
+        Resources.init();
     }
 
     deinit :: () {
+        Resources.deinit();
         Renderer.deinit();
         SDL_DestroyWindow(global_engine.window);
         SDL_Quit();
@@ -30,6 +33,7 @@ Engine :: struct {
     update :: (delta_time: float) {
         Input.update();
         Console.update(delta_time);
+        Resources.update();
     }
 
     draw :: () {

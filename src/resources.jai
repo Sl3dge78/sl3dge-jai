@@ -34,7 +34,6 @@ resources : Resources;
 Resources :: struct {
     watcher : File_Watcher.File_Watcher;
 
-    font16 : Font;
     // Creates all members with names = to the filenames
     #insert #run -> string {
         #import "File_Utilities";
@@ -57,20 +56,22 @@ Resources :: struct {
             if !ext_info then return;
             
             // Add a case to the get_res_ptr function call
-            print_to_builder(*user_data[1], "case \"%\"; return *resources.%2, type_of(resources.%2);\n", info.full_name, basename);
+            print_to_builder(*user_data[1], "\tcase \"%\"; return *resources.%2, type_of(resources.%2);\n", info.full_name, basename);
             // Add an entry in the resource info array
-            print_to_builder(*user_data[2], ".{\"%\", null, type_of(null), null},\n", info.full_name);
+            print_to_builder(*user_data[2], "\t.{\"%\", null, type_of(null), null},\n", info.full_name);
             // Add the asset to the struct
             print_to_builder(*user_data[0], "%: %;\n", basename, ext_info.type(info.full_name));
         }
 
-        visit_files("res", true, builders, for_all_files);
+        if file_exists("res") {
+            visit_files("res", true, builders, for_all_files);
+        }
 
         // Close the resource info array
         print_to_builder(*builders[2], "];\n");
 
         // Add a default case 
-        print_to_builder(*builders[1], "case; return null, type_of(null);\n");
+        print_to_builder(*builders[1], "\tcase; return null, type_of(null);\n");
         print_to_builder(*builders[1], "}\n"); // Close the if ==
         print_to_builder(*builders[1], "}\n"); // Close the procedure
 
@@ -102,6 +103,7 @@ Resources :: struct {
             assert(ext_info != null, tprint("No extension info for file %", info.path));
             info.load = ext_info.load;
         }
+        load_all();
     }
 
     deinit :: () {
@@ -113,7 +115,6 @@ Resources :: struct {
     }
 
     load_all :: () {
-        resources.font16 = Font.init("res/font.ttf", 16);
         for *resources.infos {
             it.load(it);
         }
@@ -138,6 +139,7 @@ Resources :: struct {
 }
 
 // .var files
+// @Todo extend this to be an equivalent to .ini
 get_var_type :: (file: string) -> string {
     builder : String_Builder;
     contents := read_entire_file(file);
@@ -147,7 +149,7 @@ get_var_type :: (file: string) -> string {
     for line: lines {
         decomp := split(trim(line), "=");
         if decomp.count != 2 then continue;
-        print_to_builder(*builder, "%: float =%;\n", decomp[0], decomp[1]);
+        print_to_builder(*builder, "\t%: float =%;\n", decomp[0], decomp[1]);
     }
     print_to_builder(*builder, "};\n");
 
@@ -186,7 +188,7 @@ load_var_file :: (info: *Resource_Info) -> bool {
 
 // .ttf files
 load_font_file :: (info: *Resource_Info) -> bool {
-    << cast(*Font)info.pointer = Font.init(info.path, 8);
+    << cast(*Font)info.pointer = Font.init(info.path, 8); // @Todo: Find a way to specify a font size
     return true;
 }
 
