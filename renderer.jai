@@ -1,0 +1,641 @@
+#scope_file
+
+#import "GL";
+#import "SDL";
+#import "Math";
+#import "File";
+#import "stb_truetype";
+
+global_renderer : Renderer;
+
+#scope_export
+
+Vertex :: struct {
+    pos: Vector3;
+    normal: Vector3;
+    uv: Vector2;
+    color: Vector4;
+
+    enable_attrib :: () {
+        offset : *Vertex: null;
+        stride : u32 = size_of(Vertex);
+
+        loc : u32 = 0;
+        glEnableVertexAttribArray(loc); // Position
+        glVertexAttribPointer(loc, 3, GL_FLOAT, xx false, stride, *offset.pos);
+
+        loc += 1;
+        glEnableVertexAttribArray(loc); // Normal 
+        glVertexAttribPointer(loc, 3, GL_FLOAT, xx false, stride, *offset.normal);
+
+        loc += 1;
+        glEnableVertexAttribArray(loc); // uv 
+        glVertexAttribPointer(loc, 2, GL_FLOAT, xx false, stride, *offset.uv);
+
+        loc += 1;
+        glEnableVertexAttribArray(loc); // color 
+        glVertexAttribPointer(loc, 4, GL_FLOAT, xx false, stride, *offset.color);
+    }
+}
+
+Renderer :: struct {
+    _gl_context: SDL_GLContext;
+    window: *SDL_Window;
+
+    vao: GLuint;
+    vbo: GLuint;
+
+    current_shader: Shader;
+
+    standard_shader: Shader;
+    screen_space_shader: Shader;
+
+    width: s32;
+    height: s32;
+
+    immediate_vertices: [..]Vertex;
+
+    default_texture: Texture;
+
+    current_target: *RenderTexture;
+
+    init :: (window: *SDL_Window) -> Renderer {
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, xx SDL_GL_CONTEXT_PROFILE_CORE);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+
+        SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+        SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
+
+        global_renderer._gl_context = SDL_GL_CreateContext(window);
+        assert(global_renderer._gl_context != null);
+        gl_load(*gl);
+        gl_enable_debug_output(break_on_error = true);
+
+        glEnable(GL_MULTISAMPLE);
+
+        glGenVertexArrays(1, *global_renderer.vao);
+        glGenBuffers(1, *global_renderer.vbo);
+        glBindVertexArray(global_renderer.vao);
+        glBindBuffer(GL_ARRAY_BUFFER, global_renderer.vbo);
+        Vertex.enable_attrib();
+
+        global_renderer.default_texture = Texture.init();
+        Texture.bind(global_renderer.default_texture);
+        data := u8.[255, 255, 255, 255];
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, *data);
+
+        global_renderer.standard_shader = Shader.load(STANDARD);
+        global_renderer.screen_space_shader = Shader.load(SCREEN_SPACE_SHADER);
+
+        update_window(window);
+        render_to_window();
+
+        return global_renderer;
+    }
+
+    deinit :: () {
+        using global_renderer;
+        glDeleteVertexArrays(1, *vao);
+        glDeleteBuffers(1, *vbo);
+    }
+
+    clear :: (color: Vector4) {
+        glClearColor(color.x, color.y, color.z, color.w);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    }
+
+    update_window :: (window: *SDL_Window) {
+        SDL_GetWindowSize(window, *global_renderer.width, *global_renderer.height);
+        global_renderer.window = window;
+    }
+
+    get_window_dims :: () -> Vector2i {
+        return .{global_renderer.width, global_renderer.height};
+    }
+
+    flush :: () {
+        using global_renderer;
+        if immediate_vertices.count == 0 then return; // Nothing to draw
+
+        glBindVertexArray(vao);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+        glBufferData(GL_ARRAY_BUFFER, immediate_vertices.count * size_of(Vertex), immediate_vertices.data, GL_STREAM_DRAW);
+        glDrawArrays(GL_TRIANGLES, 0, xx immediate_vertices.count);
+
+        immediate_vertices.count = 0;
+    }
+
+    swap :: () {
+        using global_renderer;
+        flush();
+        SDL_GL_SwapWindow(window);
+    }
+
+    render_to_texture :: (tex: *RenderTexture) {
+        if global_renderer.current_target != null {
+            RenderTexture.resolve(global_renderer.current_target);
+        }
+        global_renderer.current_target = tex;
+        RenderTexture.bind(tex);
+        glViewport(0, 0, xx tex.width, xx tex.height);
+    }
+
+    render_to_window :: () { 
+        if global_renderer.current_target != null {
+            RenderTexture.resolve(global_renderer.current_target);
+        }
+        global_renderer.current_target = null;
+        RenderTexture.unbind();
+
+        glViewport(0, 0, xx global_renderer.width, xx global_renderer.height);
+    }
+
+    begin_3d :: (view: Matrix4) {
+        flush();  
+        use_shader(*global_renderer.standard_shader);
+        Shader.set_uniform(*global_renderer.standard_shader, "View", view);
+        Shader.set_uniform(*global_renderer.standard_shader, "Projection", make_projection_matrix(60 * PI / 180.0, cast(float)global_renderer.width / cast(float)global_renderer.height, 0.1, 1000));
+        glDisable(GL_BLEND);
+        glEnable(GL_DEPTH_TEST);
+    }
+
+    begin_2d :: () {
+        flush();
+        use_shader(*global_renderer.screen_space_shader);
+        glEnable(GL_BLEND);
+        glDisable(GL_DEPTH_TEST);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        if global_renderer.current_target == null {
+            Shader.set_uniform(*global_renderer.screen_space_shader, "Projection", orthographic_projection_matrix(0, xx global_renderer.width, xx global_renderer.height, 0, -1, 1));
+        } else {
+            Shader.set_uniform(*global_renderer.screen_space_shader, "Projection", orthographic_projection_matrix(0, xx global_renderer.current_target.width, xx global_renderer.current_target.height, 0, -1, 1));
+        }
+    }
+
+    use_shader :: (shader : *Shader) {
+        global_renderer.current_shader = shader;
+        glUseProgram(shader.handle);
+    }
+
+    set_model_matrix :: (mat: Matrix4) {
+        flush();
+        Shader.set_uniform(*global_renderer.current_shader, "Model", mat);
+    }
+
+    // --------
+    // Triangles 
+
+    push_vertex :: (vertex: Vertex) {
+        array_add(*global_renderer.immediate_vertices, vertex);
+    }
+
+    push_quad :: (p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, normal: Vector3, color: Vector4 = .{1, 1, 1, 1}) {
+        push_vertex(Vertex.{ p0, normal, Vector2.{0.0, 0.0}, color });
+        push_vertex(Vertex.{ p1, normal, Vector2.{1.0, 0.0}, color });
+        push_vertex(Vertex.{ p2, normal, Vector2.{1.0, 1.0}, color });
+        push_vertex(Vertex.{ p0, normal, Vector2.{0.0, 0.0}, color });
+        push_vertex(Vertex.{ p2, normal, Vector2.{1.0, 1.0}, color });
+        push_vertex(Vertex.{ p3, normal, Vector2.{0.0, 1.0}, color });
+    }
+
+
+
+    // --------
+    // Text
+
+    draw_text :: (text: string, x: float, y: float, font: *Font, color: Vector4 = .{1, 1, 1, 1}) {
+        Texture.bind(font.texture);
+        i := 0;
+        while(i < text.count) {
+            it := text[i];
+            
+            q : stbtt_aligned_quad = ---;
+            stbtt_GetPackedQuad(font.char_data.data, 512, 512, xx(it - font.first_char), *x, *y, *q, 0);
+            push_vertex(Vertex.{ .{q.x0, q.y0, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s0, q.t0}, color });
+            push_vertex(Vertex.{ .{q.x1, q.y0, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s1, q.t0}, color });
+            push_vertex(Vertex.{ .{q.x1, q.y1, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s1, q.t1}, color });
+            push_vertex(Vertex.{ .{q.x0, q.y0, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s0, q.t0}, color });
+            push_vertex(Vertex.{ .{q.x1, q.y1, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s1, q.t1}, color });
+            push_vertex(Vertex.{ .{q.x0, q.y1, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s0, q.t1}, color });
+            i += 1;
+        }
+        flush();
+    }
+
+    size_text :: (text: string, font: *Font) -> float {
+        // @Incomplete: This wont work for non monospaced fonts.
+        return text.count * font.width;
+    }
+
+    draw_texture :: (texture: Texture, x: float, y: float, w: float, h: float) {
+        Texture.bind(texture);
+        push_quad(.{x, y, 0}, .{x + w, y, 0}, .{x + w, y + h, 0}, .{x, y + h, 0}, .{0, 0, 1});
+        flush();
+    }
+    
+    draw_2d_quad :: (x: float, y: float, w: float, h: float, color: Vector4 = .{1, 1, 1, 1}) {
+        push_vertex(Vertex.{ .{x, y, 0},         .{0.0, 0.0, 1.0}, Vector2.{0, 0}, color });
+        push_vertex(Vertex.{ .{x + w, y, 0},     .{0.0, 0.0, 1.0}, Vector2.{1, 0}, color });
+        push_vertex(Vertex.{ .{x + w, y + h, 0}, .{0.0, 0.0, 1.0}, Vector2.{1, 1}, color });
+        push_vertex(Vertex.{ .{x, y, 0},         .{0.0, 0.0, 1.0}, Vector2.{0, 0}, color });
+        push_vertex(Vertex.{ .{x + w, y + h, 0}, .{0.0, 0.0, 1.0}, Vector2.{1, 1}, color });
+        push_vertex(Vertex.{ .{x, y + h, 0},     .{0.0, 0.0, 1.0}, Vector2.{0, 1}, color });
+        flush();
+    }
+    // -------
+    // Shapes
+
+    draw_plane :: (center: Vector3, size: Vector2) {
+        plane := Quad.make(center, size);
+        Renderer.push_quad(
+            plane.v[0],
+            plane.v[1],
+            plane.v[2],
+            plane.v[3],
+            .{0, 0, 1});
+        flush();
+    }
+
+    draw_cube :: (color: Vector4 = .{1, 1, 1, 1}) {
+        push_quad(xyz(-.5, -.5, -.5), xyz(.5, -.5, -.5), xyz(.5, -.5, .5), xyz(-.5, -.5, .5), UP, color); 
+        push_quad(xyz(-.5, .5, -.5), xyz(.5, .5, -.5), xyz(.5, .5, .5), xyz(-.5, .5, .5), DOWN, color);
+
+        push_quad(xyz(-.5, -.5, -.5), xyz(-.5, .5, -.5), xyz(-.5, .5, .5), xyz(-.5, -.5, .5), LEFT, color); 
+        push_quad(xyz(.5, -.5, -.5), xyz(.5, .5, -.5), xyz(.5, .5, .5), xyz(.5, -.5, .5), RIGHT, color); 
+
+        push_quad(xyz(-.5, -.5, -.5), xyz(-.5, .5, -.5), xyz(.5, .5, -.5), xyz(.5, -.5, -.5), BACK, color); 
+        push_quad(xyz(-.5, -.5, .5), xyz(-.5, .5, .5), xyz(.5, .5, .5), xyz(.5, -.5, .5), FORWARD, color); 
+        flush();
+    }
+
+    draw_cylinder :: () {
+        NB_ITERATIONS :: 20;
+        iter_size :: 2 * PI / (NB_ITERATIONS);
+        radius :: 1;
+        height :: 1;
+
+        for 0..NB_ITERATIONS {
+            angle := iter_size * it;
+            x1 := cos(angle) * radius;
+            x2 := cos(angle + iter_size) * radius;
+            z1 := sin(angle) * radius;
+            z2 := sin(angle + iter_size) * radius;
+            p0 := xyz(x1, 0, z1);
+            p3 := xyz(x2, 0, z2);
+            Renderer.push_quad(p0, xyz(x1, height, z1), xyz(x2, height, z2), p3, 
+            normal = cross(normalize(p3 - p0), UP));
+        }
+
+        // Draw floor & ceiling as simple quad
+        Renderer.push_quad(xyz(-radius, 0, -radius), xyz(radius, 0, -radius), xyz(radius, 0, radius), xyz(-radius, 0, radius), UP); 
+        Renderer.push_quad(xyz(-radius, height, -radius), xyz(radius, height, -radius), xyz(radius, height, radius), xyz(-radius, height, radius), DOWN); 
+        flush();
+    }
+
+    
+}
+
+Texture :: struct {
+    handle: GLuint;
+
+    Filter :: enum {
+        Nearest :: GL_NEAREST;
+        Linear :: GL_LINEAR;
+    }
+
+    init :: () -> Texture {
+        tex: Texture = ---;
+        glCreateTextures(GL_TEXTURE_2D, 1, *tex.handle);
+        return tex;
+    }
+
+    deinit :: (tex: *Texture) {
+        glDeleteTextures(1, *tex.handle);
+    }
+
+    bind :: (tex: Texture) {
+        Renderer.flush();
+        glBindTexture(GL_TEXTURE_2D, tex.handle);
+    }
+
+    default :: () {
+        bind(global_renderer.default_texture);
+    }
+
+    unbind :: () {
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+
+    set_filter :: (filter: Filter) {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, xx filter);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, xx filter); 
+    }
+}
+
+Shader :: struct {
+    handle: GLuint;
+
+    load_from_file :: (path: string) -> Shader {
+        contents := read_entire_file(path);
+        return load(contents);
+    }
+
+    load :: (shader: string) -> Shader {
+        build_shader_part :: (source: string, prefix: string, kind: GLenum) -> GLuint {
+            result := glCreateShader(kind);
+
+            shaders: [2] *u8;
+            lengths: [2] s32;
+
+            shaders[0] = prefix.data;
+            shaders[1] = source.data;
+            lengths[0] = xx prefix.count;
+            lengths[1] = xx source.count;
+
+            glShaderSource(result, 2, shaders.data, lengths.data);
+            glCompileShader(result);
+            
+            success: GLint = ---;
+            glGetShaderiv(result, GL_COMPILE_STATUS, *success);
+            if success then return result;
+            
+            log_buf: [512]u8;
+            glGetShaderInfoLog(result, log_buf.count, null, log_buf.data);
+            log("Compile error: %", to_string(log_buf.data), flags=.ERROR);
+            return 0;
+        }
+
+        PREFIX_V :: #string END
+        #version 330 core
+        #define VERTEX_SHADER
+        END
+
+        PREFIX_F :: #string END
+        #version 330 core
+        #define FRAGMENT_SHADER
+        END
+
+        vtx := build_shader_part(shader, PREFIX_V, GL_VERTEX_SHADER);
+        defer glDeleteShader(vtx);
+        frg := build_shader_part(shader, PREFIX_F, GL_FRAGMENT_SHADER);
+        defer glDeleteShader(frg);
+
+        program := glCreateProgram();
+        glAttachShader(program, vtx);
+        glAttachShader(program, frg);
+        glLinkProgram(program);
+        success: GLint = ---;
+        glGetProgramiv(program, GL_LINK_STATUS, *success);
+        if success then return Shader.{program};
+
+        log_buf: [512]u8;
+        glGetProgramInfoLog(program, log_buf.count, null, log_buf.data);
+        log("%", to_string(log_buf), flags=.ERROR);
+        assert(false, "Failed program link");
+        return Shader.{0};
+    }
+
+    get_uniform_location :: (shader: *Shader, name: string) -> GLint {
+        glUseProgram(shader.handle);
+        loc := glGetUniformLocation(shader.handle, temp_c_string(name));
+        assert(loc != -1, "Unable to find uniform named %", name);
+        return loc;
+    }
+
+    set_uniform :: (shader: *Shader, name: string, value: $T) {
+        glUseProgram(shader.handle);
+        loc := get_uniform_location(shader, name);
+        #if T == *Matrix4 {
+            glUniformMatrix4fv(loc, 1, GL_TRUE, xx value);
+        } else #if T == Matrix4 {
+            glUniformMatrix4fv(loc, 1, GL_TRUE, xx *value);
+        } else {
+            #assert false;
+        }
+    }
+}
+
+RenderTexture :: struct {
+    framebuffer: GLuint;
+    color_texture: Texture;
+    width: int;
+    height: int;
+
+    msaa_framebuffer: GLuint;
+    msaa_color_texture: Texture;
+
+    init :: (w: int, h: int) -> RenderTexture {
+        self: RenderTexture = ---;
+        
+        self.width = w;
+        self.height = h;
+
+        // Resolve framebuffer
+        glGenFramebuffers(1, *self.framebuffer);
+        glBindFramebuffer(GL_FRAMEBUFFER, self.framebuffer);
+
+        self.color_texture = Texture.init();
+        Texture.bind(self.color_texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, xx w, xx h, 0, GL_RGB, GL_UNSIGNED_BYTE, null);
+        Texture.set_filter(.Linear);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, self.color_texture.handle, 0);
+        result := glCheckFramebufferStatus(GL_FRAMEBUFFER);
+        if result != GL_FRAMEBUFFER_COMPLETE {
+            log_error("framebuffer isn't complete: %", result);
+        }
+
+        // MSAA framebuffer
+        glGenFramebuffers(1, *self.msaa_framebuffer);
+        glBindFramebuffer(GL_FRAMEBUFFER, self.msaa_framebuffer);
+
+        glCreateTextures(GL_TEXTURE_2D_MULTISAMPLE, 1, *self.msaa_color_texture.handle);
+        glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, self.msaa_color_texture.handle);
+        glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 8, GL_RGB, xx w, xx h, GL_TRUE);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, self.msaa_color_texture.handle, 0);
+
+        result = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+        if result != GL_FRAMEBUFFER_COMPLETE {
+            log_error("msaa framebuffer isn't complete: %", result);
+        }
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        return self;
+    }
+
+    bind :: (self: *RenderTexture) {
+        glBindFramebuffer(GL_FRAMEBUFFER, self.msaa_framebuffer);
+    }
+
+    unbind :: () {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
+
+    deinit :: (self: *RenderTexture) {
+        glDeleteFramebuffers(1, *self.framebuffer);
+        Texture.deinit(*self.color_texture);
+
+        glDeleteFramebuffers(1, *self.msaa_framebuffer);
+        Texture.deinit(*self.msaa_color_texture);
+    }
+
+    resolve :: (self: RenderTexture) {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, self.msaa_framebuffer);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, self.framebuffer);
+        glBlitFramebuffer(0, 0, xx self.width, xx self.height, 0, 0, xx self.width, xx self.height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
+
+}
+
+Font :: struct {
+    first_char : int;
+    char_data : [437]stbtt_packedchar;
+    texture: Texture;
+    line_height : float;
+    width : float;
+
+    init :: (path: string, size: float) -> Font, bool {
+        self : Font = ---;
+        
+        font_data, success := read_entire_file(path);
+        if !success {
+            assert(false, "Unable to load font from %", path);
+            return .{}, false;
+        }
+        
+        
+        bitmap : [512*512]u8 = ---;
+        
+        pack_context : stbtt_pack_context = ---;
+        
+        if !stbtt_PackBegin(*pack_context, bitmap.data, 512, 512, 0, 1, null) {
+            assert(false, "Unable to begin font packing");
+            return .{}, false;
+        }
+        // stbtt_PackSetOversampling(*pack_context, 2, 2);
+        self.first_char = 0;
+        stbtt_PackFontRange(*pack_context, font_data.data, 0, size, xx self.first_char, 437, self.char_data.data);
+        stbtt_PackEnd(*pack_context);
+
+        self.texture = Texture.init();
+        Texture.bind(self.texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, 512, 512, 0, GL_RED, GL_UNSIGNED_BYTE, bitmap.data);
+        Texture.set_filter(.Nearest);
+        swizzle := GLint.[GL_RED, GL_RED, GL_RED, GL_RED];
+        glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, swizzle.data);
+
+        // Get additional font info
+        info : stbtt_fontinfo = ---;
+        stbtt_InitFont(*info, font_data.data, 0);
+        scale := stbtt_ScaleForMappingEmToPixels(*info, size);
+
+        advance_width : s32 = ---;
+        left_side_bearing : s32 = ---;
+        stbtt_GetCodepointHMetrics(*info, #char "W", *advance_width, *left_side_bearing);
+        self.width = advance_width * scale;
+
+        ascent, descent, line_gap: s32 = ---;
+        stbtt_GetFontVMetrics(*info, *ascent, *descent, *line_gap);
+        self.line_height = (ascent - descent + line_gap) * scale;
+        return self, true;
+    }
+
+    deinit :: (font: *Font) {
+        // Nothing to deinit
+    }
+}
+
+// --------
+// Shaders
+
+STANDARD :: #string _GLSL
+#ifdef VERTEX_SHADER
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 2) in vec2 aUv;
+layout (location = 3) in vec4 aColor;
+
+uniform mat4 Projection;
+uniform mat4 View;
+uniform mat4 Model;
+
+out vec3 Normal;
+out vec2 TexCoords;
+out vec3 FragPos;
+out vec4 VertexColor;
+
+void main() {
+    Normal = aNormal;
+    TexCoords = aUv;
+    VertexColor = aColor;
+    FragPos = vec3(Model * vec4(aPos, 1.0));
+    gl_Position = Projection * View * vec4(FragPos, 1.0);
+}
+
+#endif // VERTEX_SHADER
+
+#ifdef FRAGMENT_SHADER
+out vec4 FragColor;
+
+in vec3 FragPos;
+in vec3 Normal;
+in vec2 TexCoords;
+in vec4 VertexColor;
+
+uniform sampler2D texture0;
+
+float constant = 1.0f;
+float linear = 0.09f;
+float quadratic = 0.002f;
+
+void main() {
+    vec3 light_pos = vec3(0, 2, 0);
+    float distance = length(light_pos - FragPos);
+    float attenuation = 1.0 / (constant + linear * distance + quadratic * (distance * distance));
+    vec4 color_tex = 
+    FragColor = attenuation * VertexColor;
+    FragColor *= texture(texture0, TexCoords);
+} 
+
+#endif // FRAGMENT_SHADER
+_GLSL;
+
+SCREEN_SPACE_SHADER :: #string _GLSL
+#ifdef VERTEX_SHADER
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 2) in vec2 aUv;
+layout (location = 3) in vec4 aColor;
+
+out vec2 TexCoords;
+out vec4 VertexColor;
+
+uniform mat4 Projection;
+
+void main() {
+    gl_Position = Projection * vec4(aPos.xy, 0.0, 1.0); 
+    TexCoords = aUv;
+    VertexColor = aColor;
+}  
+#endif // VERTEX_SHADER
+#ifdef FRAGMENT_SHADER
+
+out vec4 FragColor;
+  
+in vec2 TexCoords;
+in vec4 VertexColor;
+
+uniform sampler2D texture0;
+
+void main() { 
+
+    vec4 tex = texture(texture0, TexCoords);
+    FragColor = vec4(VertexColor.xyz, tex.a * VertexColor.a);
+}
+
+#endif // FRAGMENT_SHADER
+_GLSL;
+
