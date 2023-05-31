@@ -58,6 +58,7 @@ Renderer :: struct {
     default_texture: Texture;
 
     current_target: *RenderTexture;
+    current_texture: Texture;
 
     init :: (window: *SDL_Window) -> Renderer {
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, xx SDL_GL_CONTEXT_PROFILE_CORE);
@@ -86,10 +87,12 @@ Renderer :: struct {
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, *data);
 
         global_renderer.standard_shader = Shader.load(STANDARD);
+        Shader.set_uniform(*global_renderer.standard_shader, "Model", Matrix4_Identity);
         global_renderer.screen_space_shader = Shader.load(SCREEN_SPACE_SHADER);
 
         update_window(window);
         render_to_window();
+        use_default_texture();
 
         return global_renderer;
     }
@@ -99,202 +102,205 @@ Renderer :: struct {
         glDeleteVertexArrays(1, *vao);
         glDeleteBuffers(1, *vbo);
     }
+}
 
-    clear :: (color: Vector4) {
-        glClearColor(color.x, color.y, color.z, color.w);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+clear :: (color: Vector4) {
+    glClearColor(color.x, color.y, color.z, color.w);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+update_window :: (window: *SDL_Window) {
+    SDL_GetWindowSize(window, *global_renderer.width, *global_renderer.height);
+    global_renderer.window = window;
+}
+
+get_window_dims :: () -> Vector2i {
+    return .{global_renderer.width, global_renderer.height};
+}
+
+flush :: () {
+    using global_renderer;
+    if immediate_vertices.count == 0 then return; // Nothing to draw
+
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+    glBufferData(GL_ARRAY_BUFFER, immediate_vertices.count * size_of(Vertex), immediate_vertices.data, GL_STREAM_DRAW);
+    glDrawArrays(GL_TRIANGLES, 0, xx immediate_vertices.count);
+
+    immediate_vertices.count = 0;
+}
+
+end_drawing :: () {
+    using global_renderer;
+    flush();
+    SDL_GL_SwapWindow(window);
+}
+
+render_to_texture :: (tex: *RenderTexture) {
+    if global_renderer.current_target != null {
+        RenderTexture.resolve(global_renderer.current_target);
+    }
+    global_renderer.current_target = tex;
+    RenderTexture.bind(tex);
+    glViewport(0, 0, xx tex.width, xx tex.height);
+}
+
+render_to_window :: () { 
+    if global_renderer.current_target != null {
+        RenderTexture.resolve(global_renderer.current_target);
+    }
+    global_renderer.current_target = null;
+    RenderTexture.unbind();
+
+    glViewport(0, 0, xx global_renderer.width, xx global_renderer.height);
+}
+
+begin_3d :: (view: Matrix4) {
+    flush();  
+    use_shader(*global_renderer.standard_shader);
+    Shader.set_uniform(*global_renderer.standard_shader, "View", view);
+    Shader.set_uniform(*global_renderer.standard_shader, "Projection", make_projection_matrix(60 * PI / 180.0, cast(float)global_renderer.width / cast(float)global_renderer.height, 0.1, 1000));
+    glDisable(GL_BLEND);
+    glEnable(GL_DEPTH_TEST);
+}
+
+begin_2d :: () {
+    flush();
+    use_shader(*global_renderer.screen_space_shader);
+    glEnable(GL_BLEND);
+    glDisable(GL_DEPTH_TEST);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    if global_renderer.current_target == null {
+        Shader.set_uniform(*global_renderer.screen_space_shader, "Projection", orthographic_projection_matrix(0, xx global_renderer.width, xx global_renderer.height, 0, -1, 1));
+    } else {
+        Shader.set_uniform(*global_renderer.screen_space_shader, "Projection", orthographic_projection_matrix(0, xx global_renderer.current_target.width, xx global_renderer.current_target.height, 0, -1, 1));
+    }
+}
+
+use_shader :: (shader : *Shader) {
+    global_renderer.current_shader = shader;
+    glUseProgram(shader.handle);
+}
+
+
+set_model_matrix :: (mat: Matrix4) {
+    flush();
+    Shader.set_uniform(*global_renderer.current_shader, "Model", mat);
+}
+
+// --------
+// Triangles 
+
+push_vertex :: (vertex: Vertex) {
+    array_add(*global_renderer.immediate_vertices, vertex);
+}
+
+push_quad :: (p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, normal: Vector3, color: Vector4 = .{1, 1, 1, 1}) {
+    push_vertex(Vertex.{ p0, normal, Vector2.{0.0, 0.0}, color });
+    push_vertex(Vertex.{ p1, normal, Vector2.{1.0, 0.0}, color });
+    push_vertex(Vertex.{ p2, normal, Vector2.{1.0, 1.0}, color });
+    push_vertex(Vertex.{ p0, normal, Vector2.{0.0, 0.0}, color });
+    push_vertex(Vertex.{ p2, normal, Vector2.{1.0, 1.0}, color });
+    push_vertex(Vertex.{ p3, normal, Vector2.{0.0, 1.0}, color });
+}
+
+// --------
+// Text
+
+draw_text :: (text: string, x: float, y: float, font: *Font, color: Vector4 = .{1, 1, 1, 1}) {
+    Texture.bind(font.texture);
+    i := 0;
+    while(i < text.count) {
+        it := text[i];
+        
+        q : stbtt_aligned_quad = ---;
+        stbtt_GetPackedQuad(font.char_data.data, 512, 512, xx(it - font.first_char), *x, *y, *q, 0);
+        push_vertex(Vertex.{ .{q.x0, q.y0, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s0, q.t0}, color });
+        push_vertex(Vertex.{ .{q.x1, q.y0, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s1, q.t0}, color });
+        push_vertex(Vertex.{ .{q.x1, q.y1, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s1, q.t1}, color });
+        push_vertex(Vertex.{ .{q.x0, q.y0, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s0, q.t0}, color });
+        push_vertex(Vertex.{ .{q.x1, q.y1, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s1, q.t1}, color });
+        push_vertex(Vertex.{ .{q.x0, q.y1, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s0, q.t1}, color });
+        i += 1;
+    }
+    flush();
+}
+
+size_text :: (text: string, font: *Font) -> float {
+    // @Incomplete: This wont work for non monospaced fonts.
+    return text.count * font.width;
+}
+
+draw_texture :: (texture: Texture, x: float, y: float, w: float, h: float) {
+    Texture.bind(texture);
+    push_quad(.{x, y, 0}, .{x + w, y, 0}, .{x + w, y + h, 0}, .{x, y + h, 0}, .{0, 0, 1});
+    flush();
+}
+
+draw_2d_quad :: (x: float, y: float, w: float, h: float, color: Vector4 = .{1, 1, 1, 1}) {
+    push_vertex(Vertex.{ .{x, y, 0},         .{0.0, 0.0, 1.0}, Vector2.{0, 0}, color });
+    push_vertex(Vertex.{ .{x + w, y, 0},     .{0.0, 0.0, 1.0}, Vector2.{1, 0}, color });
+    push_vertex(Vertex.{ .{x + w, y + h, 0}, .{0.0, 0.0, 1.0}, Vector2.{1, 1}, color });
+    push_vertex(Vertex.{ .{x, y, 0},         .{0.0, 0.0, 1.0}, Vector2.{0, 0}, color });
+    push_vertex(Vertex.{ .{x + w, y + h, 0}, .{0.0, 0.0, 1.0}, Vector2.{1, 1}, color });
+    push_vertex(Vertex.{ .{x, y + h, 0},     .{0.0, 0.0, 1.0}, Vector2.{0, 1}, color });
+    flush();
+}
+
+// -------
+// Shapes
+
+draw_plane :: (center: Vector3, size: Vector2) {
+    plane := Quad.make(center, size);
+    push_quad(
+        plane.v[0],
+        plane.v[1],
+        plane.v[2],
+        plane.v[3],
+        .{0, -1, 0});
+    flush();
+}
+
+draw_cube :: (color: Vector4 = .{1, 1, 1, 1}) {
+    push_quad(xyz(-.5, -.5, -.5), xyz(.5, -.5, -.5), xyz(.5, -.5, .5), xyz(-.5, -.5, .5), UP, color); 
+    push_quad(xyz(-.5, .5, -.5), xyz(.5, .5, -.5), xyz(.5, .5, .5), xyz(-.5, .5, .5), DOWN, color);
+
+    push_quad(xyz(-.5, -.5, -.5), xyz(-.5, .5, -.5), xyz(-.5, .5, .5), xyz(-.5, -.5, .5), LEFT, color); 
+    push_quad(xyz(.5, -.5, -.5), xyz(.5, .5, -.5), xyz(.5, .5, .5), xyz(.5, -.5, .5), RIGHT, color); 
+
+    push_quad(xyz(-.5, -.5, -.5), xyz(-.5, .5, -.5), xyz(.5, .5, -.5), xyz(.5, -.5, -.5), BACK, color); 
+    push_quad(xyz(-.5, -.5, .5), xyz(-.5, .5, .5), xyz(.5, .5, .5), xyz(.5, -.5, .5), FORWARD, color); 
+    flush();
+}
+
+draw_cylinder :: () {
+    NB_ITERATIONS :: 20;
+    iter_size :: 2 * PI / (NB_ITERATIONS);
+    radius :: 1;
+    height :: 1;
+
+    for 0..NB_ITERATIONS {
+        angle := iter_size * it;
+        x1 := cos(angle) * radius;
+        x2 := cos(angle + iter_size) * radius;
+        z1 := sin(angle) * radius;
+        z2 := sin(angle + iter_size) * radius;
+        p0 := xyz(x1, 0, z1);
+        p3 := xyz(x2, 0, z2);
+        Renderer.push_quad(p0, xyz(x1, height, z1), xyz(x2, height, z2), p3, 
+        normal = cross(normalize(p3 - p0), UP));
     }
 
-    update_window :: (window: *SDL_Window) {
-        SDL_GetWindowSize(window, *global_renderer.width, *global_renderer.height);
-        global_renderer.window = window;
-    }
+    // Draw floor & ceiling as simple quad
+    push_quad(xyz(-radius, 0, -radius), xyz(radius, 0, -radius), xyz(radius, 0, radius), xyz(-radius, 0, radius), UP); 
+    push_quad(xyz(-radius, height, -radius), xyz(radius, height, -radius), xyz(radius, height, radius), xyz(-radius, height, radius), DOWN); 
+    flush();
+}
 
-    get_window_dims :: () -> Vector2i {
-        return .{global_renderer.width, global_renderer.height};
-    }
-
-    flush :: () {
-        using global_renderer;
-        if immediate_vertices.count == 0 then return; // Nothing to draw
-
-        glBindVertexArray(vao);
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-
-        glBufferData(GL_ARRAY_BUFFER, immediate_vertices.count * size_of(Vertex), immediate_vertices.data, GL_STREAM_DRAW);
-        glDrawArrays(GL_TRIANGLES, 0, xx immediate_vertices.count);
-
-        immediate_vertices.count = 0;
-    }
-
-    swap :: () {
-        using global_renderer;
-        flush();
-        SDL_GL_SwapWindow(window);
-    }
-
-    render_to_texture :: (tex: *RenderTexture) {
-        if global_renderer.current_target != null {
-            RenderTexture.resolve(global_renderer.current_target);
-        }
-        global_renderer.current_target = tex;
-        RenderTexture.bind(tex);
-        glViewport(0, 0, xx tex.width, xx tex.height);
-    }
-
-    render_to_window :: () { 
-        if global_renderer.current_target != null {
-            RenderTexture.resolve(global_renderer.current_target);
-        }
-        global_renderer.current_target = null;
-        RenderTexture.unbind();
-
-        glViewport(0, 0, xx global_renderer.width, xx global_renderer.height);
-    }
-
-    begin_3d :: (view: Matrix4) {
-        flush();  
-        use_shader(*global_renderer.standard_shader);
-        Shader.set_uniform(*global_renderer.standard_shader, "View", view);
-        Shader.set_uniform(*global_renderer.standard_shader, "Projection", make_projection_matrix(60 * PI / 180.0, cast(float)global_renderer.width / cast(float)global_renderer.height, 0.1, 1000));
-        glDisable(GL_BLEND);
-        glEnable(GL_DEPTH_TEST);
-    }
-
-    begin_2d :: () {
-        flush();
-        use_shader(*global_renderer.screen_space_shader);
-        glEnable(GL_BLEND);
-        glDisable(GL_DEPTH_TEST);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        if global_renderer.current_target == null {
-            Shader.set_uniform(*global_renderer.screen_space_shader, "Projection", orthographic_projection_matrix(0, xx global_renderer.width, xx global_renderer.height, 0, -1, 1));
-        } else {
-            Shader.set_uniform(*global_renderer.screen_space_shader, "Projection", orthographic_projection_matrix(0, xx global_renderer.current_target.width, xx global_renderer.current_target.height, 0, -1, 1));
-        }
-    }
-
-    use_shader :: (shader : *Shader) {
-        global_renderer.current_shader = shader;
-        glUseProgram(shader.handle);
-    }
-
-    set_model_matrix :: (mat: Matrix4) {
-        flush();
-        Shader.set_uniform(*global_renderer.current_shader, "Model", mat);
-    }
-
-    // --------
-    // Triangles 
-
-    push_vertex :: (vertex: Vertex) {
-        array_add(*global_renderer.immediate_vertices, vertex);
-    }
-
-    push_quad :: (p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, normal: Vector3, color: Vector4 = .{1, 1, 1, 1}) {
-        push_vertex(Vertex.{ p0, normal, Vector2.{0.0, 0.0}, color });
-        push_vertex(Vertex.{ p1, normal, Vector2.{1.0, 0.0}, color });
-        push_vertex(Vertex.{ p2, normal, Vector2.{1.0, 1.0}, color });
-        push_vertex(Vertex.{ p0, normal, Vector2.{0.0, 0.0}, color });
-        push_vertex(Vertex.{ p2, normal, Vector2.{1.0, 1.0}, color });
-        push_vertex(Vertex.{ p3, normal, Vector2.{0.0, 1.0}, color });
-    }
-
-
-
-    // --------
-    // Text
-
-    draw_text :: (text: string, x: float, y: float, font: *Font, color: Vector4 = .{1, 1, 1, 1}) {
-        Texture.bind(font.texture);
-        i := 0;
-        while(i < text.count) {
-            it := text[i];
-            
-            q : stbtt_aligned_quad = ---;
-            stbtt_GetPackedQuad(font.char_data.data, 512, 512, xx(it - font.first_char), *x, *y, *q, 0);
-            push_vertex(Vertex.{ .{q.x0, q.y0, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s0, q.t0}, color });
-            push_vertex(Vertex.{ .{q.x1, q.y0, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s1, q.t0}, color });
-            push_vertex(Vertex.{ .{q.x1, q.y1, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s1, q.t1}, color });
-            push_vertex(Vertex.{ .{q.x0, q.y0, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s0, q.t0}, color });
-            push_vertex(Vertex.{ .{q.x1, q.y1, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s1, q.t1}, color });
-            push_vertex(Vertex.{ .{q.x0, q.y1, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s0, q.t1}, color });
-            i += 1;
-        }
-        flush();
-    }
-
-    size_text :: (text: string, font: *Font) -> float {
-        // @Incomplete: This wont work for non monospaced fonts.
-        return text.count * font.width;
-    }
-
-    draw_texture :: (texture: Texture, x: float, y: float, w: float, h: float) {
-        Texture.bind(texture);
-        push_quad(.{x, y, 0}, .{x + w, y, 0}, .{x + w, y + h, 0}, .{x, y + h, 0}, .{0, 0, 1});
-        flush();
-    }
-    
-    draw_2d_quad :: (x: float, y: float, w: float, h: float, color: Vector4 = .{1, 1, 1, 1}) {
-        push_vertex(Vertex.{ .{x, y, 0},         .{0.0, 0.0, 1.0}, Vector2.{0, 0}, color });
-        push_vertex(Vertex.{ .{x + w, y, 0},     .{0.0, 0.0, 1.0}, Vector2.{1, 0}, color });
-        push_vertex(Vertex.{ .{x + w, y + h, 0}, .{0.0, 0.0, 1.0}, Vector2.{1, 1}, color });
-        push_vertex(Vertex.{ .{x, y, 0},         .{0.0, 0.0, 1.0}, Vector2.{0, 0}, color });
-        push_vertex(Vertex.{ .{x + w, y + h, 0}, .{0.0, 0.0, 1.0}, Vector2.{1, 1}, color });
-        push_vertex(Vertex.{ .{x, y + h, 0},     .{0.0, 0.0, 1.0}, Vector2.{0, 1}, color });
-        flush();
-    }
-    // -------
-    // Shapes
-
-    draw_plane :: (center: Vector3, size: Vector2) {
-        plane := Quad.make(center, size);
-        Renderer.push_quad(
-            plane.v[0],
-            plane.v[1],
-            plane.v[2],
-            plane.v[3],
-            .{0, 0, 1});
-        flush();
-    }
-
-    draw_cube :: (color: Vector4 = .{1, 1, 1, 1}) {
-        push_quad(xyz(-.5, -.5, -.5), xyz(.5, -.5, -.5), xyz(.5, -.5, .5), xyz(-.5, -.5, .5), UP, color); 
-        push_quad(xyz(-.5, .5, -.5), xyz(.5, .5, -.5), xyz(.5, .5, .5), xyz(-.5, .5, .5), DOWN, color);
-
-        push_quad(xyz(-.5, -.5, -.5), xyz(-.5, .5, -.5), xyz(-.5, .5, .5), xyz(-.5, -.5, .5), LEFT, color); 
-        push_quad(xyz(.5, -.5, -.5), xyz(.5, .5, -.5), xyz(.5, .5, .5), xyz(.5, -.5, .5), RIGHT, color); 
-
-        push_quad(xyz(-.5, -.5, -.5), xyz(-.5, .5, -.5), xyz(.5, .5, -.5), xyz(.5, -.5, -.5), BACK, color); 
-        push_quad(xyz(-.5, -.5, .5), xyz(-.5, .5, .5), xyz(.5, .5, .5), xyz(.5, -.5, .5), FORWARD, color); 
-        flush();
-    }
-
-    draw_cylinder :: () {
-        NB_ITERATIONS :: 20;
-        iter_size :: 2 * PI / (NB_ITERATIONS);
-        radius :: 1;
-        height :: 1;
-
-        for 0..NB_ITERATIONS {
-            angle := iter_size * it;
-            x1 := cos(angle) * radius;
-            x2 := cos(angle + iter_size) * radius;
-            z1 := sin(angle) * radius;
-            z2 := sin(angle + iter_size) * radius;
-            p0 := xyz(x1, 0, z1);
-            p3 := xyz(x2, 0, z2);
-            Renderer.push_quad(p0, xyz(x1, height, z1), xyz(x2, height, z2), p3, 
-            normal = cross(normalize(p3 - p0), UP));
-        }
-
-        // Draw floor & ceiling as simple quad
-        Renderer.push_quad(xyz(-radius, 0, -radius), xyz(radius, 0, -radius), xyz(radius, 0, radius), xyz(-radius, 0, radius), UP); 
-        Renderer.push_quad(xyz(-radius, height, -radius), xyz(radius, height, -radius), xyz(radius, height, radius), xyz(-radius, height, radius), DOWN); 
-        flush();
-    }
-
-    
+use_default_texture :: () {
+    flush();
+    glBindTexture(GL_TEXTURE_2D, global_renderer.default_texture.handle);
 }
 
 Texture :: struct {
@@ -311,17 +317,31 @@ Texture :: struct {
         return tex;
     }
 
+    from_file :: (path: string) -> Texture {
+        x : s32;
+        y : s32;
+        channels: s32;
+        img := stbi_load(temp_c_string(path), *x, *y, *channels, 3);
+        assert(img != null, "Unable to load %.", path);
+        defer stbi_image_free(img);
+
+        tex := init();
+        glBindTexture(GL_TEXTURE_2D, tex.handle);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, xx x, xx y, 0, GL_RGB, GL_UNSIGNED_BYTE, img);
+        set_filter(.Nearest);
+        return tex;
+    }
+
     deinit :: (tex: *Texture) {
         glDeleteTextures(1, *tex.handle);
     }
 
     bind :: (tex: Texture) {
-        Renderer.flush();
+        if global_renderer.current_texture.handle == tex.handle then return;
+        flush();
+        global_renderer.current_texture = tex;
         glBindTexture(GL_TEXTURE_2D, tex.handle);
-    }
-
-    default :: () {
-        bind(global_renderer.default_texture);
     }
 
     unbind :: () {
@@ -398,19 +418,19 @@ Shader :: struct {
     }
 
     get_uniform_location :: (shader: *Shader, name: string) -> GLint {
-        glUseProgram(shader.handle);
         loc := glGetUniformLocation(shader.handle, temp_c_string(name));
         assert(loc != -1, "Unable to find uniform named %", name);
         return loc;
     }
 
     set_uniform :: (shader: *Shader, name: string, value: $T) {
-        glUseProgram(shader.handle);
         loc := get_uniform_location(shader, name);
         #if T == *Matrix4 {
             glUniformMatrix4fv(loc, 1, GL_TRUE, xx value);
         } else #if T == Matrix4 {
             glUniformMatrix4fv(loc, 1, GL_TRUE, xx *value);
+        } else #if T == s64 {
+            glUniform1i(loc, xx value);
         } else {
             #assert false;
         }
@@ -544,6 +564,7 @@ Font :: struct {
         self.line_height = (ascent - descent + line_gap) * scale;
         return self, true;
     }
+
     deinit :: (font: *Font) {
         // Nothing to deinit
     }
@@ -592,13 +613,21 @@ float constant = 1.0f;
 float linear = 0.09f;
 float quadratic = 0.002f;
 
+vec3 light_dir = normalize(vec3(1, 1, -1));
+vec3 ambient_color = vec3(0.529, 0.808, 0.922);
+
 void main() {
-    vec3 light_pos = vec3(0, 2, 0);
-    float distance = length(light_pos - FragPos);
-    float attenuation = 1.0 / (constant + linear * distance + quadratic * (distance * distance));
-    vec4 color_tex = 
-    FragColor = attenuation * VertexColor;
-    FragColor *= texture(texture0, TexCoords);
+    // vec3 light_pos = vec3(0, 2, 0);
+    // float distance = length(light_pos - FragPos);
+    // float attenuation = 1.0 / (constant + linear * distance + quadratic * (distance * distance));
+    // vec4 color_tex = 
+    // FragColor = attenuation * VertexColor;
+    vec3 base_color = texture(texture0, TexCoords).rgb * VertexColor.rgb;
+    float NdotL = max(dot(Normal, -light_dir), 0.0);
+    vec3 diffuse = NdotL * vec3(1, 1, 1);
+    vec3 ambient = ambient_color * .1;
+    
+    FragColor = vec4((ambient + diffuse) * base_color, 1);
 } 
 
 #endif // FRAGMENT_SHADER
