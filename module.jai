@@ -3,6 +3,7 @@
 #import "String";
 File_Watcher :: #import "File_Watcher";
 #import "System";
+#import "stb_image";
 
 #load "src/engine.jai";
 #load "src/input.jai";
