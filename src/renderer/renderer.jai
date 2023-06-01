@@ -160,6 +160,23 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
         
     }
 
+    // Memory
+    {
+        find_compatible_memory_type :: (prop: *VkPhysicalDeviceMemoryProperties, flags: VkMemoryPropertyFlags) -> u32 {
+            count := prop.memoryTypeCount;
+            compatible_types : u32 = 0;
+            for 0..count-1 {
+                is_compat : u32 = xx ((prop.memoryTypes[it].propertyFlags & flags) == flags);
+                compatible_types |= (is_compat << it);
+            }
+            return compatible_types;
+        }
+        vkGetPhysicalDeviceMemoryProperties(renderer.physical_device, *renderer.memory_properties);
+        renderer.compatible_mem_types[Renderer.MemoryType.READBACK] = find_compatible_memory_type(*renderer.memory_properties, VkMemoryPropertyFlagBits.HOST_VISIBLE_BIT | .HOST_CACHED_BIT);
+        renderer.compatible_mem_types[Renderer.MemoryType.UPLOAD] = find_compatible_memory_type(*renderer.memory_properties, VkMemoryPropertyFlagBits.HOST_VISIBLE_BIT | .HOST_COHERENT_BIT);
+        renderer.compatible_mem_types[Renderer.MemoryType.LOCAL] = find_compatible_memory_type(*renderer.memory_properties, VkMemoryPropertyFlagBits.DEVICE_LOCAL_BIT);
+    }
+
     // Queue Families
     {
         // @Robustness: Handle the case where present and graphics are different
@@ -266,15 +283,13 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
         layout_info := VkDescriptorSetLayoutCreateInfo.{
             bindingCount = bindings.count,
             pBindings = bindings.data,
-        };
+        };        
         
         Vk_Check(vkCreateDescriptorSetLayout(renderer.device, *layout_info, null, *renderer.descriptor_set_layout));
 
-        /*
-        for 0..Renderer.FRAME_COUNT {
-            renderer.frame_data[it].uniform = create_buffer(
+        for *renderer.frame_data {
+            it.uniform = create_buffer(size_of(CameraData), .UNIFORM_BUFFER_BIT, .UPLOAD);
         }
-        */
 
         push_constant_ci := VkPushConstantRange.{
             stageFlags = .VERTEX_BIT,
@@ -367,23 +382,7 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
         log("Pipeline created.");
     }
 
-    // Memory
-    {
-        find_compatible_memory_type :: (prop: *VkPhysicalDeviceMemoryProperties, flags: VkMemoryPropertyFlags) -> u32 {
-            count := prop.memoryTypeCount;
-            compatible_types : u32 = 0;
-            for 0..count-1 {
-                is_compat : u32 = xx ((prop.memoryTypes[it].propertyFlags & flags) == flags);
-                compatible_types |= (is_compat << it);
-            }
-            return compatible_types;
-        }
-        vkGetPhysicalDeviceMemoryProperties(renderer.physical_device, *renderer.memory_properties);
-        renderer.compatible_mem_types[Renderer.MemoryType.READBACK] = find_compatible_memory_type(*renderer.memory_properties, VkMemoryPropertyFlagBits.HOST_VISIBLE_BIT | .HOST_CACHED_BIT);
-        renderer.compatible_mem_types[Renderer.MemoryType.UPLOAD] = find_compatible_memory_type(*renderer.memory_properties, VkMemoryPropertyFlagBits.HOST_VISIBLE_BIT | .HOST_COHERENT_BIT);
-        renderer.compatible_mem_types[Renderer.MemoryType.LOCAL] = find_compatible_memory_type(*renderer.memory_properties, VkMemoryPropertyFlagBits.DEVICE_LOCAL_BIT);
-    }
-
+    
     // Buffer
     { 
         renderer.upload_buffer = create_buffer(Renderer.BUFFER_SIZE, VkBufferUsageFlagBits.VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT | .UNIFORM_BUFFER_BIT | .STORAGE_BUFFER_BIT | .TRANSFER_SRC_BIT, .UPLOAD);
@@ -582,6 +581,7 @@ renderer_deinit :: () {
         vkDestroyFence(device, it.frame_fence, null);
         vkDestroySemaphore(device, it.render_finished_semaphore, null);
         vkDestroySemaphore(device, it.image_available_semaphore, null);
+        destroy_buffer(it.uniform);
     }
     vkDestroyCommandPool(device, command_pool, null);
 
