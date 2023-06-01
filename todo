@@ -1,0 +1,2 @@
+- [ ] Update the renderer : 
+    - Register the scene objects once and do multiple passes (eg: shadow map, color)

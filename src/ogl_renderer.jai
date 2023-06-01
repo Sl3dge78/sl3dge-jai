@@ -1,14 +1,10 @@
 #scope_file
 
-#import "GL";
-#import "SDL";
-#import "Math";
-#import "File";
-#import "stb_truetype";
 
-global_renderer : Renderer;
 
 #scope_export
+
+global_renderer : Renderer;
 
 Vertex :: struct {
     pos: Vector3;
@@ -49,6 +45,7 @@ Renderer :: struct {
 
     standard_shader: Shader;
     screen_space_shader: Shader;
+    shadowmap_shader: Shader;
 
     width: s32;
     height: s32;
@@ -58,7 +55,6 @@ Renderer :: struct {
     default_texture: Texture;
 
     current_target: *RenderTexture;
-    current_texture: Texture;
 
     init :: (window: *SDL_Window) -> Renderer {
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, xx SDL_GL_CONTEXT_PROFILE_CORE);
@@ -89,6 +85,8 @@ Renderer :: struct {
         global_renderer.standard_shader = Shader.load(STANDARD);
         Shader.set_uniform(*global_renderer.standard_shader, "Model", Matrix4_Identity);
         global_renderer.screen_space_shader = Shader.load(SCREEN_SPACE_SHADER);
+
+        global_renderer.shadowmap_shader = Shader.load(SHADOWMAP_SHADER);
 
         update_window(window);
         render_to_window();
@@ -159,8 +157,8 @@ render_to_window :: () {
 begin_3d :: (view: Matrix4) {
     flush();  
     use_shader(*global_renderer.standard_shader);
-    Shader.set_uniform(*global_renderer.standard_shader, "View", view);
-    Shader.set_uniform(*global_renderer.standard_shader, "Projection", make_projection_matrix(60 * PI / 180.0, cast(float)global_renderer.width / cast(float)global_renderer.height, 0.1, 1000));
+    // Shader.set_uniform(*global_renderer.standard_shader, "View", view);
+    // Shader.set_uniform(*global_renderer.standard_shader, "Projection", make_projection_matrix(60 * PI / 180.0, cast(float)global_renderer.width / cast(float)global_renderer.height, 0.1, 1000));
     glDisable(GL_BLEND);
     glEnable(GL_DEPTH_TEST);
 }
@@ -178,15 +176,14 @@ begin_2d :: () {
     }
 }
 
-use_shader :: (shader : *Shader) {
+use_shader :: (shader : Shader) {
     global_renderer.current_shader = shader;
     glUseProgram(shader.handle);
 }
 
-
 set_model_matrix :: (mat: Matrix4) {
     flush();
-    Shader.set_uniform(*global_renderer.current_shader, "Model", mat);
+    Shader.set_uniform(global_renderer.current_shader, "Model", mat);
 }
 
 // --------
@@ -307,8 +304,12 @@ Texture :: struct {
     handle: GLuint;
 
     Filter :: enum {
-        Nearest :: GL_NEAREST;
-        Linear :: GL_LINEAR;
+        NEAREST :: GL_NEAREST;
+        LINEAR :: GL_LINEAR;
+    }
+
+    WrapMode :: enum {
+        REPEAT :: GL_REPEAT;
     }
 
     init :: () -> Texture {
@@ -329,7 +330,7 @@ Texture :: struct {
         glBindTexture(GL_TEXTURE_2D, tex.handle);
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, xx x, xx y, 0, GL_RGB, GL_UNSIGNED_BYTE, img);
-        set_filter(.Nearest);
+        set_filter(.NEAREST);
         return tex;
     }
 
@@ -337,10 +338,8 @@ Texture :: struct {
         glDeleteTextures(1, *tex.handle);
     }
 
-    bind :: (tex: Texture) {
-        if global_renderer.current_texture.handle == tex.handle then return;
-        flush();
-        global_renderer.current_texture = tex;
+    bind :: (tex: Texture, unit : u32 = 0) {
+        glActiveTexture(GL_TEXTURE0 + unit);
         glBindTexture(GL_TEXTURE_2D, tex.handle);
     }
 
@@ -351,6 +350,11 @@ Texture :: struct {
     set_filter :: (filter: Filter) {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, xx filter);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, xx filter); 
+    }
+
+    set_wrap :: (wrap: WrapMode) {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, xx wrap);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, xx wrap);
     }
 }
 
@@ -383,7 +387,7 @@ Shader :: struct {
             
             log_buf: [512]u8;
             glGetShaderInfoLog(result, log_buf.count, null, log_buf.data);
-            log("Compile error: %", to_string(log_buf.data), flags=.ERROR);
+            assert(false, "Compile error: %", to_string(log_buf.data));
             return 0;
         }
 
@@ -406,24 +410,29 @@ Shader :: struct {
         glAttachShader(program, vtx);
         glAttachShader(program, frg);
         glLinkProgram(program);
+
+        
         success: GLint = ---;
         glGetProgramiv(program, GL_LINK_STATUS, *success);
-        if success then return Shader.{program};
-
-        log_buf: [512]u8;
-        glGetProgramInfoLog(program, log_buf.count, null, log_buf.data);
-        log("%", to_string(log_buf), flags=.ERROR);
-        assert(false, "Failed program link");
-        return Shader.{0};
+        if !success {
+            log_buf: [512]u8;
+            glGetProgramInfoLog(program, log_buf.count, null, log_buf.data);
+            assert(false, "%", to_string(log_buf));
+            return Shader.{0};
+        }
+        // nb_uniforms: GLint = ---;
+        // glGetProgramiv(program, GL_ACTIVE_UNIFORMS, *nb_uniforms); 
+        // log("Successfully linked program with % uniforms.", nb_uniforms);
+        return Shader.{program};
     }
 
-    get_uniform_location :: (shader: *Shader, name: string) -> GLint {
+    get_uniform_location :: (shader: Shader, name: string) -> GLint {
         loc := glGetUniformLocation(shader.handle, temp_c_string(name));
         assert(loc != -1, "Unable to find uniform named %", name);
         return loc;
     }
 
-    set_uniform :: (shader: *Shader, name: string, value: $T) {
+    set_uniform :: (shader: Shader, name: string, value: $T) {
         loc := get_uniform_location(shader, name);
         #if T == *Matrix4 {
             glUniformMatrix4fv(loc, 1, GL_TRUE, xx value);
@@ -439,12 +448,12 @@ Shader :: struct {
 
 RenderTexture :: struct {
     framebuffer: GLuint;
-    color_texture: Texture;
+    texture: Texture;
     width: int;
     height: int;
 
     msaa_framebuffer: GLuint;
-    msaa_color_texture: Texture;
+    msaa_texture: Texture;
 
     init :: (w: int, h: int) -> RenderTexture {
         self: RenderTexture = ---;
@@ -456,11 +465,11 @@ RenderTexture :: struct {
         glGenFramebuffers(1, *self.framebuffer);
         glBindFramebuffer(GL_FRAMEBUFFER, self.framebuffer);
 
-        self.color_texture = Texture.init();
-        Texture.bind(self.color_texture);
+        self.texture = Texture.init();
+        Texture.bind(self.texture);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, xx w, xx h, 0, GL_RGB, GL_UNSIGNED_BYTE, null);
-        Texture.set_filter(.Linear);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, self.color_texture.handle, 0);
+        Texture.set_filter(.LINEAR);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, self.texture.handle, 0);
         result := glCheckFramebufferStatus(GL_FRAMEBUFFER);
         if result != GL_FRAMEBUFFER_COMPLETE {
             log_error("framebuffer isn't complete: %", result);
@@ -470,10 +479,10 @@ RenderTexture :: struct {
         glGenFramebuffers(1, *self.msaa_framebuffer);
         glBindFramebuffer(GL_FRAMEBUFFER, self.msaa_framebuffer);
 
-        glCreateTextures(GL_TEXTURE_2D_MULTISAMPLE, 1, *self.msaa_color_texture.handle);
-        glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, self.msaa_color_texture.handle);
+        glCreateTextures(GL_TEXTURE_2D_MULTISAMPLE, 1, *self.msaa_texture.handle);
+        glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, self.msaa_texture.handle);
         glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 8, GL_RGB, xx w, xx h, GL_TRUE);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, self.msaa_color_texture.handle, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, self.msaa_texture.handle, 0);
 
         result = glCheckFramebufferStatus(GL_FRAMEBUFFER);
         if result != GL_FRAMEBUFFER_COMPLETE {
@@ -495,10 +504,10 @@ RenderTexture :: struct {
 
     deinit :: (self: *RenderTexture) {
         glDeleteFramebuffers(1, *self.framebuffer);
-        Texture.deinit(*self.color_texture);
+        Texture.deinit(*self.texture);
 
         glDeleteFramebuffers(1, *self.msaa_framebuffer);
-        Texture.deinit(*self.msaa_color_texture);
+        Texture.deinit(*self.msaa_texture);
     }
 
     resolve :: (self: RenderTexture) {
@@ -545,7 +554,7 @@ Font :: struct {
         self.texture = Texture.init();
         Texture.bind(self.texture);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, 512, 512, 0, GL_RED, GL_UNSIGNED_BYTE, bitmap.data);
-        Texture.set_filter(.Nearest);
+        Texture.set_filter(.NEAREST);
         swizzle := GLint.[GL_RED, GL_RED, GL_RED, GL_RED];
         glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, swizzle.data);
 
@@ -583,18 +592,22 @@ layout (location = 3) in vec4 aColor;
 uniform mat4 Projection;
 uniform mat4 View;
 uniform mat4 Model;
+uniform mat4 Light;
 
 out vec3 Normal;
 out vec2 TexCoords;
 out vec3 FragPos;
 out vec4 VertexColor;
+out vec4 FragPosLightSpace;
 
 void main() {
     Normal = aNormal;
     TexCoords = aUv;
     VertexColor = aColor;
     FragPos = vec3(Model * vec4(aPos, 1.0));
+    FragPosLightSpace = Light * vec4(FragPos, 1.0);
     gl_Position = Projection * View * vec4(FragPos, 1.0);
+    gl_Position = Light * vec4(FragPos, 1.0);
 }
 
 #endif // VERTEX_SHADER
@@ -606,8 +619,10 @@ in vec3 FragPos;
 in vec3 Normal;
 in vec2 TexCoords;
 in vec4 VertexColor;
+in vec4 FragPosLightSpace;
 
 uniform sampler2D texture0;
+uniform sampler2D shadow_map;
 
 float constant = 1.0f;
 float linear = 0.09f;
@@ -615,6 +630,15 @@ float quadratic = 0.002f;
 
 vec3 light_dir = normalize(vec3(1, 1, -1));
 vec3 ambient_color = vec3(0.529, 0.808, 0.922);
+
+float Shadow(vec4 fragPosLightSpace) {
+    vec3 projCoord = fragPosLightSpace.xyz / fragPosLightSpace.w;
+    projCoord = projCoord * 0.5 + 0.5;
+    float closest = texture(shadow_map, projCoord.xy).r;
+    float current = projCoord.z;
+    float shadow = current > closest ? 1.0 : 0.0;
+    return shadow;
+}
 
 void main() {
     // vec3 light_pos = vec3(0, 2, 0);
@@ -626,8 +650,8 @@ void main() {
     float NdotL = max(dot(Normal, -light_dir), 0.0);
     vec3 diffuse = NdotL * vec3(1, 1, 1);
     vec3 ambient = ambient_color * .1;
-    
-    FragColor = vec4((ambient + diffuse) * base_color, 1);
+    float shadow = Shadow(FragPosLightSpace);
+    FragColor = vec4((ambient + (1.0 - shadow) * diffuse) * base_color, 1);
 } 
 
 #endif // FRAGMENT_SHADER
@@ -669,3 +693,23 @@ void main() {
 #endif // FRAGMENT_SHADER
 _GLSL;
 
+SHADOWMAP_SHADER :: #string _GLSL
+#ifdef VERTEX_SHADER
+layout (location = 0) in vec3 aPos;
+
+uniform mat4 Light;
+uniform mat4 Model;
+
+void main() {
+    gl_Position = Light * Model * vec4(aPos, 1.0);
+}
+
+#endif
+#ifdef FRAGMENT_SHADER
+void main() {
+
+}
+
+#endif
+
+_GLSL
