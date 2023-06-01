@@ -16,18 +16,16 @@ Renderer :: struct {
     surface_format: VkSurfaceFormatKHR;
     swapchain_image_views: [..]VkImageView;
     framebuffers: [..]VkFramebuffer;
-
+    
     FRAME_COUNT :: 2;
     frame_index := 0;
-    image_index: u32;
+    
     command_pool : VkCommandPool;
-    command_buffers: [FRAME_COUNT]VkCommandBuffer;
-    frame_fences: [FRAME_COUNT]VkFence;
-    image_available_semaphores: [FRAME_COUNT]VkSemaphore;
-    render_finished_semaphores: [FRAME_COUNT]VkSemaphore;
+    frame_data: [FRAME_COUNT]Frame_Data;
 
     render_pass: VkRenderPass;
     pipeline_layout: VkPipelineLayout;
+    descriptor_set_layout: VkDescriptorSetLayout;
     pipeline: VkPipeline;
 
     sampler: VkSampler;
@@ -52,6 +50,15 @@ Renderer :: struct {
     // Immediate
     MAX_VERTICES :: REGION_SIZE / size_of(Vertex);
     nb_vertices: u32;
+}
+
+Frame_Data :: struct {
+    command_buffer: VkCommandBuffer;
+    frame_fence: VkFence;
+    image_available_semaphore: VkSemaphore;
+    render_finished_semaphore: VkSemaphore;
+    uniform: Buffer;
+    image_index: u32;
 }
 
 global_renderer: Renderer;
@@ -211,7 +218,7 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
     create_or_update_swapchain();
     log("Swapchain created");
 
-    // Render context
+    // Frame data
     {
         cmd_pool_ci := VkCommandPoolCreateInfo.{
             flags = .RESET_COMMAND_BUFFER_BIT,
@@ -219,24 +226,23 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
         };
         vkCreateCommandPool(renderer.device, *cmd_pool_ci, null, *renderer.command_pool);
 
-        cmd_buff_ci := VkCommandBufferAllocateInfo.{
-            commandPool = renderer.command_pool,
-            level = .PRIMARY,
-            commandBufferCount = Renderer.FRAME_COUNT,
-        };
-        vkAllocateCommandBuffers(renderer.device, *cmd_buff_ci, renderer.command_buffers.data);
+        for *renderer.frame_data {
+            cmd_buff_ci := VkCommandBufferAllocateInfo.{
+                commandPool = renderer.command_pool,
+                level = .PRIMARY,
+                commandBufferCount = 1,
+            };
+            vkAllocateCommandBuffers(renderer.device, *cmd_buff_ci, *it.command_buffer);
 
-        semaphore_ci := VkSemaphoreCreateInfo.{};
-        vkCreateSemaphore(renderer.device, *semaphore_ci, null, *renderer.image_available_semaphores[0]);
-        vkCreateSemaphore(renderer.device, *semaphore_ci, null, *renderer.image_available_semaphores[1]);
-        vkCreateSemaphore(renderer.device, *semaphore_ci, null, *renderer.render_finished_semaphores[0]);
-        vkCreateSemaphore(renderer.device, *semaphore_ci, null, *renderer.render_finished_semaphores[1]);
+            semaphore_ci := VkSemaphoreCreateInfo.{};
+            vkCreateSemaphore(renderer.device, *semaphore_ci, null, *it.image_available_semaphore);
+            vkCreateSemaphore(renderer.device, *semaphore_ci, null, *it.render_finished_semaphore);
 
-        fence_ci := VkFenceCreateInfo.{
-            flags = .SIGNALED_BIT,
-        };
-        vkCreateFence(renderer.device, *fence_ci, null, *renderer.frame_fences[0]);
-        vkCreateFence(renderer.device, *fence_ci, null, *renderer.frame_fences[1]);
+            fence_ci := VkFenceCreateInfo.{
+                flags = .SIGNALED_BIT,
+            };
+            vkCreateFence(renderer.device, *fence_ci, null, *it.frame_fence);
+        }
         log("Rendering context created");
     }
 
@@ -248,6 +254,28 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
         frag := create_shader_module(renderer.device, "shaders/shader.frag.spv");
         defer vkDestroyShaderModule(renderer.device, frag, null);
 
+        bindings : [1]VkDescriptorSetLayoutBinding;
+        bindings[0] = .{
+            binding = 0,
+            descriptorType = .UNIFORM_BUFFER,
+            descriptorCount = 1,
+            stageFlags = .VERTEX_BIT,
+            pImmutableSamplers = null,
+        };
+
+        layout_info := VkDescriptorSetLayoutCreateInfo.{
+            bindingCount = bindings.count,
+            pBindings = bindings.data,
+        };
+        
+        Vk_Check(vkCreateDescriptorSetLayout(renderer.device, *layout_info, null, *renderer.descriptor_set_layout));
+
+        /*
+        for 0..Renderer.FRAME_COUNT {
+            renderer.frame_data[it].uniform = create_buffer(
+        }
+        */
+
         push_constant_ci := VkPushConstantRange.{
             stageFlags = .VERTEX_BIT,
             offset = 0,
@@ -257,6 +285,8 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
         layout_ci := VkPipelineLayoutCreateInfo.{ 
             pushConstantRangeCount = 1,
             pPushConstantRanges = *push_constant_ci,
+            setLayoutCount = 1,
+            pSetLayouts = *renderer.descriptor_set_layout,
         };
         vkCreatePipelineLayout(renderer.device, *layout_ci, null, *renderer.pipeline_layout);
 
@@ -279,8 +309,8 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
                 pVertexBindingDescriptions = *VkVertexInputBindingDescription.{
                     binding = 0, stride = size_of(Vertex), inputRate = .VERTEX
                 },
-                vertexAttributeDescriptionCount = Vertex_input_attribute.count,
-                pVertexAttributeDescriptions = Vertex_input_attribute.data,
+                vertexAttributeDescriptionCount = vertex_input_attribute.count,
+                pVertexAttributeDescriptions = vertex_input_attribute.data,
             },
             pInputAssemblyState = *VkPipelineInputAssemblyStateCreateInfo.{
                 topology = .TRIANGLE_LIST,
@@ -356,7 +386,7 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
 
     // Buffer
     { 
-        renderer.upload_buffer = create_buffer(VkBufferUsageFlagBits.VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT | .UNIFORM_BUFFER_BIT | .STORAGE_BUFFER_BIT | .TRANSFER_SRC_BIT, .UPLOAD);
+        renderer.upload_buffer = create_buffer(Renderer.BUFFER_SIZE, VkBufferUsageFlagBits.VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT | .UNIFORM_BUFFER_BIT | .STORAGE_BUFFER_BIT | .TRANSFER_SRC_BIT, .UPLOAD);
         vkMapMemory(renderer.device, renderer.upload_buffer.memory, 0, VK_WHOLE_SIZE, 0, *renderer.buffer);
         log("Buffer created.");
     }
@@ -548,13 +578,11 @@ renderer_deinit :: () {
     vkDestroyRenderPass(device, render_pass, null);
 
     // Render context
-    vkDestroyFence(device, frame_fences[0], null);
-    vkDestroyFence(device, frame_fences[1], null);
-
-    vkDestroySemaphore(device, render_finished_semaphores[0], null);
-    vkDestroySemaphore(device, render_finished_semaphores[1], null);
-    vkDestroySemaphore(device, image_available_semaphores[0], null);
-    vkDestroySemaphore(device, image_available_semaphores[1], null);
+    for frame_data {
+        vkDestroyFence(device, it.frame_fence, null);
+        vkDestroySemaphore(device, it.render_finished_semaphore, null);
+        vkDestroySemaphore(device, it.image_available_semaphore, null);
+    }
     vkDestroyCommandPool(device, command_pool, null);
 
     vkDestroySwapchainKHR(device, swapchain, null);
@@ -564,23 +592,24 @@ renderer_deinit :: () {
     vkDestroyInstance(instance, null);
 }
 
-begin_frame :: (clear_color: Vector4 = .{0, 0, 0, 1}) {
+begin_frame :: (clear_color: Vector4 = .{0, 0, 0, 1}) -> *Frame_Data {
     using global_renderer;
     frame_index = (frame_index + 1) % FRAME_COUNT;
     idx := frame_index;
+    frame := *frame_data[idx];
 
-    vkWaitForFences(device, 1, *frame_fences[idx], VK_TRUE, U64_MAX);
-    vkResetFences(device, 1, *frame_fences[idx]);
+    vkWaitForFences(device, 1, *frame.frame_fence, VK_TRUE, U64_MAX);
+    vkResetFences(device, 1, *frame.frame_fence);
 
-    Vk_Check(vkAcquireNextImageKHR(device, swapchain, U64_MAX, image_available_semaphores[idx], VK_NULL_HANDLE, *image_index));
+    Vk_Check(vkAcquireNextImageKHR(device, swapchain, U64_MAX, frame.image_available_semaphore, VK_NULL_HANDLE, *frame.image_index));
     begin_info := VkCommandBufferBeginInfo.{
         flags = .ONE_TIME_SUBMIT_BIT,
     };
-    vkBeginCommandBuffer(command_buffers[idx], *begin_info);
+    vkBeginCommandBuffer(frame.command_buffer, *begin_info);
 
-    vkCmdBeginRenderPass(command_buffers[idx], *VkRenderPassBeginInfo.{
+    vkCmdBeginRenderPass(frame.command_buffer, *VkRenderPassBeginInfo.{
         renderPass = render_pass,
-        framebuffer = framebuffers[image_index],
+        framebuffer = framebuffers[frame.image_index],
         clearValueCount = 1,
         pClearValues = *VkClearValue.{color = .{_float32 = clear_color.component }},
         renderArea = .{
@@ -588,51 +617,52 @@ begin_frame :: (clear_color: Vector4 = .{0, 0, 0, 1}) {
             extent = swapchain_extent,
         },
     }, .INLINE);
-    vkCmdBindPipeline(command_buffers[idx], .GRAPHICS, pipeline);
-    vkCmdSetViewport(command_buffers[idx], 0, 1, *VkViewport.{0, 0, xx swapchain_extent.width, xx swapchain_extent.height, 0, 1});
-    vkCmdSetScissor(command_buffers[idx], 0, 1, *VkRect2D.{.{0, 0}, swapchain_extent});
+    vkCmdBindPipeline(frame.command_buffer, .GRAPHICS, pipeline);
+    vkCmdSetViewport(frame.command_buffer, 0, 1, *VkViewport.{0, 0, xx swapchain_extent.width, xx swapchain_extent.height, 0, 1});
+    vkCmdSetScissor(frame.command_buffer, 0, 1, *VkRect2D.{.{0, 0}, swapchain_extent});
+    return frame;
 }
 
-flush ::() {
+flush :: (cmd: VkCommandBuffer) {
     using global_renderer;
     offset : u64 = xx (frame_index * Renderer.REGION_SIZE);
-    vkCmdBindVertexBuffers(command_buffers[frame_index], 0, 1, *upload_buffer.buffer, *offset);
-    vkCmdDraw(command_buffers[frame_index], nb_vertices, 1, 0, 0);
+    vkCmdBindVertexBuffers(cmd, 0, 1, *upload_buffer.buffer, *offset);
+    vkCmdDraw(cmd, nb_vertices, 1, 0, 0);
     nb_vertices = 0;
 }
 
-set_transform_matrix :: (mat: Matrix4) {
+set_transform_matrix :: (cmd: VkCommandBuffer, mat: Matrix4) {
     using global_renderer;
     constants := PushConstantData.{
         transpose(mat),
     };
-    vkCmdPushConstants(command_buffers[frame_index], pipeline_layout, .VERTEX_BIT, 0, size_of(type_of(constants)), *constants);
+    vkCmdPushConstants(cmd, pipeline_layout, .VERTEX_BIT, 0, size_of(type_of(constants)), *constants);
 }
 
-end_frame :: () {
+end_frame :: (frame: *Frame_Data) {
     using global_renderer;
-    flush();
+    flush(frame.command_buffer);
 
-    vkCmdEndRenderPass(command_buffers[frame_index]);
+    vkCmdEndRenderPass(frame.command_buffer);
 
-    Vk_Check(vkEndCommandBuffer(command_buffers[frame_index]));
+    Vk_Check(vkEndCommandBuffer(frame.command_buffer));
     submit_info := VkSubmitInfo.{
         waitSemaphoreCount = 1,
-        pWaitSemaphores = *image_available_semaphores[frame_index],
+        pWaitSemaphores = *frame.image_available_semaphore,
         pWaitDstStageMask = VkPipelineStageFlags.[.COLOR_ATTACHMENT_OUTPUT_BIT].data,
         commandBufferCount = 1,
-        pCommandBuffers = *command_buffers[frame_index],
+        pCommandBuffers = *frame.command_buffer,
         signalSemaphoreCount = 1,
-        pSignalSemaphores = *render_finished_semaphores[frame_index],
+        pSignalSemaphores = *frame.render_finished_semaphore,
     };
-    Vk_Check(vkQueueSubmit(graphics_queue, 1, *submit_info, frame_fences[frame_index]));
+    Vk_Check(vkQueueSubmit(graphics_queue, 1, *submit_info, frame.frame_fence));
 
     present_info := VkPresentInfoKHR.{
         waitSemaphoreCount = 1,
-        pWaitSemaphores = *render_finished_semaphores[frame_index],
+        pWaitSemaphores = *frame.render_finished_semaphore,
         swapchainCount = 1,
         pSwapchains = *swapchain,
-        pImageIndices = *image_index
+        pImageIndices = *frame.image_index
     };
     result := vkQueuePresentKHR(graphics_queue, *present_info);
     if result == .ERROR_OUT_OF_DATE_KHR { // Window was resized

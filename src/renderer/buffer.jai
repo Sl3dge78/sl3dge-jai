@@ -3,10 +3,10 @@ Buffer :: struct {
     memory: VkDeviceMemory;
 }
 
-create_buffer :: (usage: VkBufferUsageFlagBits, mem_type: Renderer.MemoryType) -> Buffer {
+create_buffer :: (size: u64, usage: VkBufferUsageFlagBits, mem_type: Renderer.MemoryType) -> Buffer {
     result: Buffer;
     buffer_ci := VkBufferCreateInfo.{
-        size = Renderer.BUFFER_SIZE,
+        size = size,
         usage = usage,
         sharingMode = .EXCLUSIVE,
         queueFamilyIndexCount = 1,

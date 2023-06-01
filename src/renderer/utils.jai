@@ -3,7 +3,7 @@ Vertex :: struct {
     color: Vector4;      
 }
 
-Vertex_input_attribute :: #run () -> []VkVertexInputAttributeDescription {
+vertex_input_attribute :: #run () -> []VkVertexInputAttributeDescription {
     vtx_attr : [2]VkVertexInputAttributeDescription;
     offset: *Vertex = null;
     vtx_attr[0] = .{location = 0, binding = 0, format = .R32G32B32_SFLOAT, offset = xx *offset.position};
@@ -11,6 +11,12 @@ Vertex_input_attribute :: #run () -> []VkVertexInputAttributeDescription {
 
     return vtx_attr;
 }();
+
+CameraData :: struct {
+    view: Matrix4;
+    proj: Matrix4;
+    view_proj: Matrix4;
+}
 
 Vk_Check :: inline (result: VkResult) {
     assert(result >= 0, "Vk result is %", result);

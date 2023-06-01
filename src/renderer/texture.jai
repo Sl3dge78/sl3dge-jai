@@ -16,7 +16,7 @@ load_texture_from_file :: (path: string) -> Texture {
     format :: VkFormat.R8G8B8A8_SRGB;
     image_size: VkDeviceSize = xx(texture.w * texture.h * 4);
 
-    staging_buffer := create_buffer(.TRANSFER_SRC_BIT, .UPLOAD);
+    staging_buffer := create_buffer(image_size, .TRANSFER_SRC_BIT, .UPLOAD);
     defer destroy_buffer(staging_buffer);
     copy_data(staging_buffer, img, image_size);
 
