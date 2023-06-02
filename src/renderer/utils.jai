@@ -12,12 +12,6 @@ vertex_input_attribute :: #run () -> []VkVertexInputAttributeDescription {
     return vtx_attr;
 }();
 
-CameraData :: struct {
-    view: Matrix4;
-    proj: Matrix4;
-    view_proj: Matrix4;
-}
-
 Vk_Check :: inline (result: VkResult) {
     assert(result >= 0, "Vk result is %", result);
 }
@@ -119,3 +113,7 @@ load_function_pointers :: (instance: VkInstance) {
 
 SDL_Vulkan_GetInstanceExtensions :: (window: *SDL_Window, pCount: *u32, pNames: **u8) -> bool #foreign SDL2;
 SDL_Vulkan_CreateSurface :: (window: *SDL_Window, instance: VkInstance, surface: *VkSurfaceKHR) -> bool #foreign SDL2;
+
+radians :: (angle: float) -> float #expand {
+    return angle * (PI / 180.0);
+}

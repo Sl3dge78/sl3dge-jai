@@ -23,6 +23,8 @@ Renderer :: struct {
     command_pool : VkCommandPool;
     frame_data: [FRAME_COUNT]Frame_Data;
 
+    descriptor_pool: VkDescriptorPool;
+
     render_pass: VkRenderPass;
     pipeline_layout: VkPipelineLayout;
     descriptor_set_layout: VkDescriptorSetLayout;
@@ -58,10 +60,18 @@ Frame_Data :: struct {
     image_available_semaphore: VkSemaphore;
     render_finished_semaphore: VkSemaphore;
     uniform: Buffer;
+    uniform_ptr: *void;
+    descriptor_set: VkDescriptorSet;
     image_index: u32;
 }
 
 global_renderer: Renderer;
+
+CameraData :: struct {
+    view: Matrix4;
+    proj: Matrix4;
+    view_proj: Matrix4;
+}
 
 PushConstantData :: struct {
     transform: Matrix4;
@@ -112,6 +122,7 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
             enabledExtensionCount = xx extensions.count,
             ppEnabledExtensionNames = extensions.data,
         };
+
         Vk_Check(vkCreateInstance(*create_info, null, *renderer.instance));
         log("Instance created.");
     }
@@ -157,7 +168,6 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
             renderer.physical_device = physical_devices[0];
             vkGetPhysicalDeviceProperties(renderer.physical_device, *physical_device_properties);
         }
-        
     }
 
     // Memory
@@ -289,6 +299,7 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
 
         for *renderer.frame_data {
             it.uniform = create_buffer(size_of(CameraData), .UNIFORM_BUFFER_BIT, .UPLOAD);
+            vkMapMemory(renderer.device, it.uniform.memory, 0, VK_WHOLE_SIZE, 0, *it.uniform_ptr);
         }
 
         push_constant_ci := VkPushConstantRange.{
@@ -303,7 +314,7 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
             setLayoutCount = 1,
             pSetLayouts = *renderer.descriptor_set_layout,
         };
-        vkCreatePipelineLayout(renderer.device, *layout_ci, null, *renderer.pipeline_layout);
+        Vk_Check(vkCreatePipelineLayout(renderer.device, *layout_ci, null, *renderer.pipeline_layout));
 
         stages : [2]VkPipelineShaderStageCreateInfo;
         stages[0] = .{stage = .VERTEX_BIT,   module = vtx, pName = "main"};
@@ -382,8 +393,47 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
         log("Pipeline created.");
     }
 
+    // DescriptorPool & DescriptorSet
+    {
+        pool_size := VkDescriptorPoolSize.{
+            descriptorCount = Renderer.FRAME_COUNT,
+        };
+
+        pool_info := VkDescriptorPoolCreateInfo.{
+            poolSizeCount = 1,
+            pPoolSizes = *pool_size,
+            maxSets = Renderer.FRAME_COUNT,
+        };
+        Vk_Check(vkCreateDescriptorPool(renderer.device, *pool_info, null, *renderer.descriptor_pool));
+
+        alloc_info := VkDescriptorSetAllocateInfo.{
+            descriptorPool = renderer.descriptor_pool,
+            descriptorSetCount = 1,
+            pSetLayouts = *renderer.descriptor_set_layout,
+        };
+
+        for *renderer.frame_data {
+            Vk_Check(vkAllocateDescriptorSets(renderer.device, *alloc_info, *it.descriptor_set));
+            
+            buffer_info := VkDescriptorBufferInfo .{
+                buffer = it.uniform.buffer,
+                offset = 0,
+                range = size_of(CameraData),
+            };
+
+            descriptor_write := VkWriteDescriptorSet.{
+                dstSet = it.descriptor_set,
+                dstBinding = 0,
+                dstArrayElement = 0,
+                descriptorType = .UNIFORM_BUFFER,
+                descriptorCount = 1,
+                pBufferInfo = *buffer_info,
+            };
+            vkUpdateDescriptorSets(renderer.device, 1, *descriptor_write, 0, null);
+        }
+    }
     
-    // Buffer
+    // Vertex Buffer
     { 
         renderer.upload_buffer = create_buffer(Renderer.BUFFER_SIZE, VkBufferUsageFlagBits.VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT | .UNIFORM_BUFFER_BIT | .STORAGE_BUFFER_BIT | .TRANSFER_SRC_BIT, .UPLOAD);
         vkMapMemory(renderer.device, renderer.upload_buffer.memory, 0, VK_WHOLE_SIZE, 0, *renderer.buffer);
@@ -559,6 +609,8 @@ renderer_deinit :: () {
 
     vkDestroySampler(device, sampler, null);
 
+    vkDestroyDescriptorPool(device, descriptor_pool, null);
+    vkDestroyDescriptorSetLayout(device, descriptor_set_layout, null);
     destroy_buffer(upload_buffer);
 
     vkDestroyPipelineLayout(device, pipeline_layout, null);
@@ -592,7 +644,7 @@ renderer_deinit :: () {
     vkDestroyInstance(instance, null);
 }
 
-begin_frame :: (clear_color: Vector4 = .{0, 0, 0, 1}) -> *Frame_Data {
+begin_frame :: (view: Matrix4, clear_color: Vector4 = .{0, 0, 0, 1}) -> *Frame_Data {
     using global_renderer;
     frame_index = (frame_index + 1) % FRAME_COUNT;
     idx := frame_index;
@@ -620,6 +672,18 @@ begin_frame :: (clear_color: Vector4 = .{0, 0, 0, 1}) -> *Frame_Data {
     vkCmdBindPipeline(frame.command_buffer, .GRAPHICS, pipeline);
     vkCmdSetViewport(frame.command_buffer, 0, 1, *VkViewport.{0, 0, xx swapchain_extent.width, xx swapchain_extent.height, 0, 1});
     vkCmdSetScissor(frame.command_buffer, 0, 1, *VkRect2D.{.{0, 0}, swapchain_extent});
+
+    // Update uniform
+    proj := make_projection_matrix(radians(45), cast(float)swapchain_extent.width/cast(float)swapchain_extent.height, 0.1, 1000);
+    proj._22 *= -1;
+    camera_data := CameraData.{
+        proj = transpose(proj),
+        view = transpose(view),
+        view_proj = transpose(view * proj),
+    };
+    memcpy(frame.uniform_ptr, *camera_data, size_of(type_of(camera_data)));
+    vkCmdBindDescriptorSets(frame.command_buffer, .GRAPHICS, pipeline_layout, 0, 1, *frame.descriptor_set, 0, null);
+
     return frame;
 }
 
