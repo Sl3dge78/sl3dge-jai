@@ -1,9 +1,10 @@
 Buffer :: struct {
     buffer: VkBuffer;
     memory: VkDeviceMemory;
+    mapped: *void;
 }
 
-create_buffer :: (size: u64, usage: VkBufferUsageFlagBits, mem_type: Renderer.MemoryType) -> Buffer {
+create_buffer :: (size: u64, usage: VkBufferUsageFlagBits, mem_type: Renderer.MemoryType, $map := false) -> Buffer {
     result: Buffer;
     buffer_ci := VkBufferCreateInfo.{
         size = size,
@@ -15,6 +16,10 @@ create_buffer :: (size: u64, usage: VkBufferUsageFlagBits, mem_type: Renderer.Me
     Vk_Check(vkCreateBuffer(global_renderer.device, *buffer_ci, null, *result.buffer));
 
     result.memory = alloc_device_memory(result.buffer, mem_type);
+
+    #if map {
+        map_buffer(*result);
+    }
     return result;
 }
 
@@ -29,4 +34,16 @@ copy_data :: (buffer: Buffer, data: *void, size: u64) {
     defer vkUnmapMemory(global_renderer.device, buffer.memory);
 
     memcpy(ptr, data, xx size);
+}
+
+map_buffer :: (buffer: *Buffer) -> *void {
+    ptr: *void;
+    vkMapMemory(global_renderer.device, buffer.memory, 0, VK_WHOLE_SIZE, 0, *ptr);
+    buffer.mapped = ptr;
+    return ptr;
+}
+
+unmap_buffer :: (buffer: *Buffer) {
+    vkUnmapMemory(global_renderer.device, buffer.memory);
+    buffer.mapped = null;
 }

@@ -19,6 +19,7 @@ File_Watcher :: #import "File_Watcher";
 #load "src/renderer/utils.jai";
 #load "src/renderer/buffer.jai";
 #load "src/renderer/texture.jai";
+#load "src/renderer/color_pass.jai";
 
 #load "src/camera.jai";
 // #load "src/console.jai";

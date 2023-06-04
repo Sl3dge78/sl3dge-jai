@@ -4,6 +4,7 @@ Renderer :: struct {
     debug_messenger: VkDebugUtilsMessengerEXT;
     surface: VkSurfaceKHR;
     physical_device: VkPhysicalDevice;
+    physical_device_properties: VkPhysicalDeviceProperties;
 
     window: *SDL_Window;
     device: VkDevice;
@@ -25,10 +26,7 @@ Renderer :: struct {
 
     descriptor_pool: VkDescriptorPool;
 
-    render_pass: VkRenderPass;
-    pipeline_layout: VkPipelineLayout;
-    descriptor_set_layout: VkDescriptorSetLayout;
-    pipeline: VkPipeline;
+    color_pass: Render_Pass;
 
     sampler: VkSampler;
     texture: Texture;
@@ -50,6 +48,7 @@ Renderer :: struct {
     upload_buffer: Buffer;
     buffer: *void;
 
+
     // Immediate
     MAX_VERTICES :: REGION_SIZE / size_of(Vertex);
     nb_vertices: u32;
@@ -60,8 +59,6 @@ Frame_Data :: struct {
     frame_fence: VkFence;
     image_available_semaphore: VkSemaphore;
     render_finished_semaphore: VkSemaphore;
-    uniform: Buffer;
-    uniform_ptr: *void;
     descriptor_set: VkDescriptorSet;
     image_index: u32;
 }
@@ -145,7 +142,6 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
         log("Debug messenger created.");
     }
 
-    physical_device_properties: VkPhysicalDeviceProperties = ---;
     // Pick device 
     {
         physical_devices := fill_array(VkPhysicalDevice, vkEnumeratePhysicalDevices, renderer.instance);
@@ -158,16 +154,16 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
             // @Robustness: Better picking:
             // - Check extensions
             // - Pick depending on queues
-            vkGetPhysicalDeviceProperties(device, *physical_device_properties);
-            if (physical_device_properties.deviceType == .DISCRETE_GPU) {
+            vkGetPhysicalDeviceProperties(device, *renderer.physical_device_properties);
+            if (renderer.physical_device_properties.deviceType == .DISCRETE_GPU) {
                 renderer.physical_device = device;
-                log("Physical device: %", to_string(physical_device_properties.deviceName));
+                log("Physical device: %", to_string(renderer.physical_device_properties.deviceName));
                 break;
             }
         }
         if (!renderer.physical_device) {
             renderer.physical_device = physical_devices[0];
-            vkGetPhysicalDeviceProperties(renderer.physical_device, *physical_device_properties);
+            vkGetPhysicalDeviceProperties(renderer.physical_device, *renderer.physical_device_properties);
         }
     }
 
@@ -239,9 +235,6 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
         renderer.surface_format.format = ifx renderer.surface_format.format == .UNDEFINED then .B8G8R8A8_UNORM else renderer.surface_format.format;
     }
 
-    // Render pass
-    renderer.render_pass = create_renderpass(renderer.device, renderer.surface_format.format);
-
     // Swapchain
     create_or_update_swapchain();
     log("Swapchain created");
@@ -274,225 +267,7 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
         log("Rendering context created");
     }
 
-    // Pipeline
-    {
-        vtx := create_shader_module(renderer.device, "shaders/shader.vert.spv");
-        defer vkDestroyShaderModule(renderer.device, vtx, null);
-
-        frag := create_shader_module(renderer.device, "shaders/shader.frag.spv");
-        defer vkDestroyShaderModule(renderer.device, frag, null);
-
-        bindings : [2]VkDescriptorSetLayoutBinding;
-        bindings[0] = .{
-            binding = 0,
-            descriptorType = .UNIFORM_BUFFER,
-            descriptorCount = 1,
-            stageFlags = .VERTEX_BIT,
-            pImmutableSamplers = null,
-        };
-        bindings[1] = .{
-            binding = 1,
-            descriptorType = .COMBINED_IMAGE_SAMPLER,
-            descriptorCount = 1,
-            stageFlags = .FRAGMENT_BIT,
-            pImmutableSamplers = null,
-        };
-
-        layout_info := VkDescriptorSetLayoutCreateInfo.{
-            bindingCount = bindings.count,
-            pBindings = bindings.data,
-        };        
-        
-        Vk_Check(vkCreateDescriptorSetLayout(renderer.device, *layout_info, null, *renderer.descriptor_set_layout));
-
-        for *renderer.frame_data {
-            it.uniform = create_buffer(size_of(CameraData), .UNIFORM_BUFFER_BIT, .UPLOAD);
-            vkMapMemory(renderer.device, it.uniform.memory, 0, VK_WHOLE_SIZE, 0, *it.uniform_ptr);
-        }
-
-        push_constant_ci := VkPushConstantRange.{
-            stageFlags = .VERTEX_BIT,
-            offset = 0,
-            size = size_of(PushConstantData),
-        };
-
-        layout_ci := VkPipelineLayoutCreateInfo.{ 
-            pushConstantRangeCount = 1,
-            pPushConstantRanges = *push_constant_ci,
-            setLayoutCount = 1,
-            pSetLayouts = *renderer.descriptor_set_layout,
-        };
-        Vk_Check(vkCreatePipelineLayout(renderer.device, *layout_ci, null, *renderer.pipeline_layout));
-
-        stages : [2]VkPipelineShaderStageCreateInfo;
-        stages[0] = .{stage = .VERTEX_BIT,   module = vtx, pName = "main"};
-        stages[1] = .{stage = .FRAGMENT_BIT, module = frag, pName = "main"};
-        /* Non constant array litterals pls
-        stages := VkPipelineShaderStageCreateInfo.[
-            .{stage = .VERTEX_BIT,   module = vtx, pName = "main"},
-            .{stage = .FRAGMENT_BIT, module = frag, pName = "main"},
-        ]; */       
-
-        dynamic_state := VkDynamicState.[.VIEWPORT, .SCISSOR];
-
-        create_info := VkGraphicsPipelineCreateInfo.{
-            stageCount = stages.count,
-            pStages = stages.data,
-            pVertexInputState = *VkPipelineVertexInputStateCreateInfo.{
-                vertexBindingDescriptionCount = 1,
-                pVertexBindingDescriptions = *VkVertexInputBindingDescription.{
-                    binding = 0, stride = size_of(Vertex), inputRate = .VERTEX
-                },
-                vertexAttributeDescriptionCount = vertex_input_attribute.count,
-                pVertexAttributeDescriptions = vertex_input_attribute.data,
-            },
-            pInputAssemblyState = *VkPipelineInputAssemblyStateCreateInfo.{
-                topology = .TRIANGLE_LIST,
-                primitiveRestartEnable = VK_FALSE,
-            },
-            pViewportState = *VkPipelineViewportStateCreateInfo.{
-                viewportCount = 1,
-                pViewports = VK_NULL_HANDLE,
-                scissorCount = 1,
-                pScissors = VK_NULL_HANDLE,
-            },
-            pRasterizationState = *VkPipelineRasterizationStateCreateInfo.{
-                depthClampEnable = VK_FALSE,
-                rasterizerDiscardEnable = VK_FALSE,
-                polygonMode = .FILL,
-                cullMode = .NONE,
-                frontFace = .CLOCKWISE,
-                depthBiasEnable = VK_FALSE,
-                depthBiasConstantFactor = 0,
-                depthBiasClamp = 0,
-                depthBiasSlopeFactor = 0,
-                lineWidth = 1,
-            },
-            pMultisampleState = *VkPipelineMultisampleStateCreateInfo.{
-                rasterizationSamples = ._1_BIT,
-                sampleShadingEnable = VK_FALSE,
-                minSampleShading = 1,
-                pSampleMask = VK_NULL_HANDLE,
-                alphaToCoverageEnable = VK_FALSE,
-                alphaToOneEnable = VK_FALSE,
-            },
-            pColorBlendState = *VkPipelineColorBlendStateCreateInfo.{
-                logicOpEnable = VK_FALSE,
-                attachmentCount = 1,
-                pAttachments = *VkPipelineColorBlendAttachmentState.{
-                    blendEnable = VK_FALSE,
-                    srcColorBlendFactor = .ONE,
-                    dstColorBlendFactor = .ZERO,
-                    colorBlendOp = .ADD,
-                    srcAlphaBlendFactor = .ONE,
-                    dstAlphaBlendFactor = .ZERO,
-                    alphaBlendOp = .ADD,
-                    colorWriteMask = VkColorComponentFlagBits.R_BIT | .G_BIT | .B_BIT | .A_BIT,
-                },
-            },
-            pDynamicState = *VkPipelineDynamicStateCreateInfo.{
-                dynamicStateCount = dynamic_state.count,
-                pDynamicStates = dynamic_state.data,
-            },
-            layout = renderer.pipeline_layout,
-            renderPass = renderer.render_pass,
-        };
-        vkCreateGraphicsPipelines(renderer.device, null, 1, *create_info, null, *renderer.pipeline);
-        log("Pipeline created.");
-    }
-
-    // Sampler 
-    {
-        create_info := VkSamplerCreateInfo.{
-            magFilter = .NEAREST,
-            minFilter = .NEAREST,
-            addressModeU = .REPEAT,
-            addressModeV = .REPEAT,
-            addressModeW = .REPEAT,
-            anisotropyEnable = VK_TRUE,
-            maxAnisotropy = physical_device_properties.limits.maxSamplerAnisotropy,
-            borderColor = .INT_OPAQUE_BLACK,
-            unnormalizedCoordinates = VK_FALSE,
-            compareEnable = VK_FALSE,
-            compareOp = .ALWAYS,
-            mipmapMode = .LINEAR,
-            mipLodBias = 0,
-            minLod = 0,
-            maxLod = 0,
-        };
-        Vk_Check(vkCreateSampler(renderer.device, *create_info, null, *renderer.sampler));
-    }
-
-    renderer.texture = load_texture_from_file("res/block_texture.png");
-
-    // DescriptorPool & DescriptorSet
-    {
-        pool_sizes : [2]VkDescriptorPoolSize;
-        pool_sizes[0] = VkDescriptorPoolSize.{
-            type = .UNIFORM_BUFFER,
-            descriptorCount = Renderer.FRAME_COUNT,
-        };
-        pool_sizes[1] = VkDescriptorPoolSize.{
-            type = .COMBINED_IMAGE_SAMPLER,
-            descriptorCount = Renderer.FRAME_COUNT,
-        };
-
-        pool_info := VkDescriptorPoolCreateInfo.{
-            poolSizeCount = pool_sizes.count,
-            pPoolSizes = pool_sizes.data,
-            maxSets = Renderer.FRAME_COUNT,
-        };
-        Vk_Check(vkCreateDescriptorPool(renderer.device, *pool_info, null, *renderer.descriptor_pool));
-
-        alloc_info := VkDescriptorSetAllocateInfo.{
-            descriptorPool = renderer.descriptor_pool,
-            descriptorSetCount = 1,
-            pSetLayouts = *renderer.descriptor_set_layout,
-        };
-
-        for *renderer.frame_data {
-            Vk_Check(vkAllocateDescriptorSets(renderer.device, *alloc_info, *it.descriptor_set));
-
-            descriptor_writes : [2]VkWriteDescriptorSet;
-            
-            buffer_info := VkDescriptorBufferInfo .{
-                buffer = it.uniform.buffer,
-                offset = 0,
-                range = size_of(CameraData),
-            };
-            descriptor_writes[0] = .{
-                dstSet = it.descriptor_set,
-                dstBinding = 0,
-                dstArrayElement = 0,
-                descriptorType = .UNIFORM_BUFFER,
-                descriptorCount = 1,
-                pBufferInfo = *buffer_info,
-            };
-
-            image_info := VkDescriptorImageInfo.{
-                sampler = renderer.sampler,
-                imageView = renderer.texture.view,
-                imageLayout = .SHADER_READ_ONLY_OPTIMAL,
-            };
-            descriptor_writes[1] = .{
-                dstSet = it.descriptor_set,
-                dstBinding = 1,
-                dstArrayElement = 0,
-                descriptorType = .COMBINED_IMAGE_SAMPLER,
-                descriptorCount = 1,
-                pImageInfo = *image_info,
-            };
-            vkUpdateDescriptorSets(renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
-        }
-    }
-    
-    // Vertex Buffer
-    { 
-        renderer.upload_buffer = create_buffer(Renderer.BUFFER_SIZE, VkBufferUsageFlagBits.VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT | .UNIFORM_BUFFER_BIT | .STORAGE_BUFFER_BIT | .TRANSFER_SRC_BIT, .UPLOAD);
-        vkMapMemory(renderer.device, renderer.upload_buffer.memory, 0, VK_WHOLE_SIZE, 0, *renderer.buffer);
-        log("Buffer created.");
-    }
-
+    renderer.color_pass = init_color_pass(renderer.device);
 
     log("Renderer successfully initialized!");
     return renderer;
@@ -643,14 +418,10 @@ renderer_deinit :: () {
 
     destroy_texture(*texture);
 
-    vkDestroySampler(device, sampler, null);
 
     vkDestroyDescriptorPool(device, descriptor_pool, null);
-    vkDestroyDescriptorSetLayout(device, descriptor_set_layout, null);
     destroy_buffer(upload_buffer);
 
-    vkDestroyPipelineLayout(device, pipeline_layout, null);
-    vkDestroyPipeline(device, pipeline, null);
 
     for framebuffers {
         vkDestroyFramebuffer(device, it, null);
@@ -662,14 +433,12 @@ renderer_deinit :: () {
     }
     array_reset(*swapchain_image_views);
 
-    vkDestroyRenderPass(device, render_pass, null);
 
     // Render context
     for frame_data {
         vkDestroyFence(device, it.frame_fence, null);
         vkDestroySemaphore(device, it.render_finished_semaphore, null);
         vkDestroySemaphore(device, it.image_available_semaphore, null);
-        destroy_buffer(it.uniform);
     }
     vkDestroyCommandPool(device, command_pool, null);
 
@@ -695,19 +464,7 @@ begin_frame :: (view: Matrix4, clear_color: Vector4 = .{0, 0, 0, 1}) -> *Frame_D
     };
     vkBeginCommandBuffer(frame.command_buffer, *begin_info);
 
-    vkCmdBeginRenderPass(frame.command_buffer, *VkRenderPassBeginInfo.{
-        renderPass = render_pass,
-        framebuffer = framebuffers[frame.image_index],
-        clearValueCount = 1,
-        pClearValues = *VkClearValue.{color = .{_float32 = clear_color.component }},
-        renderArea = .{
-            offset = .{0, 0},
-            extent = swapchain_extent,
-        },
-    }, .INLINE);
-    vkCmdBindPipeline(frame.command_buffer, .GRAPHICS, pipeline);
-    vkCmdSetViewport(frame.command_buffer, 0, 1, *VkViewport.{0, 0, xx swapchain_extent.width, xx swapchain_extent.height, 0, 1});
-    vkCmdSetScissor(frame.command_buffer, 0, 1, *VkRect2D.{.{0, 0}, swapchain_extent});
+    begin_pass(color_pass, frame, clear_color);
 
     // Update uniform
     proj := make_projection_matrix(radians(45), cast(float)swapchain_extent.width/cast(float)swapchain_extent.height, 0.1, 1000);
@@ -717,8 +474,7 @@ begin_frame :: (view: Matrix4, clear_color: Vector4 = .{0, 0, 0, 1}) -> *Frame_D
         view = transpose(view),
         view_proj = transpose(view * proj),
     };
-    memcpy(frame.uniform_ptr, *camera_data, size_of(type_of(camera_data)));
-    vkCmdBindDescriptorSets(frame.command_buffer, .GRAPHICS, pipeline_layout, 0, 1, *frame.descriptor_set, 0, null);
+    memcpy(color_pass.uniform_data[frame.image_index].mapped, *camera_data, size_of(type_of(camera_data)));
 
     return frame;
 }
@@ -736,7 +492,7 @@ set_transform_matrix :: (cmd: VkCommandBuffer, mat: Matrix4) {
     constants := PushConstantData.{
         transpose(mat),
     };
-    vkCmdPushConstants(cmd, pipeline_layout, .VERTEX_BIT, 0, size_of(type_of(constants)), *constants);
+    vkCmdPushConstants(cmd, color_pass.pipeline_layout, .VERTEX_BIT, 0, size_of(type_of(constants)), *constants);
 }
 
 end_frame :: (frame: *Frame_Data) {
