@@ -17,11 +17,11 @@ immediate_triangle :: (cmd: VkCommandBuffer) {
 
 immediate_quad :: (cmd: VkCommandBuffer, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, color := Vector4.{1, 1, 1, 1}) {
     v := prepare_vertices(cmd, 6);
-    v[0] = .{p0, color};
-    v[1] = .{p1, color};
-    v[2] = .{p2, color};
+    v[0] = .{p0, color, .{0, 0}};
+    v[1] = .{p1, color, .{1, 0}};
+    v[2] = .{p2, color, .{1, 1}};
 
-    v[3] = .{p0, color};
-    v[4] = .{p2, color};
-    v[5] = .{p3, color};
+    v[3] = .{p0, color, .{0, 0}};
+    v[4] = .{p2, color, .{1, 1}};
+    v[5] = .{p3, color, .{0, 1}};
 }

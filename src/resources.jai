@@ -182,14 +182,14 @@ load_var_file :: (info: *Resource_Info) -> bool {
         }
         addr : *float = cast(*float)(cast(*u8)info.pointer + offset);
         val := parse_float(*trim(decomp[1]));
-        << addr = val;
+        addr.* = val;
     }
     return true;
 }
 
 // .ttf files
 load_font_file :: (info: *Resource_Info) -> bool {
-    << cast(*Font)info.pointer = Font.init(info.path, 8); // @Todo: Find a way to specify a font size
+    cast(*Font)(info.pointer).* = Font.init(info.path, 8); // @Todo: Find a way to specify a font size
     return true;
 }
 
@@ -201,7 +201,7 @@ get_font_type :: (path: string) -> string {
 load_shader :: (info: *Resource_Info) -> bool {
     temp := Shader.load_from_file(info.path);
     if temp.handle != 0 {
-        << cast(*Shader)info.pointer = temp;
+        cast(*Shader)(info.pointer).* = temp;
     }
    return true;
 }
@@ -212,7 +212,7 @@ get_shader_type :: (path: string) -> string {
 
 // .png files
 load_image :: (info: *Resource_Info) -> bool {
-    << cast(*Texture) info.pointer = Texture.from_file(info.path);
+    cast(*Texture)(info.pointer).* = Texture.from_file(info.path);
     return true;
 }
 

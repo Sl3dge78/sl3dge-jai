@@ -1,19 +1,20 @@
 Vertex :: struct {
     position: Vector3;
     color: Vector4;      
+    uv: Vector2;
 }
 
 vertex_input_attribute :: #run () -> []VkVertexInputAttributeDescription {
-    vtx_attr : [2]VkVertexInputAttributeDescription;
+    vtx_attr : [3]VkVertexInputAttributeDescription;
     offset: *Vertex = null;
     vtx_attr[0] = .{location = 0, binding = 0, format = .R32G32B32_SFLOAT, offset = xx *offset.position};
     vtx_attr[1] = .{location = 1, binding = 0, format = .R32G32B32A32_SFLOAT, offset = xx *offset.color};
-
+    vtx_attr[2] = .{location = 2, binding = 0, format = .R32G32_SFLOAT, offset = xx *offset.uv};
     return vtx_attr;
 }();
 
-Vk_Check :: inline (result: VkResult) {
-    assert(result >= 0, "Vk result is %", result);
+Vk_Check :: (result: VkResult) #expand #no_debug {
+    assert(result == .SUCCESS, "Vk result is %", result);
 }
 
 fill_array :: ($type: Type, func: $R, arg: $S) -> [..]type #expand {

@@ -46,14 +46,14 @@ evolve_simplex :: (simplex: *[..]Vector2, a: []Vector2, b: []Vector2) -> EvolveR
     direction : Vector2 = ---;
     if simplex.count == {
         case 2; {
-            cb := (<< simplex)[1] - (<< simplex)[0];
-            c0 := (<< simplex)[0] * -1;
+            cb := (simplex.*)[1] - (simplex.*)[0];
+            c0 := (simplex.*)[0] * -1;
             direction = triple_product(cb, c0, cb);
         }
         case 3; {
-            a0 := (<< simplex)[2] * -1.0;
-            ab := (<< simplex)[1] - (<< simplex)[2];
-            ac := (<< simplex)[0] - (<< simplex)[2];
+            a0 := (simplex.*)[2] * -1.0;
+            ab := (simplex.*)[1] - (simplex.*)[2];
+            ac := (simplex.*)[0] - (simplex.*)[2];
 
             ab_perp := triple_product(ac, ab, ab);
             ac_perp := triple_product(ab, ac, ac);
@@ -78,7 +78,7 @@ evolve_simplex :: (simplex: *[..]Vector2, a: []Vector2, b: []Vector2) -> EvolveR
 }
 
 evolve_simplex :: (simplex: *[..]Vector3, a: []Vector3, b: []Vector3) -> EvolveResult {
-    s := << simplex;
+    s := simplex.*;
     direction : Vector3 = ---;
     if simplex.count == {
         case 2; {

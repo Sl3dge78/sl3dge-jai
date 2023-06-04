@@ -31,6 +31,7 @@ Renderer :: struct {
     pipeline: VkPipeline;
 
     sampler: VkSampler;
+    texture: Texture;
 
     // Mem
     REGION_SIZE :: 64 * 1024;
@@ -84,7 +85,7 @@ panic :: () {
 }
 
 debug_callback :: (severity: VkDebugUtilsMessageSeverityFlagsEXT, type: VkDebugUtilsMessageTypeFlagsEXT, callback_data: *VkDebugUtilsMessengerCallbackDataEXT,  data: *void) -> VkBool32 #c_call {
-    ctx := << cast(*Context) data;
+    ctx := (cast(*Context)data).*;
     push_context ctx {
         msg := to_string(callback_data.pMessage);
         log("%: %", severity, msg);
@@ -281,12 +282,19 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
         frag := create_shader_module(renderer.device, "shaders/shader.frag.spv");
         defer vkDestroyShaderModule(renderer.device, frag, null);
 
-        bindings : [1]VkDescriptorSetLayoutBinding;
+        bindings : [2]VkDescriptorSetLayoutBinding;
         bindings[0] = .{
             binding = 0,
             descriptorType = .UNIFORM_BUFFER,
             descriptorCount = 1,
             stageFlags = .VERTEX_BIT,
+            pImmutableSamplers = null,
+        };
+        bindings[1] = .{
+            binding = 1,
+            descriptorType = .COMBINED_IMAGE_SAMPLER,
+            descriptorCount = 1,
+            stageFlags = .FRAGMENT_BIT,
             pImmutableSamplers = null,
         };
 
@@ -393,58 +401,11 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
         log("Pipeline created.");
     }
 
-    // DescriptorPool & DescriptorSet
-    {
-        pool_size := VkDescriptorPoolSize.{
-            descriptorCount = Renderer.FRAME_COUNT,
-        };
-
-        pool_info := VkDescriptorPoolCreateInfo.{
-            poolSizeCount = 1,
-            pPoolSizes = *pool_size,
-            maxSets = Renderer.FRAME_COUNT,
-        };
-        Vk_Check(vkCreateDescriptorPool(renderer.device, *pool_info, null, *renderer.descriptor_pool));
-
-        alloc_info := VkDescriptorSetAllocateInfo.{
-            descriptorPool = renderer.descriptor_pool,
-            descriptorSetCount = 1,
-            pSetLayouts = *renderer.descriptor_set_layout,
-        };
-
-        for *renderer.frame_data {
-            Vk_Check(vkAllocateDescriptorSets(renderer.device, *alloc_info, *it.descriptor_set));
-            
-            buffer_info := VkDescriptorBufferInfo .{
-                buffer = it.uniform.buffer,
-                offset = 0,
-                range = size_of(CameraData),
-            };
-
-            descriptor_write := VkWriteDescriptorSet.{
-                dstSet = it.descriptor_set,
-                dstBinding = 0,
-                dstArrayElement = 0,
-                descriptorType = .UNIFORM_BUFFER,
-                descriptorCount = 1,
-                pBufferInfo = *buffer_info,
-            };
-            vkUpdateDescriptorSets(renderer.device, 1, *descriptor_write, 0, null);
-        }
-    }
-    
-    // Vertex Buffer
-    { 
-        renderer.upload_buffer = create_buffer(Renderer.BUFFER_SIZE, VkBufferUsageFlagBits.VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT | .UNIFORM_BUFFER_BIT | .STORAGE_BUFFER_BIT | .TRANSFER_SRC_BIT, .UPLOAD);
-        vkMapMemory(renderer.device, renderer.upload_buffer.memory, 0, VK_WHOLE_SIZE, 0, *renderer.buffer);
-        log("Buffer created.");
-    }
-
     // Sampler 
     {
         create_info := VkSamplerCreateInfo.{
-            magFilter = .LINEAR,
-            minFilter = .LINEAR,
+            magFilter = .NEAREST,
+            minFilter = .NEAREST,
             addressModeU = .REPEAT,
             addressModeV = .REPEAT,
             addressModeW = .REPEAT,
@@ -461,6 +422,79 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
         };
         Vk_Check(vkCreateSampler(renderer.device, *create_info, null, *renderer.sampler));
     }
+
+    renderer.texture = load_texture_from_file("res/block_texture.png");
+
+    // DescriptorPool & DescriptorSet
+    {
+        pool_sizes : [2]VkDescriptorPoolSize;
+        pool_sizes[0] = VkDescriptorPoolSize.{
+            type = .UNIFORM_BUFFER,
+            descriptorCount = Renderer.FRAME_COUNT,
+        };
+        pool_sizes[1] = VkDescriptorPoolSize.{
+            type = .COMBINED_IMAGE_SAMPLER,
+            descriptorCount = Renderer.FRAME_COUNT,
+        };
+
+        pool_info := VkDescriptorPoolCreateInfo.{
+            poolSizeCount = pool_sizes.count,
+            pPoolSizes = pool_sizes.data,
+            maxSets = Renderer.FRAME_COUNT,
+        };
+        Vk_Check(vkCreateDescriptorPool(renderer.device, *pool_info, null, *renderer.descriptor_pool));
+
+        alloc_info := VkDescriptorSetAllocateInfo.{
+            descriptorPool = renderer.descriptor_pool,
+            descriptorSetCount = 1,
+            pSetLayouts = *renderer.descriptor_set_layout,
+        };
+
+        for *renderer.frame_data {
+            Vk_Check(vkAllocateDescriptorSets(renderer.device, *alloc_info, *it.descriptor_set));
+
+            descriptor_writes : [2]VkWriteDescriptorSet;
+            
+            buffer_info := VkDescriptorBufferInfo .{
+                buffer = it.uniform.buffer,
+                offset = 0,
+                range = size_of(CameraData),
+            };
+            descriptor_writes[0] = .{
+                dstSet = it.descriptor_set,
+                dstBinding = 0,
+                dstArrayElement = 0,
+                descriptorType = .UNIFORM_BUFFER,
+                descriptorCount = 1,
+                pBufferInfo = *buffer_info,
+            };
+
+            image_info := VkDescriptorImageInfo.{
+                sampler = renderer.sampler,
+                imageView = renderer.texture.view,
+                imageLayout = .SHADER_READ_ONLY_OPTIMAL,
+            };
+            descriptor_writes[1] = .{
+                dstSet = it.descriptor_set,
+                dstBinding = 1,
+                dstArrayElement = 0,
+                descriptorType = .COMBINED_IMAGE_SAMPLER,
+                descriptorCount = 1,
+                pImageInfo = *image_info,
+            };
+            vkUpdateDescriptorSets(renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
+        }
+    }
+    
+    // Vertex Buffer
+    { 
+        renderer.upload_buffer = create_buffer(Renderer.BUFFER_SIZE, VkBufferUsageFlagBits.VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT | .UNIFORM_BUFFER_BIT | .STORAGE_BUFFER_BIT | .TRANSFER_SRC_BIT, .UPLOAD);
+        vkMapMemory(renderer.device, renderer.upload_buffer.memory, 0, VK_WHOLE_SIZE, 0, *renderer.buffer);
+        log("Buffer created.");
+    }
+
+
+    log("Renderer successfully initialized!");
     return renderer;
 }
 
@@ -606,6 +640,8 @@ renderer_resize :: (w: s32, h: s32) {
 renderer_deinit :: () {
     using global_renderer;
     vkDeviceWaitIdle(device);
+
+    destroy_texture(*texture);
 
     vkDestroySampler(device, sampler, null);
 
