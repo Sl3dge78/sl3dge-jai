@@ -53,7 +53,9 @@ Renderer :: struct {
 
     default_texture: Texture;
 
-    current_target: *RenderTexture;    
+    current_target: *RenderTexture;   
+
+    projection: Matrix4; 
 }
 
 renderer_init :: (window: *SDL_Window) -> Renderer {
@@ -93,6 +95,8 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
     render_to_window();
     use_default_texture();
 
+    global_renderer.projection = make_projection_matrix(60 * PI / 180.0, cast(float)global_renderer.width / cast(float)global_renderer.height, 0.1, 1000);
+
     return global_renderer;
 }
 
@@ -101,7 +105,6 @@ renderer_deinit :: () {
     glDeleteVertexArrays(1, *vao);
     glDeleteBuffers(1, *vbo);
 }
-
 
 clear :: (color: Vector4) {
     glClearColor(color.x, color.y, color.z, color.w);
@@ -159,7 +162,7 @@ begin_3d :: (view: Matrix4) {
     flush();  
     use_shader(*global_renderer.standard_shader);
     Shader.set_uniform(*global_renderer.standard_shader, "View", view);
-    Shader.set_uniform(*global_renderer.standard_shader, "Projection", make_projection_matrix(60 * PI / 180.0, cast(float)global_renderer.width / cast(float)global_renderer.height, 0.1, 1000));
+    Shader.set_uniform(*global_renderer.standard_shader, "Projection", global_renderer.projection);
     glDisable(GL_BLEND);
     glEnable(GL_DEPTH_TEST);
 }
