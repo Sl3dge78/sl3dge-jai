@@ -1,7 +1,6 @@
 #scope_file
 
 
-
 #scope_export
 
 global_renderer : Renderer;
@@ -54,53 +53,55 @@ Renderer :: struct {
 
     default_texture: Texture;
 
-    current_target: *RenderTexture;
-
-    init :: (window: *SDL_Window) -> Renderer {
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, xx SDL_GL_CONTEXT_PROFILE_CORE);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-
-        SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
-        SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
-
-        global_renderer._gl_context = SDL_GL_CreateContext(window);
-        assert(global_renderer._gl_context != null);
-        gl_load(*gl);
-        gl_enable_debug_output(break_on_error = true);
-
-        glEnable(GL_MULTISAMPLE);
-
-        glGenVertexArrays(1, *global_renderer.vao);
-        glGenBuffers(1, *global_renderer.vbo);
-        glBindVertexArray(global_renderer.vao);
-        glBindBuffer(GL_ARRAY_BUFFER, global_renderer.vbo);
-        Vertex.enable_attrib();
-
-        global_renderer.default_texture = Texture.init();
-        Texture.bind(global_renderer.default_texture);
-        data := u8.[255, 255, 255, 255];
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, *data);
-
-        global_renderer.standard_shader = Shader.load(STANDARD);
-        Shader.set_uniform(*global_renderer.standard_shader, "Model", Matrix4_Identity);
-        global_renderer.screen_space_shader = Shader.load(SCREEN_SPACE_SHADER);
-
-        global_renderer.shadowmap_shader = Shader.load(SHADOWMAP_SHADER);
-
-        update_window(window);
-        render_to_window();
-        use_default_texture();
-
-        return global_renderer;
-    }
-
-    deinit :: () {
-        using global_renderer;
-        glDeleteVertexArrays(1, *vao);
-        glDeleteBuffers(1, *vbo);
-    }
+    current_target: *RenderTexture;    
 }
+
+renderer_init :: (window: *SDL_Window) -> Renderer {
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, xx SDL_GL_CONTEXT_PROFILE_CORE);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+
+    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
+
+    global_renderer._gl_context = SDL_GL_CreateContext(window);
+    assert(global_renderer._gl_context != null);
+    gl_load(*gl);
+    gl_enable_debug_output(break_on_error = true);
+
+    glEnable(GL_MULTISAMPLE);
+
+    glGenVertexArrays(1, *global_renderer.vao);
+    glGenBuffers(1, *global_renderer.vbo);
+    glBindVertexArray(global_renderer.vao);
+    glBindBuffer(GL_ARRAY_BUFFER, global_renderer.vbo);
+    Vertex.enable_attrib();
+
+    global_renderer.default_texture = Texture.init();
+    Texture.bind(global_renderer.default_texture);
+    data := u8.[255, 255, 255, 255];
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, *data);
+
+    global_renderer.standard_shader = Shader.load(STANDARD, "STANDARD");
+    Shader.set_uniform(*global_renderer.standard_shader, "Model", Matrix4_Identity);
+    Shader.set_uniform(*global_renderer.standard_shader, "View", Matrix4_Identity);
+    global_renderer.screen_space_shader = Shader.load(SCREEN_SPACE_SHADER, "SCREEN_SPACE_SHADER");
+
+    global_renderer.shadowmap_shader = Shader.load(SHADOWMAP_SHADER, "SHADOWMAP_SHADER");
+
+    update_window(window);
+    render_to_window();
+    use_default_texture();
+
+    return global_renderer;
+}
+
+renderer_deinit :: () {
+    using global_renderer;
+    glDeleteVertexArrays(1, *vao);
+    glDeleteBuffers(1, *vbo);
+}
+
 
 clear :: (color: Vector4) {
     glClearColor(color.x, color.y, color.z, color.w);
@@ -157,8 +158,8 @@ render_to_window :: () {
 begin_3d :: (view: Matrix4) {
     flush();  
     use_shader(*global_renderer.standard_shader);
-    // Shader.set_uniform(*global_renderer.standard_shader, "View", view);
-    // Shader.set_uniform(*global_renderer.standard_shader, "Projection", make_projection_matrix(60 * PI / 180.0, cast(float)global_renderer.width / cast(float)global_renderer.height, 0.1, 1000));
+    Shader.set_uniform(*global_renderer.standard_shader, "View", view);
+    Shader.set_uniform(*global_renderer.standard_shader, "Projection", make_projection_matrix(60 * PI / 180.0, cast(float)global_renderer.width / cast(float)global_renderer.height, 0.1, 1000));
     glDisable(GL_BLEND);
     glEnable(GL_DEPTH_TEST);
 }
@@ -193,7 +194,7 @@ push_vertex :: (vertex: Vertex) {
     array_add(*global_renderer.immediate_vertices, vertex);
 }
 
-push_quad :: (p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, normal: Vector3, color: Vector4 = .{1, 1, 1, 1}) {
+draw_quad :: (p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, normal: Vector3, color: Vector4 = .{1, 1, 1, 1}) {
     push_vertex(Vertex.{ p0, normal, Vector2.{0.0, 0.0}, color });
     push_vertex(Vertex.{ p1, normal, Vector2.{1.0, 0.0}, color });
     push_vertex(Vertex.{ p2, normal, Vector2.{1.0, 1.0}, color });
@@ -250,7 +251,7 @@ draw_2d_quad :: (x: float, y: float, w: float, h: float, color: Vector4 = .{1, 1
 
 draw_plane :: (center: Vector3, size: Vector2) {
     plane := Quad.make(center, size);
-    push_quad(
+    draw_quad(
         plane.v[0],
         plane.v[1],
         plane.v[2],
@@ -260,14 +261,14 @@ draw_plane :: (center: Vector3, size: Vector2) {
 }
 
 draw_cube :: (color: Vector4 = .{1, 1, 1, 1}) {
-    push_quad(xyz(-.5, -.5, -.5), xyz(.5, -.5, -.5), xyz(.5, -.5, .5), xyz(-.5, -.5, .5), UP, color); 
-    push_quad(xyz(-.5, .5, -.5), xyz(.5, .5, -.5), xyz(.5, .5, .5), xyz(-.5, .5, .5), DOWN, color);
+    draw_quad(xyz(-.5, -.5, -.5), xyz(.5, -.5, -.5), xyz(.5, -.5, .5), xyz(-.5, -.5, .5), UP, color); 
+    draw_quad(xyz(-.5, .5, -.5), xyz(.5, .5, -.5), xyz(.5, .5, .5), xyz(-.5, .5, .5), DOWN, color);
 
-    push_quad(xyz(-.5, -.5, -.5), xyz(-.5, .5, -.5), xyz(-.5, .5, .5), xyz(-.5, -.5, .5), LEFT, color); 
-    push_quad(xyz(.5, -.5, -.5), xyz(.5, .5, -.5), xyz(.5, .5, .5), xyz(.5, -.5, .5), RIGHT, color); 
+    draw_quad(xyz(-.5, -.5, -.5), xyz(-.5, .5, -.5), xyz(-.5, .5, .5), xyz(-.5, -.5, .5), LEFT, color); 
+    draw_quad(xyz(.5, -.5, -.5), xyz(.5, .5, -.5), xyz(.5, .5, .5), xyz(.5, -.5, .5), RIGHT, color); 
 
-    push_quad(xyz(-.5, -.5, -.5), xyz(-.5, .5, -.5), xyz(.5, .5, -.5), xyz(.5, -.5, -.5), BACK, color); 
-    push_quad(xyz(-.5, -.5, .5), xyz(-.5, .5, .5), xyz(.5, .5, .5), xyz(.5, -.5, .5), FORWARD, color); 
+    draw_quad(xyz(-.5, -.5, -.5), xyz(-.5, .5, -.5), xyz(.5, .5, -.5), xyz(.5, -.5, -.5), BACK, color); 
+    draw_quad(xyz(-.5, -.5, .5), xyz(-.5, .5, .5), xyz(.5, .5, .5), xyz(.5, -.5, .5), FORWARD, color); 
     flush();
 }
 
@@ -360,14 +361,15 @@ Texture :: struct {
 
 Shader :: struct {
     handle: GLuint;
+    name: string;
 
-    load_from_file :: (path: string) -> Shader {
+    load_from_file :: (path: string, name: string) -> Shader {
         contents := read_entire_file(path);
-        return load(contents);
+        return load(contents, name);
     }
 
-    load :: (shader: string) -> Shader {
-        build_shader_part :: (source: string, prefix: string, kind: GLenum) -> GLuint {
+    load :: (shader: string, name: string) -> Shader {
+        build_shader_part :: (source: string, prefix: string, name: string, kind: GLenum) -> GLuint {
             result := glCreateShader(kind);
 
             shaders: [2] *u8;
@@ -387,23 +389,24 @@ Shader :: struct {
             
             log_buf: [512]u8;
             glGetShaderInfoLog(result, log_buf.count, null, log_buf.data);
-            assert(false, "Compile error: %", to_string(log_buf.data));
+            stage := ifx kind == GL_VERTEX_SHADER then "Vertex" else ifx kind == GL_FRAGMENT_SHADER then "FRAGMENT" else "UNKNOWN";
+            assert(false, "%: % - Compile error: %", name, stage, to_string(log_buf.data));
             return 0;
         }
 
         PREFIX_V :: #string END
         #version 330 core
-        #define VERTEX_SHADER
+        #define VERTEX_SHADER 1 
         END
 
         PREFIX_F :: #string END
         #version 330 core
-        #define FRAGMENT_SHADER
+        #define FRAGMENT_SHADER 1
         END
 
-        vtx := build_shader_part(shader, PREFIX_V, GL_VERTEX_SHADER);
+        vtx := build_shader_part(shader, PREFIX_V, name, GL_VERTEX_SHADER);
         defer glDeleteShader(vtx);
-        frg := build_shader_part(shader, PREFIX_F, GL_FRAGMENT_SHADER);
+        frg := build_shader_part(shader, PREFIX_F, name, GL_FRAGMENT_SHADER);
         defer glDeleteShader(frg);
 
         program := glCreateProgram();
@@ -411,24 +414,27 @@ Shader :: struct {
         glAttachShader(program, frg);
         glLinkProgram(program);
 
-        
         success: GLint = ---;
         glGetProgramiv(program, GL_LINK_STATUS, *success);
         if !success {
             log_buf: [512]u8;
             glGetProgramInfoLog(program, log_buf.count, null, log_buf.data);
-            assert(false, "%", to_string(log_buf));
-            return Shader.{0};
+            assert(false, "%: %", name, to_string(log_buf));
+            return Shader.{0, ""};
         }
-        // nb_uniforms: GLint = ---;
-        // glGetProgramiv(program, GL_ACTIVE_UNIFORMS, *nb_uniforms); 
-        // log("Successfully linked program with % uniforms.", nb_uniforms);
-        return Shader.{program};
+        nb_uniforms: GLint = ---;
+        glGetProgramiv(program, GL_ACTIVE_UNIFORMS, *nb_uniforms); 
+        log("%: Successfully linked program with % uniforms.", name, nb_uniforms);
+        return Shader.{program, name};
     }
 
     get_uniform_location :: (shader: Shader, name: string) -> GLint {
         loc := glGetUniformLocation(shader.handle, temp_c_string(name));
-        assert(loc != -1, "Unable to find uniform named %", name);
+        /*
+        if(loc != -1) {
+            log("%: Unable to find uniform named %", shader.name, name, flags = .WARNING);
+        }
+        */
         return loc;
     }
 
@@ -607,7 +613,7 @@ void main() {
     FragPos = vec3(Model * vec4(aPos, 1.0));
     FragPosLightSpace = Light * vec4(FragPos, 1.0);
     gl_Position = Projection * View * vec4(FragPos, 1.0);
-    gl_Position = Light * vec4(FragPos, 1.0);
+    // gl_Position = Light * vec4(FragPos, 1.0);
 }
 
 #endif // VERTEX_SHADER
@@ -713,3 +719,5 @@ void main() {
 #endif
 
 _GLSL
+
+#import "GL";
