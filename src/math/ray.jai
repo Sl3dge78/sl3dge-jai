@@ -15,9 +15,9 @@ Quad :: struct {
         hs := size / 2.0;
         quad : Quad;
         quad.v0 = .{center.x - hs.x, center.y, center.z - hs.y};
-        quad.v1 = .{center.x + hs.x, center.y, center.z - hs.y};
+        quad.v1 = .{center.x - hs.x, center.y, center.z + hs.y};
         quad.v2 = .{center.x + hs.x, center.y, center.z + hs.y};
-        quad.v3 = .{center.x - hs.x, center.y, center.z + hs.y};
+        quad.v3 = .{center.x + hs.x, center.y, center.z - hs.y};
         return quad; 
     }
 }

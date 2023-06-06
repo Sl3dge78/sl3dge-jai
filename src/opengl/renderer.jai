@@ -74,6 +74,8 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
     gl_enable_debug_output(break_on_error = true);
 
     glEnable(GL_MULTISAMPLE);
+    glEnable(GL_CULL_FACE);
+    glFrontFace(GL_CCW);
 
     glGenVertexArrays(1, *global_renderer.vao);
     glGenBuffers(1, *global_renderer.vbo);
@@ -102,7 +104,7 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
 
     global_renderer.projection = make_projection_matrix(60 * PI / 180.0, cast(float)global_renderer.width / cast(float)global_renderer.height, 0.1, 1000);
     global_renderer.shadowmap_target = Render_Texture.init_depth(1024, 1024);
-    global_renderer.light_matrix = make_look_at_matrix(.{0, 0, 0}, unit_vector(.{-1, -1, -1}), .{0, 1, 0}, false) * orthographic_projection_matrix(-50, 50, -50, 50, -50, 50);
+    global_renderer.light_matrix = make_look_at_matrix(.{0, 0, 0}, unit_vector(.{1, 1, 1}), .{0, 1, 0}, false) * orthographic_projection_matrix(-25, 25, -25, 25, -25, 25);
 
     return global_renderer;
 }
@@ -186,11 +188,13 @@ begin_shadowmap :: () {
     Shader.set_uniform(*global_renderer.shadowmap_shader, "Light", global_renderer.light_matrix);
     glDisable(GL_BLEND);
     glEnable(GL_DEPTH_TEST);
+    glCullFace(GL_FRONT);
 }
 
 end_shadowmap :: () {
     flush();
     render_to_window();
+    glCullFace(GL_BACK);
 }
 
 begin_2d :: () {
@@ -244,11 +248,11 @@ draw_text :: (text: string, x: float, y: float, font: *Font, color: Vector4 = .{
         q : stbtt_aligned_quad = ---;
         stbtt_GetPackedQuad(font.char_data.data, 512, 512, xx(it - font.first_char), *x, *y, *q, 0);
         push_vertex(Vertex.{ .{q.x0, q.y0, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s0, q.t0}, color });
+        push_vertex(Vertex.{ .{q.x1, q.y1, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s1, q.t1}, color });
         push_vertex(Vertex.{ .{q.x1, q.y0, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s1, q.t0}, color });
-        push_vertex(Vertex.{ .{q.x1, q.y1, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s1, q.t1}, color });
         push_vertex(Vertex.{ .{q.x0, q.y0, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s0, q.t0}, color });
-        push_vertex(Vertex.{ .{q.x1, q.y1, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s1, q.t1}, color });
         push_vertex(Vertex.{ .{q.x0, q.y1, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s0, q.t1}, color });
+        push_vertex(Vertex.{ .{q.x1, q.y1, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s1, q.t1}, color });
         i += 1;
     }
     flush();
@@ -267,11 +271,11 @@ draw_texture :: (texture: Texture, x: float, y: float, w: float, h: float) {
 
 draw_2d_quad :: (x: float, y: float, w: float, h: float, color: Vector4 = .{1, 1, 1, 1}) {
     push_vertex(Vertex.{ .{x, y, 0},         .{0.0, 0.0, 1.0}, Vector2.{0, 0}, color });
+    push_vertex(Vertex.{ .{x + w, y + h, 0}, .{0.0, 0.0, 1.0}, Vector2.{1, 1}, color });
     push_vertex(Vertex.{ .{x + w, y, 0},     .{0.0, 0.0, 1.0}, Vector2.{1, 0}, color });
-    push_vertex(Vertex.{ .{x + w, y + h, 0}, .{0.0, 0.0, 1.0}, Vector2.{1, 1}, color });
     push_vertex(Vertex.{ .{x, y, 0},         .{0.0, 0.0, 1.0}, Vector2.{0, 0}, color });
-    push_vertex(Vertex.{ .{x + w, y + h, 0}, .{0.0, 0.0, 1.0}, Vector2.{1, 1}, color });
     push_vertex(Vertex.{ .{x, y + h, 0},     .{0.0, 0.0, 1.0}, Vector2.{0, 1}, color });
+    push_vertex(Vertex.{ .{x + w, y + h, 0}, .{0.0, 0.0, 1.0}, Vector2.{1, 1}, color });
     flush();
 }
 
@@ -285,19 +289,19 @@ draw_plane :: (center: Vector3, size: Vector2) {
         plane.v[1],
         plane.v[2],
         plane.v[3],
-        .{0, -1, 0});
+        .{0, 1, 0});
     flush();
 }
 
 draw_cube :: (color: Vector4 = .{1, 1, 1, 1}) {
-    draw_quad(xyz(-.5, -.5, -.5), xyz(.5, -.5, -.5), xyz(.5, -.5, .5), xyz(-.5, -.5, .5), UP, color); 
-    draw_quad(xyz(-.5, .5, -.5), xyz(.5, .5, -.5), xyz(.5, .5, .5), xyz(-.5, .5, .5), DOWN, color);
+    draw_quad(xyz(-.5, -.5, -.5), xyz(.5, -.5, -.5), xyz(.5, -.5, .5), xyz(-.5, -.5, .5), DOWN, color); 
+    draw_quad(xyz(-.5, .5, -.5), xyz(-.5, .5, .5),  xyz(.5, .5, .5), xyz(.5, .5, -.5), UP, color);
 
-    draw_quad(xyz(-.5, -.5, -.5), xyz(-.5, .5, -.5), xyz(-.5, .5, .5), xyz(-.5, -.5, .5), LEFT, color); 
+    draw_quad(xyz(-.5, -.5, -.5), xyz(-.5, -.5, .5), xyz(-.5, .5, .5), xyz(-.5, .5, -.5), LEFT, color); 
     draw_quad(xyz(.5, -.5, -.5), xyz(.5, .5, -.5), xyz(.5, .5, .5), xyz(.5, -.5, .5), RIGHT, color); 
 
     draw_quad(xyz(-.5, -.5, -.5), xyz(-.5, .5, -.5), xyz(.5, .5, -.5), xyz(.5, -.5, -.5), BACK, color); 
-    draw_quad(xyz(-.5, -.5, .5), xyz(-.5, .5, .5), xyz(.5, .5, .5), xyz(.5, -.5, .5), FORWARD, color); 
+    draw_quad(xyz(-.5, -.5, .5), xyz(.5, -.5, .5), xyz(.5, .5, .5), xyz(-.5, .5, .5), FORWARD, color); 
     flush();
 }
 
@@ -590,7 +594,7 @@ float constant = 1.0f;
 float linear = 0.09f;
 float quadratic = 0.002f;
 
-vec3 light_dir = normalize(vec3(1, 1, -1));
+vec3 light_dir = normalize(vec3(1, -1, 1));
 vec3 ambient_color = vec3(0.529, 0.808, 0.922);
 
 float Shadow(vec4 fragPosLightSpace) {
@@ -598,7 +602,8 @@ float Shadow(vec4 fragPosLightSpace) {
     projCoord = projCoord * 0.5 + 0.5;
     float closest = texture(shadow_map, projCoord.xy).r;
     float current = projCoord.z;
-    float shadow = current > closest ? 1.0 : 0.0;
+    float bias = max(0.05 * (1.0 - dot(Normal, -light_dir)), 0.005);
+    float shadow = (current - bias) > closest ? 1.0 : 0.0;
     return shadow;
 }
 
