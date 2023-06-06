@@ -52,10 +52,12 @@ Renderer :: struct {
     immediate_vertices: [..]Vertex;
 
     default_texture: Texture;
+    shadowmap_target: Render_Texture;
 
-    current_target: *RenderTexture;   
+    current_target: *Render_Texture;   
 
     projection: Matrix4; 
+    light_matrix: Matrix4; 
 }
 
 renderer_init :: (window: *SDL_Window) -> Renderer {
@@ -85,10 +87,13 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, *data);
 
     global_renderer.standard_shader = Shader.load(STANDARD, "STANDARD");
+    use_shader(global_renderer.standard_shader);
     Shader.set_uniform(*global_renderer.standard_shader, "Model", Matrix4_Identity);
     Shader.set_uniform(*global_renderer.standard_shader, "View", Matrix4_Identity);
+    Shader.set_uniform(*global_renderer.standard_shader, "texture0", 0, true);
+    Shader.set_uniform(*global_renderer.standard_shader, "shadow_map", 1, true);
+    
     global_renderer.screen_space_shader = Shader.load(SCREEN_SPACE_SHADER, "SCREEN_SPACE_SHADER");
-
     global_renderer.shadowmap_shader = Shader.load(SHADOWMAP_SHADER, "SHADOWMAP_SHADER");
 
     update_window(window);
@@ -96,6 +101,8 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
     use_default_texture();
 
     global_renderer.projection = make_projection_matrix(60 * PI / 180.0, cast(float)global_renderer.width / cast(float)global_renderer.height, 0.1, 1000);
+    global_renderer.shadowmap_target = Render_Texture.init_depth(1024, 1024);
+    global_renderer.light_matrix = make_look_at_matrix(.{0, 0, 0}, unit_vector(.{-1, -1, -1}), .{0, 1, 0}, false) * orthographic_projection_matrix(-50, 50, -50, 50, -50, 50);
 
     return global_renderer;
 }
@@ -139,21 +146,21 @@ end_drawing :: () {
     SDL_GL_SwapWindow(window);
 }
 
-render_to_texture :: (tex: *RenderTexture) {
+render_to_texture :: (tex: *Render_Texture) {
     if global_renderer.current_target != null {
-        RenderTexture.resolve(global_renderer.current_target);
+        Render_Texture.maybe_resolve(global_renderer.current_target);
     }
     global_renderer.current_target = tex;
-    RenderTexture.bind(tex);
+    glBindFramebuffer(GL_FRAMEBUFFER, tex.framebuffer);
     glViewport(0, 0, xx tex.width, xx tex.height);
 }
 
 render_to_window :: () { 
     if global_renderer.current_target != null {
-        RenderTexture.resolve(global_renderer.current_target);
+        Render_Texture.maybe_resolve(global_renderer.current_target);
     }
     global_renderer.current_target = null;
-    RenderTexture.unbind();
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     glViewport(0, 0, xx global_renderer.width, xx global_renderer.height);
 }
@@ -161,10 +168,29 @@ render_to_window :: () {
 begin_3d :: (view: Matrix4) {
     flush();  
     use_shader(*global_renderer.standard_shader);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, global_renderer.shadowmap_target.texture.handle);
+    glActiveTexture(GL_TEXTURE0);
     Shader.set_uniform(*global_renderer.standard_shader, "View", view);
     Shader.set_uniform(*global_renderer.standard_shader, "Projection", global_renderer.projection);
+    Shader.set_uniform(*global_renderer.standard_shader, "Light", global_renderer.light_matrix);
     glDisable(GL_BLEND);
     glEnable(GL_DEPTH_TEST);
+}
+
+begin_shadowmap :: () {
+    flush();
+    use_shader(*global_renderer.shadowmap_shader);
+    render_to_texture(*global_renderer.shadowmap_target);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    Shader.set_uniform(*global_renderer.shadowmap_shader, "Light", global_renderer.light_matrix);
+    glDisable(GL_BLEND);
+    glEnable(GL_DEPTH_TEST);
+}
+
+end_shadowmap :: () {
+    flush();
+    render_to_window();
 }
 
 begin_2d :: () {
@@ -431,18 +457,18 @@ Shader :: struct {
         return Shader.{program, name};
     }
 
-    get_uniform_location :: (shader: Shader, name: string) -> GLint {
+    get_uniform_location :: (shader: Shader, name: string, $check := false) -> GLint {
         loc := glGetUniformLocation(shader.handle, temp_c_string(name));
-        /*
-        if(loc != -1) {
-            log("%: Unable to find uniform named %", shader.name, name, flags = .WARNING);
+        #if check {
+            if(loc != -1) {
+                log("%: Unable to find uniform named %", shader.name, name, flags = .WARNING);
+            }
         }
-        */
         return loc;
     }
 
-    set_uniform :: (shader: Shader, name: string, value: $T) {
-        loc := get_uniform_location(shader, name);
+    set_uniform :: (shader: Shader, name: string, value: $T, $check := false) {
+        loc := get_uniform_location(shader, name, check);
         #if T == *Matrix4 {
             glUniformMatrix4fv(loc, 1, GL_TRUE, xx value);
         } else #if T == Matrix4 {
@@ -453,79 +479,6 @@ Shader :: struct {
             #assert false;
         }
     }
-}
-
-RenderTexture :: struct {
-    framebuffer: GLuint;
-    texture: Texture;
-    width: int;
-    height: int;
-
-    msaa_framebuffer: GLuint;
-    msaa_texture: Texture;
-
-    init :: (w: int, h: int) -> RenderTexture {
-        self: RenderTexture = ---;
-        
-        self.width = w;
-        self.height = h;
-
-        // Resolve framebuffer
-        glGenFramebuffers(1, *self.framebuffer);
-        glBindFramebuffer(GL_FRAMEBUFFER, self.framebuffer);
-
-        self.texture = Texture.init();
-        Texture.bind(self.texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, xx w, xx h, 0, GL_RGB, GL_UNSIGNED_BYTE, null);
-        Texture.set_filter(.LINEAR);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, self.texture.handle, 0);
-        result := glCheckFramebufferStatus(GL_FRAMEBUFFER);
-        if result != GL_FRAMEBUFFER_COMPLETE {
-            log_error("framebuffer isn't complete: %", result);
-        }
-
-        // MSAA framebuffer
-        glGenFramebuffers(1, *self.msaa_framebuffer);
-        glBindFramebuffer(GL_FRAMEBUFFER, self.msaa_framebuffer);
-
-        glCreateTextures(GL_TEXTURE_2D_MULTISAMPLE, 1, *self.msaa_texture.handle);
-        glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, self.msaa_texture.handle);
-        glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 8, GL_RGB, xx w, xx h, GL_TRUE);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, self.msaa_texture.handle, 0);
-
-        result = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-        if result != GL_FRAMEBUFFER_COMPLETE {
-            log_error("msaa framebuffer isn't complete: %", result);
-        }
-
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-        return self;
-    }
-
-    bind :: (self: *RenderTexture) {
-        glBindFramebuffer(GL_FRAMEBUFFER, self.msaa_framebuffer);
-    }
-
-    unbind :: () {
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    }
-
-    deinit :: (self: *RenderTexture) {
-        glDeleteFramebuffers(1, *self.framebuffer);
-        Texture.deinit(*self.texture);
-
-        glDeleteFramebuffers(1, *self.msaa_framebuffer);
-        Texture.deinit(*self.msaa_texture);
-    }
-
-    resolve :: (self: RenderTexture) {
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, self.msaa_framebuffer);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, self.framebuffer);
-        glBlitFramebuffer(0, 0, xx self.width, xx self.height, 0, 0, xx self.width, xx self.height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    }
-
 }
 
 Font :: struct {
