@@ -49,9 +49,11 @@ Renderer :: struct {
     width: s32;
     height: s32;
 
-    immediate_vertices: [..]Vertex;
+    MAX_VERTICES :: 2048;
+    immediate_vertices: [MAX_VERTICES]Vertex;
+    nb_vertices: int;
 
-    default_texture: Texture;
+    default_texture: Texture; 
     shadowmap_target: Render_Texture;
 
     current_target: *Render_Texture;   
@@ -134,19 +136,6 @@ update_window :: (window: *SDL_Window) {
 
 get_window_dims :: () -> Vector2i {
     return .{global_renderer.width, global_renderer.height};
-}
-
-flush :: () {
-    using global_renderer;
-    if immediate_vertices.count == 0 then return; // Nothing to draw
-
-    glBindVertexArray(vao);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-
-    glBufferData(GL_ARRAY_BUFFER, immediate_vertices.count * size_of(Vertex), immediate_vertices.data, GL_STREAM_DRAW);
-    glDrawArrays(GL_TRIANGLES, 0, xx immediate_vertices.count);
-
-    immediate_vertices.count = 0;
 }
 
 end_drawing :: () {
@@ -238,17 +227,34 @@ set_model_matrix :: (mat: Matrix4) {
 // --------
 // Triangles 
 
-push_vertex :: (vertex: Vertex) {
-    array_add(*global_renderer.immediate_vertices, vertex);
+flush :: () {
+    using global_renderer;
+    if nb_vertices == 0 then return; // Nothing to draw
+
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, nb_vertices * size_of(Vertex), immediate_vertices.data, GL_STREAM_DRAW);
+    glDrawArrays(GL_TRIANGLES, 0, xx nb_vertices);
+
+    nb_vertices = 0;
 }
 
-draw_quad :: (p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, normal: Vector3, color: Vector4 = .{1, 1, 1, 1}) {
-    push_vertex(Vertex.{ p0, normal, Vector2.{0.0, 0.0}, color });
-    push_vertex(Vertex.{ p1, normal, Vector2.{1.0, 0.0}, color });
-    push_vertex(Vertex.{ p2, normal, Vector2.{1.0, 1.0}, color });
-    push_vertex(Vertex.{ p0, normal, Vector2.{0.0, 0.0}, color });
-    push_vertex(Vertex.{ p2, normal, Vector2.{1.0, 1.0}, color });
-    push_vertex(Vertex.{ p3, normal, Vector2.{0.0, 1.0}, color });
+prepare_vertices :: (nb: int) -> *Vertex {
+    using global_renderer;
+    if (nb_vertices + nb) >= Renderer.MAX_VERTICES then flush();
+    ptr := *immediate_vertices[nb_vertices];
+    nb_vertices += nb;
+    return ptr;
+}
+
+draw_quad :: (p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, normal: Vector3, color: Vector4 = .{1, 1, 1, 1}, uv0 := Vector2.{0,0}, uv1 := Vector2.{1, 1}) {
+    v := prepare_vertices(6);
+    v[0] = Vertex.{ p0, normal, Vector2.{uv0.x, uv0.y}, color };
+    v[1] = Vertex.{ p2, normal, Vector2.{uv1.x, uv1.y}, color };
+    v[2] = Vertex.{ p1, normal, Vector2.{uv1.x, uv0.y}, color };
+    v[3] = Vertex.{ p0, normal, Vector2.{uv0.x, uv0.y}, color };
+    v[4] = Vertex.{ p3, normal, Vector2.{uv0.x, uv1.y}, color };
+    v[5] = Vertex.{ p2, normal, Vector2.{uv1.x, uv1.y}, color };
 }
 
 // --------
@@ -262,12 +268,13 @@ draw_text :: (text: string, x: float, y: float, font: *Font, color: Vector4 = .{
         
         q : stbtt_aligned_quad = ---;
         stbtt_GetPackedQuad(font.char_data.data, 512, 512, xx(it - font.first_char), *x, *y, *q, 0);
-        push_vertex(Vertex.{ .{q.x0, q.y0, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s0, q.t0}, color });
-        push_vertex(Vertex.{ .{q.x1, q.y1, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s1, q.t1}, color });
-        push_vertex(Vertex.{ .{q.x1, q.y0, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s1, q.t0}, color });
-        push_vertex(Vertex.{ .{q.x0, q.y0, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s0, q.t0}, color });
-        push_vertex(Vertex.{ .{q.x0, q.y1, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s0, q.t1}, color });
-        push_vertex(Vertex.{ .{q.x1, q.y1, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s1, q.t1}, color });
+        v := prepare_vertices(6);
+        v[0] = Vertex.{ .{q.x0, q.y0, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s0, q.t0}, color };
+        v[1] = Vertex.{ .{q.x1, q.y1, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s1, q.t1}, color };
+        v[2] = Vertex.{ .{q.x1, q.y0, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s1, q.t0}, color };
+        v[3] = Vertex.{ .{q.x0, q.y0, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s0, q.t0}, color };
+        v[4] = Vertex.{ .{q.x0, q.y1, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s0, q.t1}, color };
+        v[5] = Vertex.{ .{q.x1, q.y1, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s1, q.t1}, color };
         i += 1;
     }
     flush();
@@ -312,19 +319,17 @@ draw_plane :: (center: Vector3, size: Vector2) {
         plane.v[2],
         plane.v[1],
         .{0, -1, 0});
-    flush();
 }
 
-draw_cube :: (color: Vector4 = .{1, 1, 1, 1}) {
-    draw_quad(xyz(-.5, -.5, -.5), xyz(.5, -.5, -.5), xyz(.5, -.5, .5), xyz(-.5, -.5, .5), DOWN, color); 
-    draw_quad(xyz(-.5, .5, -.5), xyz(-.5, .5, .5),  xyz(.5, .5, .5), xyz(.5, .5, -.5), UP, color);
+draw_cube :: (offset: Vector3 = .{0, 0, 0}, color: Vector4 = .{1, 1, 1, 1}) {
+    draw_quad(xyz(-.5, -.5, -.5) + offset, xyz(.5, -.5, -.5) + offset, xyz(.5, -.5, .5) + offset, xyz(-.5, -.5, .5) + offset, DOWN, color); 
+    draw_quad(xyz(-.5, .5, -.5) + offset, xyz(-.5, .5, .5) + offset,  xyz(.5, .5, .5) + offset, xyz(.5, .5, -.5) + offset, UP, color);
 
-    draw_quad(xyz(-.5, -.5, -.5), xyz(-.5, -.5, .5), xyz(-.5, .5, .5), xyz(-.5, .5, -.5), LEFT, color); 
-    draw_quad(xyz(.5, -.5, -.5), xyz(.5, .5, -.5), xyz(.5, .5, .5), xyz(.5, -.5, .5), RIGHT, color); 
+    draw_quad(xyz(-.5, -.5, -.5) + offset, xyz(-.5, -.5, .5) + offset, xyz(-.5, .5, .5) + offset, xyz(-.5, .5, -.5) + offset, LEFT, color); 
+    draw_quad(xyz(.5, -.5, -.5) + offset, xyz(.5, .5, -.5) + offset, xyz(.5, .5, .5) + offset, xyz(.5, -.5, .5) + offset, RIGHT, color); 
 
-    draw_quad(xyz(-.5, -.5, -.5), xyz(-.5, .5, -.5), xyz(.5, .5, -.5), xyz(.5, -.5, -.5), BACK, color); 
-    draw_quad(xyz(-.5, -.5, .5), xyz(.5, -.5, .5), xyz(.5, .5, .5), xyz(-.5, .5, .5), FORWARD, .{1, 0, 0, 1}); 
-    flush();
+    draw_quad(xyz(-.5, -.5, -.5) + offset, xyz(-.5, .5, -.5) + offset, xyz(.5, .5, -.5) + offset, xyz(.5, -.5, -.5) + offset, BACK, color); 
+    draw_quad(xyz(-.5, -.5, .5) + offset, xyz(.5, -.5, .5) + offset, xyz(.5, .5, .5) + offset, xyz(-.5, .5, .5) + offset, FORWARD, color); 
 }
 
 draw_cylinder :: () {
