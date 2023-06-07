@@ -1,7 +1,7 @@
 Camera :: struct {
     yaw: float = -PI / 2.0;
     pitch: float = PI / 2.0; 
-    position : Vector3;
+    position : Vector3 = .{0, 1.6, 0};
     forward: Vector3 = .{0, 0, -1};
 }
 

@@ -16,6 +16,7 @@ File_Watcher :: #import "File_Watcher";
 #load "src/input.jai";
 #load "src/opengl/renderer.jai";
 #load "src/opengl/render_texture.jai";
+#load "src/opengl/shaders.jai";
 // #load "src/renderer/immediate.jai";
 // #load "src/renderer/renderer.jai";
 // #load "src/renderer/utils.jai";

@@ -58,6 +58,7 @@ Renderer :: struct {
 
     projection: Matrix4; 
     light_matrix: Matrix4; 
+    light_dir: Vector3;
 }
 
 renderer_init :: (window: *SDL_Window) -> Renderer {
@@ -90,21 +91,25 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
 
     global_renderer.standard_shader = Shader.load(STANDARD, "STANDARD");
     use_shader(global_renderer.standard_shader);
-    Shader.set_uniform(*global_renderer.standard_shader, "Model", Matrix4_Identity);
-    Shader.set_uniform(*global_renderer.standard_shader, "View", Matrix4_Identity);
-    Shader.set_uniform(*global_renderer.standard_shader, "texture0", 0, true);
-    Shader.set_uniform(*global_renderer.standard_shader, "shadow_map", 1, true);
+    Shader.print_uniforms();
+    Shader.set_uniform("Model", Matrix4_Identity);
+    Shader.set_uniform("View", Matrix4_Identity);
+    Shader.set_uniform("texture0", 0, true);
+    Shader.set_uniform("shadow_map", 1, true);
     
     global_renderer.screen_space_shader = Shader.load(SCREEN_SPACE_SHADER, "SCREEN_SPACE_SHADER");
     global_renderer.shadowmap_shader = Shader.load(SHADOWMAP_SHADER, "SHADOWMAP_SHADER");
+    global_renderer.shadowmap_target = Render_Texture.init_depth(2048, 2048);
 
+    // Set default state
     update_window(window);
     render_to_window();
     use_default_texture();
 
     global_renderer.projection = make_projection_matrix(60 * PI / 180.0, cast(float)global_renderer.width / cast(float)global_renderer.height, 0.1, 1000);
-    global_renderer.shadowmap_target = Render_Texture.init_depth(1024, 1024);
-    global_renderer.light_matrix = make_look_at_matrix(.{0, 0, 0}, unit_vector(.{1, 1, 1}), .{0, 1, 0}, false) * orthographic_projection_matrix(-25, 25, -25, 25, -25, 25);
+    
+    global_renderer.light_dir = unit_vector(.{1, 1, 1});
+    global_renderer.light_matrix = make_look_at_matrix(.{0, 0, 0}, global_renderer.light_dir, .{0, 1, 0}, false) * orthographic_projection_matrix(-25, 25, -25, 25, -25, 25);
 
     return global_renderer;
 }
@@ -173,9 +178,10 @@ begin_3d :: (view: Matrix4) {
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, global_renderer.shadowmap_target.texture.handle);
     glActiveTexture(GL_TEXTURE0);
-    Shader.set_uniform(*global_renderer.standard_shader, "View", view);
-    Shader.set_uniform(*global_renderer.standard_shader, "Projection", global_renderer.projection);
-    Shader.set_uniform(*global_renderer.standard_shader, "Light", global_renderer.light_matrix);
+    Shader.set_uniform("View", view);
+    Shader.set_uniform("Projection", global_renderer.projection);
+    Shader.set_uniform("Light", global_renderer.light_matrix);
+    Shader.set_uniform("light_dir", global_renderer.light_dir);
     glDisable(GL_BLEND);
     glEnable(GL_DEPTH_TEST);
 }
@@ -185,16 +191,24 @@ begin_shadowmap :: () {
     use_shader(*global_renderer.shadowmap_shader);
     render_to_texture(*global_renderer.shadowmap_target);
     glClear(GL_DEPTH_BUFFER_BIT);
-    Shader.set_uniform(*global_renderer.shadowmap_shader, "Light", global_renderer.light_matrix);
+    Shader.set_uniform("Light", global_renderer.light_matrix);
+    
     glDisable(GL_BLEND);
     glEnable(GL_DEPTH_TEST);
-    glCullFace(GL_FRONT);
+    // glCullFace(GL_FRONT);
+}
+
+change_light_direction :: (new: Vector3) {
+    global_renderer.light_dir = unit_vector(new);
+    log("%, dot:%", global_renderer.light_dir, dot(global_renderer.light_dir, .{0, 0, 1}));
+    size : float = 10;
+    global_renderer.light_matrix = make_look_at_matrix(.{0, 0, 0}, global_renderer.light_dir, .{0, 1, 0}, false) * orthographic_projection_matrix(-size, size, -size, size, -size, size);
 }
 
 end_shadowmap :: () {
     flush();
     render_to_window();
-    glCullFace(GL_BACK);
+    // glCullFace(GL_BACK);
 }
 
 begin_2d :: () {
@@ -204,9 +218,9 @@ begin_2d :: () {
     glDisable(GL_DEPTH_TEST);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     if global_renderer.current_target == null {
-        Shader.set_uniform(*global_renderer.screen_space_shader, "Projection", orthographic_projection_matrix(0, xx global_renderer.width, xx global_renderer.height, 0, -1, 1));
+        Shader.set_uniform("Projection", orthographic_projection_matrix(0, xx global_renderer.width, xx global_renderer.height, 0, -1, 1));
     } else {
-        Shader.set_uniform(*global_renderer.screen_space_shader, "Projection", orthographic_projection_matrix(0, xx global_renderer.current_target.width, xx global_renderer.current_target.height, 0, -1, 1));
+        Shader.set_uniform("Projection", orthographic_projection_matrix(0, xx global_renderer.current_target.width, xx global_renderer.current_target.height, 0, -1, 1));
     }
 }
 
@@ -217,7 +231,7 @@ use_shader :: (shader : Shader) {
 
 set_model_matrix :: (mat: Matrix4) {
     flush();
-    Shader.set_uniform(global_renderer.current_shader, "Model", mat);
+    Shader.set_uniform("Model", mat);
 }
 
 // --------
@@ -282,6 +296,7 @@ draw_2d_quad :: (x: float, y: float, w: float, h: float, color: Vector4 = .{1, 1
 // -------
 // Shapes
 
+// 2 sided plane
 draw_plane :: (center: Vector3, size: Vector2) {
     plane := Quad.make(center, size);
     draw_quad(
@@ -290,6 +305,12 @@ draw_plane :: (center: Vector3, size: Vector2) {
         plane.v[2],
         plane.v[3],
         .{0, 1, 0});
+    draw_quad(
+        plane.v[0],
+        plane.v[3],
+        plane.v[2],
+        plane.v[1],
+        .{0, -1, 0});
     flush();
 }
 
@@ -301,7 +322,7 @@ draw_cube :: (color: Vector4 = .{1, 1, 1, 1}) {
     draw_quad(xyz(.5, -.5, -.5), xyz(.5, .5, -.5), xyz(.5, .5, .5), xyz(.5, -.5, .5), RIGHT, color); 
 
     draw_quad(xyz(-.5, -.5, -.5), xyz(-.5, .5, -.5), xyz(.5, .5, -.5), xyz(.5, -.5, -.5), BACK, color); 
-    draw_quad(xyz(-.5, -.5, .5), xyz(.5, -.5, .5), xyz(.5, .5, .5), xyz(-.5, .5, .5), FORWARD, color); 
+    draw_quad(xyz(-.5, -.5, .5), xyz(.5, -.5, .5), xyz(.5, .5, .5), xyz(-.5, .5, .5), FORWARD, .{1, 0, 0, 1}); 
     flush();
 }
 
@@ -461,26 +482,45 @@ Shader :: struct {
         return Shader.{program, name};
     }
 
-    get_uniform_location :: (shader: Shader, name: string, $check := false) -> GLint {
-        loc := glGetUniformLocation(shader.handle, temp_c_string(name));
+    get_uniform_location :: (name: string, $check := false) -> GLint {
+        loc := glGetUniformLocation(global_renderer.current_shader.handle, temp_c_string(name));
         #if check {
             if(loc != -1) {
-                log("%: Unable to find uniform named %", shader.name, name, flags = .WARNING);
+                log("%: Unable to find uniform named %", global_renderer.current_shader.name, name, flags = .WARNING);
             }
         }
         return loc;
     }
 
-    set_uniform :: (shader: Shader, name: string, value: $T, $check := false) {
-        loc := get_uniform_location(shader, name, check);
+    set_uniform :: (name: string, value: $T, $check := false) {
+        loc := get_uniform_location(name, check);
         #if T == *Matrix4 {
             glUniformMatrix4fv(loc, 1, GL_TRUE, xx value);
         } else #if T == Matrix4 {
             glUniformMatrix4fv(loc, 1, GL_TRUE, xx *value);
         } else #if T == s64 {
             glUniform1i(loc, xx value);
+        } else #if T == Vector3 {
+            glUniform3f(loc, value.x, value.y, value.z);
         } else {
             #assert false;
+        }
+    }
+
+    print_uniforms :: () {
+        count: s32 = 0;
+        type: GLenum;
+        buf: [128]u8;
+        name: string = ---;
+        name.data = buf.data;
+        size: s32;
+        glGetProgramiv(global_renderer.current_shader.handle, GL_ACTIVE_UNIFORMS, *count);
+        log("Active Uniforms: %d\n", count);
+        for 0..count-1 {
+            nb : u32;
+            glGetActiveUniform(global_renderer.current_shader.handle, xx it, 128, *nb, *size, *type, name.data);
+            name.count = xx nb;
+            log("Uniform #% Type: % Name: %\n", it, type, name);
         }
     }
 }
@@ -544,141 +584,4 @@ Font :: struct {
         // Nothing to deinit
     }
 }
-
-// --------
-// Shaders
-
-STANDARD :: #string _GLSL
-#ifdef VERTEX_SHADER
-layout (location = 0) in vec3 aPos;
-layout (location = 1) in vec3 aNormal;
-layout (location = 2) in vec2 aUv;
-layout (location = 3) in vec4 aColor;
-
-uniform mat4 Projection;
-uniform mat4 View;
-uniform mat4 Model;
-uniform mat4 Light;
-
-out vec3 Normal;
-out vec2 TexCoords;
-out vec3 FragPos;
-out vec4 VertexColor;
-out vec4 FragPosLightSpace;
-
-void main() {
-    Normal = aNormal;
-    TexCoords = aUv;
-    VertexColor = aColor;
-    FragPos = vec3(Model * vec4(aPos, 1.0));
-    FragPosLightSpace = Light * vec4(FragPos, 1.0);
-    gl_Position = Projection * View * vec4(FragPos, 1.0);
-    // gl_Position = Light * vec4(FragPos, 1.0);
-}
-
-#endif // VERTEX_SHADER
-
-#ifdef FRAGMENT_SHADER
-out vec4 FragColor;
-
-in vec3 FragPos;
-in vec3 Normal;
-in vec2 TexCoords;
-in vec4 VertexColor;
-in vec4 FragPosLightSpace;
-
-uniform sampler2D texture0;
-uniform sampler2D shadow_map;
-
-float constant = 1.0f;
-float linear = 0.09f;
-float quadratic = 0.002f;
-
-vec3 light_dir = normalize(vec3(1, -1, 1));
-vec3 ambient_color = vec3(0.529, 0.808, 0.922);
-
-float Shadow(vec4 fragPosLightSpace) {
-    vec3 projCoord = fragPosLightSpace.xyz / fragPosLightSpace.w;
-    projCoord = projCoord * 0.5 + 0.5;
-    float closest = texture(shadow_map, projCoord.xy).r;
-    float current = projCoord.z;
-    float bias = max(0.05 * (1.0 - dot(Normal, -light_dir)), 0.005);
-    float shadow = (current - bias) > closest ? 1.0 : 0.0;
-    return shadow;
-}
-
-void main() {
-    // vec3 light_pos = vec3(0, 2, 0);
-    // float distance = length(light_pos - FragPos);
-    // float attenuation = 1.0 / (constant + linear * distance + quadratic * (distance * distance));
-    // vec4 color_tex = 
-    // FragColor = attenuation * VertexColor;
-    vec3 base_color = texture(texture0, TexCoords).rgb * VertexColor.rgb;
-    float NdotL = max(dot(Normal, -light_dir), 0.0);
-    vec3 diffuse = NdotL * vec3(1, 1, 1);
-    vec3 ambient = ambient_color * .1;
-    float shadow = Shadow(FragPosLightSpace);
-    FragColor = vec4((ambient + (1.0 - shadow) * diffuse) * base_color, 1);
-} 
-
-#endif // FRAGMENT_SHADER
-_GLSL;
-
-SCREEN_SPACE_SHADER :: #string _GLSL
-#ifdef VERTEX_SHADER
-layout (location = 0) in vec3 aPos;
-layout (location = 1) in vec3 aNormal;
-layout (location = 2) in vec2 aUv;
-layout (location = 3) in vec4 aColor;
-
-out vec2 TexCoords;
-out vec4 VertexColor;
-
-uniform mat4 Projection;
-
-void main() {
-    gl_Position = Projection * vec4(aPos.xy, 0.0, 1.0); 
-    TexCoords = aUv;
-    VertexColor = aColor;
-}  
-#endif // VERTEX_SHADER
-#ifdef FRAGMENT_SHADER
-
-out vec4 FragColor;
-  
-in vec2 TexCoords;
-in vec4 VertexColor;
-
-uniform sampler2D texture0;
-
-void main() { 
-
-    vec4 tex = texture(texture0, TexCoords);
-    FragColor = vec4(VertexColor.xyz, tex.a * VertexColor.a);
-}
-
-#endif // FRAGMENT_SHADER
-_GLSL;
-
-SHADOWMAP_SHADER :: #string _GLSL
-#ifdef VERTEX_SHADER
-layout (location = 0) in vec3 aPos;
-
-uniform mat4 Light;
-uniform mat4 Model;
-
-void main() {
-    gl_Position = Light * Model * vec4(aPos, 1.0);
-}
-
-#endif
-#ifdef FRAGMENT_SHADER
-void main() {
-
-}
-
-#endif
-
-_GLSL
-
 #import "GL";
