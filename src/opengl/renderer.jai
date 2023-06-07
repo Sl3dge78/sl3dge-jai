@@ -197,20 +197,19 @@ begin_shadowmap :: () {
     
     glDisable(GL_BLEND);
     glEnable(GL_DEPTH_TEST);
-    // glCullFace(GL_FRONT);
+    glCullFace(GL_FRONT);
 }
 
 change_light_direction :: (new: Vector3) {
     global_renderer.light_dir = unit_vector(new);
-    log("%, dot:%", global_renderer.light_dir, dot(global_renderer.light_dir, .{0, 0, 1}));
     size : float = 10;
-    global_renderer.light_matrix = make_look_at_matrix(.{0, 0, 0}, global_renderer.light_dir, .{0, 1, 0}, false) * orthographic_projection_matrix(-size, size, -size, size, -size, size);
+    global_renderer.light_matrix = make_look_at_matrix(.{0, 0, 0}, global_renderer.light_dir, .{0, 1, 0}, false) * orthographic_projection_matrix(-size, size, size, -size, -size, size);
 }
 
 end_shadowmap :: () {
     flush();
     render_to_window();
-    // glCullFace(GL_BACK);
+    glCullFace(GL_BACK);
 }
 
 begin_2d :: () {
