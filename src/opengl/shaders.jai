@@ -51,8 +51,10 @@ float quadratic = 0.002f;
 
 vec3 ambient_color = vec3(0.529, 0.808, 0.922);
 
+const float shadow_factor = 0.1;
+
 const int pcf_count = 2;
-const float pcf_total_texels = pow(pcf_count * 2.0 + 1.0, 2.0);
+const int pcf_total_texels = (pcf_count * 2 + 1) * (pcf_count * 2 + 1);
 const float map_size = 2048.0;
 const float texel_size = 1.0 / map_size;
 
@@ -60,45 +62,33 @@ float Shadow(vec4 fragPosLightSpace) {
     vec3 projCoord = fragPosLightSpace.xyz / fragPosLightSpace.w;
     projCoord = projCoord * 0.5 + 0.5;
     float current = projCoord.z;
-    float total = 0.0;
+    int total = 0;
     float x = 1.0 - abs(dot(Normal, light_dir));
-    // float bias = max(10.0 * (1.0 - abs(dot(Normal, light_dir))), 2.0);
-    float bias = exp(x * 4.0);
-    // float bias = mix(2.0, 5.0, x);
+    float bias = max(10.0 * x, 1.0);
+    // float bias = 2;
+    // float bias = exp(x * 3.0);
+    // float bias = mix(1.0, 10.0, 1.0-x);
     bias *= texel_size;
     for(int x = -pcf_count; x <= pcf_count; x++) {
         for(int y = -pcf_count; y <= pcf_count; y++) {
             float closest = texture(shadow_map, projCoord.xy + vec2(x, y) * texel_size).r;        
             if (current - bias > closest) {
-                total += 1.0;
+                total += 1;
             }
         }
     }
-    total /= pcf_total_texels;
-
-    float closest = texture(shadow_map, projCoord.xy).r;
-    
-    /*
-    float bias = max(0.01 * (1.0 - dot(Normal, light_dir)), 0.001);
-    float shadow = (current - bias) > closest ? 1.0 : 0.0;
-    */
-
-    return 1.0 - total;
+    float result = float(total) / float(pcf_total_texels);
+    return 1.0 - result;
 }
 
 void main() {
-    // vec3 light_pos = vec3(0, 2, 0);
-    // float distance = length(light_pos - FragPos);
-    // float attenuation = 1.0 / (constant + linear * distance + quadratic * (distance * distance));
-    // vec4 color_tex = 
-    // FragColor = attenuation * VertexColor;
-    vec3 base_color = texture(texture0, TexCoords).rgb * VertexColor.rgb;
-    float NdotL = max(dot(Normal, -light_dir), 0.0);
-    vec3 diffuse = NdotL * vec3(1, 1, 1);
-    diffuse = vec3(1, 1, 1);
-    vec3 ambient = ambient_color * .1;
+    vec3 iterated_color = texture(texture0, TexCoords).rgb * VertexColor.rgb;
+    float NdotL = abs(dot(Normal, light_dir));
     float shadow = Shadow(FragPosLightSpace);
-    FragColor = vec4((ambient + shadow * diffuse) * base_color, 1);
+    float factor = clamp(min(shadow, NdotL), 0.2, 1.0);
+    vec3 ambient = ambient_color * 0.1;
+    iterated_color = ambient * (1.0 - factor) + iterated_color * factor;
+    FragColor = vec4(iterated_color, 1);
 } 
 
 #endif // FRAGMENT_SHADER

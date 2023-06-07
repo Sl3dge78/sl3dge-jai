@@ -76,6 +76,8 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
 
     glEnable(GL_MULTISAMPLE);
     glEnable(GL_CULL_FACE);
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(1, 1);
     glFrontFace(GL_CCW);
 
     glGenVertexArrays(1, *global_renderer.vao);
