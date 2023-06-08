@@ -50,7 +50,7 @@ create_font_from_data :: (font_data: string, size: float) -> Font, bool {
 }
 
 destroy_font :: (font : *Font) {
-    destroy_texture(font.texture);
+    destroy_texture(*font.texture);
 }
 
 size_text :: (text: string, font: *Font) -> float {

@@ -15,19 +15,21 @@ Resource_Info :: struct {
     pointer: *void;
     type: Type;
     load: (*Resource_Info) -> bool;
+    unload: #type (*Resource_Info);
 }
 
 Extension_Info :: struct {
     ext: string;
     load: (*Resource_Info) -> bool;
+    unload: #type (*Resource_Info);
     type: (path: string) -> string;
 }
 
 extension_infos := Extension_Info.[
-    .{"var", load_var_file, get_var_type},
-    .{"ttf", load_font_file, get_font_type},
+    .{"var", load_var_file, unload_var, get_var_type},
+    .{"ttf", load_font_file, unload_font, get_font_type},
     // .{"glsl", load_shader, get_shader_type},
-    .{"png", load_image, get_image_type},
+    .{"png", load_image, unload_image, get_image_type},
 ];
 
 resources : Resources;
@@ -59,7 +61,7 @@ Resources :: struct {
             // Add a case to the get_res_ptr function call
             print_to_builder(*user_data[1], "\tcase \"%\"; return *resources.%2, type_of(resources.%2);\n", info.full_name, basename);
             // Add an entry in the resource info array
-            print_to_builder(*user_data[2], "\t.{\"%\", null, type_of(null), null},\n", info.full_name);
+            print_to_builder(*user_data[2], "\t.{path = \"%\"},\n", info.full_name);
             // Add the asset to the struct
             print_to_builder(*user_data[0], "%: %;\n", basename, ext_info.type(info.full_name));
         }
@@ -103,12 +105,14 @@ Resources :: struct {
             ext_info := get_ext_info(ext);
             assert(ext_info != null, tprint("No extension info for file %", info.path));
             info.load = ext_info.load;
+            info.unload = ext_info.unload;
         }
         load_all();
     }
 
     deinit :: () {
         File_Watcher.deinit(resources.watcher);
+        unload_all();
     }
 
     update :: () {
@@ -118,6 +122,12 @@ Resources :: struct {
     load_all :: () {
         for *resources.infos {
             it.load(it);
+        }
+    }
+
+    unload_all :: () {
+        for *resources.infos {
+            it.unload(it);
         }
     }
 
@@ -135,6 +145,7 @@ Resources :: struct {
         }
         if !info then return;
         log("File % has changed", change.full_path);
+        info.unload(info);
         info.load(info);
     }
 }
@@ -187,10 +198,18 @@ load_var_file :: (info: *Resource_Info) -> bool {
     return true;
 }
 
+unload_var :: (info: *Resource_Info) {
+    // nop
+}
+
 // .ttf files
 load_font_file :: (info: *Resource_Info) -> bool {
     (cast(*Font)info.pointer).* = create_font_from_file(info.path, 8); // @Todo: Find a way to specify a font size
     return true;
+}
+
+unload_font :: (info :*Resource_Info) {
+    destroy_font(xx info.pointer);
 }
 
 get_font_type :: (path: string) -> string {
@@ -216,6 +235,10 @@ get_shader_type :: (path: string) -> string {
 load_image :: (info: *Resource_Info) -> bool {
     (cast(*Texture)info.pointer).* = create_texture_from_file(info.path);
     return true;
+}
+
+unload_image :: (info: *Resource_Info) {
+    destroy_texture(xx info.pointer);
 }
 
 get_image_type :: (path: string) -> string {

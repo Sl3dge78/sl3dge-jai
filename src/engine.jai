@@ -24,6 +24,8 @@ Engine :: struct {
     }
 
     deinit :: () {
+        wait_idle();
+        destroy_font(*global_engine.default_font);
         Resources.deinit();
         renderer_deinit();
         SDL_DestroyWindow(global_engine.window);

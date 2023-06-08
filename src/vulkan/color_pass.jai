@@ -10,7 +10,7 @@ Render_Pass :: struct {
     sampler: VkSampler;
 }
 
-create_renderpass :: (device: VkDevice, format: VkFormat) -> VkRenderPass{
+create_vkrenderpass :: (device: VkDevice, format: VkFormat) -> VkRenderPass {
     create_info := VkRenderPassCreateInfo.{
         attachmentCount = 1,
         pAttachments = *VkAttachmentDescription.{
@@ -48,12 +48,11 @@ create_renderpass :: (device: VkDevice, format: VkFormat) -> VkRenderPass{
     return render_pass;
 }
 
-
-init_color_pass :: (device: VkDevice) -> Render_Pass {
+create_color_pass :: (device: VkDevice) -> Render_Pass {
     color_pass : Render_Pass;
 
     // Render pass
-    color_pass.render_pass = create_renderpass(device, global_renderer.surface_format.format);
+    color_pass.render_pass = create_vkrenderpass(device, global_renderer.surface_format.format);
 
     // Pipeline
     {
@@ -236,10 +235,10 @@ init_color_pass :: (device: VkDevice) -> Render_Pass {
 
 
     return color_pass;
-
 }
 
 destroy_color_pass :: (using color_pass: *Render_Pass, device: VkDevice) {
+    vkDestroyDescriptorPool(device, descriptor_pool, null);
     vkDestroySampler(device, sampler, null);
     vkDestroyDescriptorSetLayout(device, descriptor_set_layout, null);
     vkDestroyPipelineLayout(device, pipeline_layout, null);

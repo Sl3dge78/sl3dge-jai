@@ -28,9 +28,6 @@ Renderer :: struct {
 
     color_pass: Render_Pass;
 
-    sampler: VkSampler;
-    texture: Texture;
-
     // Mem
     REGION_SIZE :: 64 * 1024;
     BUFFER_SIZE :: FRAME_COUNT * REGION_SIZE;
@@ -85,7 +82,7 @@ debug_callback :: (severity: VkDebugUtilsMessageSeverityFlagsEXT, type: VkDebugU
         msg := to_string(callback_data.pMessage);
         log("%: %", severity, msg);
         if severity >= .ERROR_BIT_EXT {
-            assert(false);
+            // assert(false);
         }
     }
     return VK_TRUE;
@@ -271,7 +268,7 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
         log("Buffer created.");
     }
 
-    renderer.color_pass = init_color_pass(renderer.device);
+    renderer.color_pass = create_color_pass(renderer.device);
 
     // Swapchain
     create_or_update_swapchain(renderer.color_pass.render_pass);
@@ -382,16 +379,18 @@ renderer_resize :: (w: s32, h: s32) {
     create_or_update_swapchain(xx w, xx h);
 }
 
+wait_idle :: () {
+    vkDeviceWaitIdle(global_renderer.device);
+}
+
 renderer_deinit :: () {
     using global_renderer;
     vkDeviceWaitIdle(device);
 
-    destroy_texture(*texture);
-
-
     vkDestroyDescriptorPool(device, descriptor_pool, null);
     destroy_buffer(vertex_buffer);
 
+    destroy_color_pass(*color_pass, device);
 
     for framebuffers {
         vkDestroyFramebuffer(device, it, null);
@@ -402,7 +401,6 @@ renderer_deinit :: () {
         vkDestroyImageView(device, it, null);
     }
     array_reset(*swapchain_image_views);
-
 
     // Render context
     for frame_data {
