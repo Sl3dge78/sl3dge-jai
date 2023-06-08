@@ -174,7 +174,6 @@ create_color_pass :: (device: VkDevice) -> Render_Pass {
                 pDynamicStates = dynamic_state.data,
             },
             layout = color_pass.pipeline_layout,
-            renderPass = color_pass.render_pass,
         };
         vkCreateGraphicsPipelines(device, null, 1, *create_info, null, *color_pass.pipeline);
         log("Pipeline created.");
@@ -262,12 +261,6 @@ begin_pass :: (pass: Render_Pass, clear_color: Vector4) {
             extent = swapchain_extent,
         },
     }, .INLINE);
-    vkCmdBindPipeline(command_buffer, .GRAPHICS, pass.pipeline);
-    set_transform_matrix(Matrix4_Identity);
-    vkCmdSetViewport(command_buffer, 0, 1, *VkViewport.{0, 0, xx swapchain_extent.width, xx swapchain_extent.height, 0, 1});
-    vkCmdSetScissor(command_buffer, 0, 1, *VkRect2D.{.{0, 0}, swapchain_extent});
-    update_descriptors(pass, image_index, resources.block_texture);
-    vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pass.pipeline_layout, 0, 1, *pass.descriptor_sets[image_index], 0, null);
 }
 
 update_descriptors :: (pass: Render_Pass, id : u32, texture: Texture) {

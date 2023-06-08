@@ -102,6 +102,8 @@ single_time_command_buffer :: () -> VkCommandBuffer #expand {
 
 vkCreateDebugUtilsMessengerEXT: PFN_vkCreateDebugUtilsMessengerEXT;
 vkDestroyDebugUtilsMessengerEXT: PFN_vkDestroyDebugUtilsMessengerEXT;
+// vkCmdBeginRenderingKHR : PFN_vkCmdBeginRenderingKHR;
+// vkCmdEndRenderingKHR : PFN_vkCmdEndRenderingKHR;
 
 load_function_pointers :: (instance: VkInstance) {
     load :: (name: string) -> *void #expand {
@@ -111,6 +113,8 @@ load_function_pointers :: (instance: VkInstance) {
     }
     vkCreateDebugUtilsMessengerEXT = xx load("vkCreateDebugUtilsMessengerEXT");
     vkDestroyDebugUtilsMessengerEXT = xx load("vkDestroyDebugUtilsMessengerEXT");
+    // vkCmdBeginRenderingKHR = xx load("vkCmdBeginRenderingKHR");
+    // vkCmdEndRenderingKHR = xx load("vkCmdEndRenderingKHR");
 }
 
 SDL_Vulkan_GetInstanceExtensions :: (window: *SDL_Window, pCount: *u32, pNames: **u8) -> bool #foreign SDL2;

@@ -107,7 +107,8 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
         extensions.count += nb;
 
         array_add(*extensions, temp_c_string("VK_EXT_debug_utils"));
-        // array_add(*extensions, temp_c_string("VK_KHR_surface"));
+        array_add(*extensions, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME.data);
+
         log("Extensions:");
         for ext : extensions {
             log("\t%", to_string(ext));
@@ -118,6 +119,9 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
             ppEnabledLayerNames = layers.data,
             enabledExtensionCount = xx extensions.count,
             ppEnabledExtensionNames = extensions.data,
+            pApplicationInfo = *VkApplicationInfo.{
+                apiVersion = VK_MAKE_VERSION(3, 0 ,0),
+            },
         };
 
         Vk_Check(vkCreateInstance(*create_info, null, *renderer.instance));
@@ -207,11 +211,26 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
             queueCount = 1,
             pQueuePriorities = float.[1].data,
         };
+        features_13 := VkPhysicalDeviceVulkan13Features.{
+            dynamicRendering = VK_TRUE,
+        };
         device_features := VkPhysicalDeviceFeatures.{
             samplerAnisotropy = VK_TRUE,
         };
-        exts := *u8.[VK_KHR_SWAPCHAIN_EXTENSION_NAME.data];
+        dynamic_rendering_feature := VkPhysicalDeviceDynamicRenderingFeaturesKHR.{
+            pNext = *features_13,
+            dynamicRendering = VK_TRUE,
+        };
+        exts := *u8.[
+            VK_KHR_SWAPCHAIN_EXTENSION_NAME.data,
+            VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME.data,
+            VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME.data,
+            VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME.data,
+            VK_KHR_MAINTENANCE2_EXTENSION_NAME.data,
+            VK_KHR_MULTIVIEW_EXTENSION_NAME.data,
+        ];
         create_info := VkDeviceCreateInfo.{
+            pNext = *features_13,
             pQueueCreateInfos = *queue_create_info,
             queueCreateInfoCount = 1,
             pEnabledFeatures = *device_features,
@@ -425,16 +444,42 @@ begin_frame :: (view: Matrix4, clear_color: Vector4 = .{0, 0, 0, 1}) {
     context.vk_frame_data = *frame_data[idx];
     using context.vk_frame_data;
 
+    // Wait for image
     vkWaitForFences(device, 1, *frame_fence, VK_TRUE, U64_MAX);
     vkResetFences(device, 1, *frame_fence);
-
     Vk_Check(vkAcquireNextImageKHR(device, swapchain, U64_MAX, image_available_semaphore, VK_NULL_HANDLE, *image_index));
     begin_info := VkCommandBufferBeginInfo.{
         flags = .ONE_TIME_SUBMIT_BIT,
     };
-    vkBeginCommandBuffer(command_buffer, *begin_info);
 
-    begin_pass(color_pass, clear_color);
+    // Begin recording
+    vkBeginCommandBuffer(command_buffer, *begin_info);
+    render_info := VkRenderingInfoKHR.{
+        renderArea = .{
+            offset = .{0, 0},
+            extent = swapchain_extent,
+        },
+        layerCount = 1,
+        colorAttachmentCount = 1,
+        pColorAttachments = *VkRenderingAttachmentInfoKHR.{
+            imageView = swapchain_image_views[image_index],
+            imageLayout = .ATTACHMENT_OPTIMAL,
+            loadOp = .CLEAR,
+            storeOp = .STORE,
+            clearValue = VkClearValue.{color = .{_float32 = clear_color.component }},
+        },
+    };
+    transition_image_layout(swapchain_images[image_index], .UNDEFINED, .COLOR_ATTACHMENT_OPTIMAL);
+
+    set_transform_matrix(Matrix4_Identity);
+    vkCmdSetViewport(command_buffer, 0, 1, *VkViewport.{0, 0, xx swapchain_extent.width, xx swapchain_extent.height, 0, 1});
+    vkCmdSetScissor(command_buffer, 0, 1, *VkRect2D.{.{0, 0}, swapchain_extent});
+
+    update_descriptors(color_pass, image_index, resources.block_texture);
+    vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, color_pass.pipeline_layout, 0, 1, *color_pass.descriptor_sets[image_index], 0, null);
+
+    vkCmdBeginRendering(command_buffer, *render_info);
+    vkCmdBindPipeline(command_buffer, .GRAPHICS, color_pass.pipeline);
 
     // Update uniform
     proj := make_projection_matrix(radians(45), cast(float)swapchain_extent.width/cast(float)swapchain_extent.height, 0.1, 1000);
@@ -447,33 +492,13 @@ begin_frame :: (view: Matrix4, clear_color: Vector4 = .{0, 0, 0, 1}) {
     memcpy(color_pass.uniform_data[image_index].mapped, *camera_data, size_of(type_of(camera_data)));
 }
 
-flush :: () {
-    using global_renderer;
-    offset : u64 = xx (context.vk_frame_data.image_index * Renderer.REGION_SIZE);
-    vkCmdBindVertexBuffers(context.vk_frame_data.command_buffer, 0, 1, *vertex_buffer.buffer, *offset);
-    vkCmdDraw(context.vk_frame_data.command_buffer, nb_vertices, 1, 0, 0);
-    nb_vertices = 0;
-
-}
-
-get_window_dims :: () -> Vector2i {
-    return .{global_renderer.swapchain_extent.width, global_renderer.swapchain_extent.height};
-}
-
-set_transform_matrix :: (mat: Matrix4) {
-    using global_renderer;
-    constants := PushConstantData.{
-        transpose(mat),
-    };
-    vkCmdPushConstants(context.vk_frame_data.command_buffer, color_pass.pipeline_layout, .VERTEX_BIT, 0, size_of(type_of(constants)), *constants);
-}
-
 end_frame :: () {
     using global_renderer;
     using context.vk_frame_data;
     flush();
 
-    vkCmdEndRenderPass(command_buffer);
+    vkCmdEndRendering(command_buffer);
+    transition_image_layout(swapchain_images[image_index], .COLOR_ATTACHMENT_OPTIMAL, .PRESENT_SRC_KHR);
 
     Vk_Check(vkEndCommandBuffer(command_buffer));
     submit_info := VkSubmitInfo.{
@@ -501,3 +526,24 @@ end_frame :: () {
         Vk_Check(result);
     }
 }
+
+flush :: () {
+    using context.vk_frame_data;
+    offset : u64 = xx (image_index * Renderer.REGION_SIZE);
+    vkCmdBindVertexBuffers(command_buffer, 0, 1, *global_renderer.vertex_buffer.buffer, *offset);
+    vkCmdDraw(command_buffer, global_renderer.nb_vertices, 1, 0, 0);
+    global_renderer.nb_vertices = 0;
+}
+
+get_window_dims :: () -> Vector2i {
+    return .{global_renderer.swapchain_extent.width, global_renderer.swapchain_extent.height};
+}
+
+set_transform_matrix :: (mat: Matrix4) {
+    using global_renderer;
+    constants := PushConstantData.{
+        transpose(mat),
+    };
+    vkCmdPushConstants(context.vk_frame_data.command_buffer, color_pass.pipeline_layout, .VERTEX_BIT, 0, size_of(type_of(constants)), *constants);
+}
+

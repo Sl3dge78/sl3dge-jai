@@ -7,7 +7,6 @@
 #import "Bit_Operations";
 
 File_Watcher :: #import "File_Watcher";
-#import "Vulkan";
 #import "SDL";
 #import "stb_image";
 #import "stb_truetype";
@@ -15,10 +14,12 @@ File_Watcher :: #import "File_Watcher";
 #load "src/engine.jai";
 #load "src/input.jai";
 #if RENDERER == .OPENGL {
+    #import "GL";
     #load "src/opengl/renderer.jai";
     #load "src/opengl/render_texture.jai";
     #load "src/opengl/shaders.jai";
 } else #if RENDERER == .VULKAN {
+    #import,dir "../Vulkan";
     #load "src/vulkan/immediate.jai";
     #load "src/vulkan/renderer.jai";
     #load "src/vulkan/utils.jai";

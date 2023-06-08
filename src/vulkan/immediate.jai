@@ -3,7 +3,7 @@
 prepare_vertices :: (nb: u32) -> *Vertex {
     using global_renderer;
     if nb_vertices + nb > Renderer.MAX_VERTICES then flush();
-    ptr := vertex_buffer.mapped + (frame_index * Renderer.REGION_SIZE) + (nb_vertices * size_of(Vertex));
+    ptr := vertex_buffer.mapped + (context.vk_frame_data.image_index * Renderer.REGION_SIZE) + (nb_vertices * size_of(Vertex));
     nb_vertices += nb;
     return ptr;
 }

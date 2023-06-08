@@ -50,9 +50,9 @@ create_texture_from_data :: (ptr: *void, w: s32, h: s32, channels: int, $data_ty
     Vk_Check(vkCreateImage(global_renderer.device, *create_info, null, *texture.image));
     texture.memory = alloc_device_memory(texture.image, .LOCAL);
 
-    transition_image_layout(texture.image, format, .UNDEFINED, .TRANSFER_DST_OPTIMAL);
+    transition_image_layout(texture.image, .UNDEFINED, .TRANSFER_DST_OPTIMAL);
     copy_buffer_to_image(staging_buffer.buffer, texture.image, xx texture.w, xx texture.h);
-    transition_image_layout(texture.image, format, .TRANSFER_DST_OPTIMAL, .SHADER_READ_ONLY_OPTIMAL);
+    transition_image_layout(texture.image, .TRANSFER_DST_OPTIMAL, .SHADER_READ_ONLY_OPTIMAL);
 
     texture.view = make_image_view(texture.image, format);
 
@@ -67,23 +67,35 @@ destroy_texture :: (texture: *Texture) {
     texture.memory = null;
 }
 
-transition_image_layout :: (image: VkImage, format: VkFormat, $old_layout: VkImageLayout, $new_layout: VkImageLayout) {
-    cmd := single_time_command_buffer();
+transition_image_layout :: (image: VkImage, $old_layout: VkImageLayout, $new_layout: VkImageLayout, $cmd: VkCommandBuffer = VK_NULL_HANDLE) {
     src_access: VkAccessFlagBits;
     dst_access: VkAccessFlagBits;
     src_stage: VkPipelineStageFlagBits;
     dst_stage: VkPipelineStageFlagBits;
-
-    #if old_layout == .UNDEFINED && new_layout == .TRANSFER_DST_OPTIMAL {
+    #if old_layout == .UNDEFINED {
         src_access = 0;
-        dst_access = .TRANSFER_WRITE_BIT;
         src_stage = .TOP_OF_PIPE_BIT;
-        dst_stage = .TRANSFER_BIT;
-    } else #if old_layout == .TRANSFER_DST_OPTIMAL && new_layout == .SHADER_READ_ONLY_OPTIMAL {
+    } else #if old_layout == .TRANSFER_DST_OPTIMAL {
         src_access = .TRANSFER_WRITE_BIT;
-        dst_access = .SHADER_READ_BIT;
         src_stage = .TRANSFER_BIT;
+    } else #if old_layout == .COLOR_ATTACHMENT_OPTIMAL { 
+        src_access = .COLOR_ATTACHMENT_WRITE_BIT;
+        src_stage = .COLOR_ATTACHMENT_OUTPUT_BIT;
+    } else {
+        #assert false, "Unsupported image layout transition.";
+    }
+
+    #if new_layout == .TRANSFER_DST_OPTIMAL {
+        dst_access = .TRANSFER_WRITE_BIT;
+        dst_stage = .TRANSFER_BIT;
+    } else #if new_layout == .SHADER_READ_ONLY_OPTIMAL {
+        dst_access = .SHADER_READ_BIT;
         dst_stage = .FRAGMENT_SHADER_BIT;
+    } else #if new_layout == .PRESENT_SRC_KHR {
+        dst_stage = .BOTTOM_OF_PIPE_BIT;
+    } else #if new_layout == .COLOR_ATTACHMENT_OPTIMAL {
+        dst_access = .COLOR_ATTACHMENT_WRITE_BIT;
+        dst_stage = .COLOR_ATTACHMENT_OUTPUT_BIT;
     } else {
         #assert false, "Unsupported image layout transition.";
     }
@@ -105,8 +117,14 @@ transition_image_layout :: (image: VkImage, format: VkFormat, $old_layout: VkIma
         dstAccessMask = dst_access,
     };
 
+    command_buffer : VkCommandBuffer;
+    #if cmd == VK_NULL_HANDLE {
+        command_buffer = single_time_command_buffer();
+    } else {
+        command_buffer = cmd;
+    }
     vkCmdPipelineBarrier(
-        cmd,
+        command_buffer,
         src_stage, dst_stage,
         0,
         0, null,
