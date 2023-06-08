@@ -448,38 +448,17 @@ begin_frame :: (view: Matrix4, clear_color: Vector4 = .{0, 0, 0, 1}) {
     vkWaitForFences(device, 1, *frame_fence, VK_TRUE, U64_MAX);
     vkResetFences(device, 1, *frame_fence);
     Vk_Check(vkAcquireNextImageKHR(device, swapchain, U64_MAX, image_available_semaphore, VK_NULL_HANDLE, *image_index));
+
+    // Begin recording
     begin_info := VkCommandBufferBeginInfo.{
         flags = .ONE_TIME_SUBMIT_BIT,
     };
 
-    // Begin recording
     vkBeginCommandBuffer(command_buffer, *begin_info);
-    render_info := VkRenderingInfoKHR.{
-        renderArea = .{
-            offset = .{0, 0},
-            extent = swapchain_extent,
-        },
-        layerCount = 1,
-        colorAttachmentCount = 1,
-        pColorAttachments = *VkRenderingAttachmentInfoKHR.{
-            imageView = swapchain_image_views[image_index],
-            imageLayout = .ATTACHMENT_OPTIMAL,
-            loadOp = .CLEAR,
-            storeOp = .STORE,
-            clearValue = VkClearValue.{color = .{_float32 = clear_color.component }},
-        },
-    };
     transition_image_layout(swapchain_images[image_index], .UNDEFINED, .COLOR_ATTACHMENT_OPTIMAL);
 
+    begin_render(.CLEAR, clear_color);
     set_transform_matrix(Matrix4_Identity);
-    vkCmdSetViewport(command_buffer, 0, 1, *VkViewport.{0, 0, xx swapchain_extent.width, xx swapchain_extent.height, 0, 1});
-    vkCmdSetScissor(command_buffer, 0, 1, *VkRect2D.{.{0, 0}, swapchain_extent});
-
-    update_descriptors(color_pass, image_index, resources.block_texture);
-    vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, color_pass.pipeline_layout, 0, 1, *color_pass.descriptor_sets[image_index], 0, null);
-
-    vkCmdBeginRendering(command_buffer, *render_info);
-    vkCmdBindPipeline(command_buffer, .GRAPHICS, color_pass.pipeline);
 
     // Update uniform
     proj := make_projection_matrix(radians(45), cast(float)swapchain_extent.width/cast(float)swapchain_extent.height, 0.1, 1000);
@@ -492,19 +471,55 @@ begin_frame :: (view: Matrix4, clear_color: Vector4 = .{0, 0, 0, 1}) {
     memcpy(color_pass.uniform_data[image_index].mapped, *camera_data, size_of(type_of(camera_data)));
 }
 
+begin_render :: (load_op : VkAttachmentLoadOp, clear_color: Vector4 = .{0, 0, 0, 1}) {
+    using global_renderer;
+    using context.vk_frame_data;
+    vkCmdSetViewport(command_buffer, 0, 1, *VkViewport.{0, 0, xx swapchain_extent.width, xx swapchain_extent.height, 0, 1});
+    vkCmdSetScissor(command_buffer, 0, 1, *VkRect2D.{.{0, 0}, swapchain_extent});
+
+    update_descriptors(color_pass, image_index, resources.block_texture);
+    vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, color_pass.pipeline_layout, 0, 1, *color_pass.descriptor_sets[image_index], 0, null);
+
+    render_info := VkRenderingInfoKHR.{
+        renderArea = .{
+            offset = .{0, 0},
+            extent = swapchain_extent,
+        },
+        layerCount = 1,
+        colorAttachmentCount = 1,
+        pColorAttachments = *VkRenderingAttachmentInfoKHR.{
+            imageView = swapchain_image_views[image_index],
+            imageLayout = .ATTACHMENT_OPTIMAL,
+            loadOp = load_op,
+            storeOp = .STORE,
+        },
+    };
+    if load_op == .CLEAR {
+        render_info.pColorAttachments.clearValue = VkClearValue.{color = .{_float32 = clear_color.component }};
+    }
+    vkCmdBindPipeline(command_buffer, .GRAPHICS, color_pass.pipeline);
+    vkCmdBeginRendering(command_buffer, *render_info);
+
+}
+
 end_frame :: () {
     using global_renderer;
     using context.vk_frame_data;
-    flush();
+    // flush();
 
+    offset : u64 = xx (image_index * Renderer.REGION_SIZE);
+    vkCmdBindVertexBuffers(command_buffer, 0, 1, *global_renderer.vertex_buffer.buffer, *offset);
+    vkCmdDraw(command_buffer, global_renderer.nb_vertices, 1, 0, 0);
     vkCmdEndRendering(command_buffer);
+    global_renderer.nb_vertices = 0;
+
     transition_image_layout(swapchain_images[image_index], .COLOR_ATTACHMENT_OPTIMAL, .PRESENT_SRC_KHR);
 
     Vk_Check(vkEndCommandBuffer(command_buffer));
     submit_info := VkSubmitInfo.{
-        waitSemaphoreCount = 1,
-        pWaitSemaphores = *image_available_semaphore,
-        pWaitDstStageMask = VkPipelineStageFlags.[.COLOR_ATTACHMENT_OUTPUT_BIT].data,
+        // waitSemaphoreCount = 1,
+        // pWaitSemaphores = *image_available_semaphore,
+        // pWaitDstStageMask = VkPipelineStageFlags.[.COLOR_ATTACHMENT_OUTPUT_BIT].data,
         commandBufferCount = 1,
         pCommandBuffers = *command_buffer,
         signalSemaphoreCount = 1,
@@ -532,7 +547,24 @@ flush :: () {
     offset : u64 = xx (image_index * Renderer.REGION_SIZE);
     vkCmdBindVertexBuffers(command_buffer, 0, 1, *global_renderer.vertex_buffer.buffer, *offset);
     vkCmdDraw(command_buffer, global_renderer.nb_vertices, 1, 0, 0);
+    vkCmdEndRendering(command_buffer);
+    Vk_Check(vkEndCommandBuffer(command_buffer));
+    submit_info := VkSubmitInfo.{
+        waitSemaphoreCount = 1,
+        pWaitSemaphores = *image_available_semaphore,
+        pWaitDstStageMask = VkPipelineStageFlags.[.COLOR_ATTACHMENT_OUTPUT_BIT].data,
+        commandBufferCount = 1,
+        pCommandBuffers = *command_buffer,
+    };
+    Vk_Check(vkQueueSubmit(global_renderer.graphics_queue, 1, *submit_info, VK_NULL_HANDLE));
+    vkDeviceWaitIdle(global_renderer.device);
+
     global_renderer.nb_vertices = 0;
+    begin_info := VkCommandBufferBeginInfo.{
+        flags = .ONE_TIME_SUBMIT_BIT,
+    };
+    vkBeginCommandBuffer(command_buffer, *begin_info);
+    begin_render(.LOAD);
 }
 
 get_window_dims :: () -> Vector2i {
