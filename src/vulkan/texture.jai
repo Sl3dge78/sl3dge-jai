@@ -6,19 +6,34 @@ Texture :: struct {
     h : s32;
 }
 
-load_texture_from_file :: (path: string) -> Texture {
-    texture : Texture;
-
+create_texture_from_file :: (path: string) -> Texture {
     channels: s32;
-    img := stbi_load(temp_c_string(path), *texture.w, *texture.h, *channels, 4);
+    w: s32;
+    h: s32;
+    img := stbi_load(temp_c_string(path), *w, *h, *channels, 4);
     assert(img != null, "Unable to load %.", path);
     defer stbi_image_free(img);
-    format :: VkFormat.R8G8B8A8_SRGB;
-    image_size: VkDeviceSize = xx(texture.w * texture.h * 4);
+    return create_texture_from_data(img, w, h, channels, u8);
+}
+
+create_texture_from_data :: (ptr: *void, w: s32, h: s32, channels: int, $data_type: Type) -> Texture {
+    texture : Texture;
+    texture.w = w;
+    texture.h = h;
+    format : VkFormat = ---;
+    #if data_type == u8 {
+        if channels == {
+            case 1; format = .R8_UINT;
+            case 4; format = .R8G8B8A8_SRGB;
+            case; assert(false, "Unhandled channel count of %!", channels);
+        }
+    } else #assert false;
+
+    image_size: VkDeviceSize = xx(texture.w * texture.h * channels);
 
     staging_buffer := create_buffer(image_size, .TRANSFER_SRC_BIT, .UPLOAD);
     defer destroy_buffer(staging_buffer);
-    copy_data(staging_buffer, img, image_size);
+    copy_data(staging_buffer, ptr, image_size);
 
     create_info := VkImageCreateInfo.{
         imageType = ._2D,
@@ -127,4 +142,8 @@ make_image_view :: (image: VkImage, format: VkFormat) -> VkImageView {
     };
     Vk_Check(vkCreateImageView(global_renderer.device, *image_view_ci, null, *img_view));
     return img_view;
+}
+
+bind_texture :: (texture: Texture) {
+
 }

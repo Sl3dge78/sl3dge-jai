@@ -26,7 +26,7 @@ Extension_Info :: struct {
 extension_infos := Extension_Info.[
     .{"var", load_var_file, get_var_type},
     .{"ttf", load_font_file, get_font_type},
-    .{"glsl", load_shader, get_shader_type},
+    // .{"glsl", load_shader, get_shader_type},
     .{"png", load_image, get_image_type},
 ];
 
@@ -189,7 +189,7 @@ load_var_file :: (info: *Resource_Info) -> bool {
 
 // .ttf files
 load_font_file :: (info: *Resource_Info) -> bool {
-    (cast(*Font)info.pointer).* = Font.init(info.path, 8); // @Todo: Find a way to specify a font size
+    (cast(*Font)info.pointer).* = create_font_from_file(info.path, 8); // @Todo: Find a way to specify a font size
     return true;
 }
 
@@ -197,6 +197,7 @@ get_font_type :: (path: string) -> string {
     return "Font";
 }
 
+/*
 // .glsl files
 load_shader :: (info: *Resource_Info) -> bool {
     temp := Shader.load_from_file(info.path, path_filename(info.path));
@@ -209,10 +210,11 @@ load_shader :: (info: *Resource_Info) -> bool {
 get_shader_type :: (path: string) -> string {
     return "Shader";
 }
+*/
 
 // .png files
 load_image :: (info: *Resource_Info) -> bool {
-    (cast(*Texture)info.pointer).* = Texture.from_file(info.path);
+    (cast(*Texture)info.pointer).* = create_texture_from_file(info.path);
     return true;
 }
 

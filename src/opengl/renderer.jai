@@ -280,11 +280,6 @@ draw_text :: (text: string, x: float, y: float, font: *Font, color: Vector4 = .{
     flush();
 }
 
-size_text :: (text: string, font: *Font) -> float {
-    // @Incomplete: This wont work for non monospaced fonts.
-    return text.count * font.width;
-}
-
 draw_texture :: (texture: Texture, x: float, y: float, w: float, h: float) {
     Texture.bind(texture);
     push_quad(.{x, y, 0}, .{x + w, y, 0}, .{x + w, y + h, 0}, .{x, y + h, 0}, .{0, 0, 1});
@@ -419,6 +414,25 @@ Texture :: struct {
     }
 }
 
+copy_to_texture :: (texture: *Texture, ptr: *void, w: int, h: int, $channels: int, $data_type: type) {
+    gl_type : GLenum;
+    #if data_type == u8 {
+        gl_type = GL_UNSIGNED_BYTE;
+    } else #assert false;
+
+    channels : GLenum;
+    #if channels == 1 { channels = GL_RED; }
+    else #assert false;
+
+    Texture.bind(texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, channels, w, h, 0, channels, gl_type, ptr);
+    Texture.set_filter(.NEAREST);
+    /*
+    swizzle := GLint.[GL_RED, GL_RED, GL_RED, GL_RED];
+    glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, swizzle.data);
+    */
+}
+
 Shader :: struct {
     handle: GLuint;
     name: string;
@@ -528,66 +542,6 @@ Shader :: struct {
             name.count = xx nb;
             log("Uniform #% Type: % Name: %\n", it, type, name);
         }
-    }
-}
-
-Font :: struct {
-    first_char : int;
-    char_data : [437]stbtt_packedchar;
-    texture: Texture;
-    line_height : float;
-    width : float;
-
-    init :: (path: string, size: float) -> Font, bool {
-        font_data, success := read_entire_file(path);
-        if !success {
-            assert(false, "Unable to load font from %", path);
-            return .{}, false;
-        }
-        result, success2 := from_data(font_data, size);
-        return result, success2;
-    }
-
-    from_data :: (font_data: string, size: float) -> Font, bool {   
-        self : Font = ---;
-        bitmap : [512*512]u8 = ---;
-        
-        pack_context : stbtt_pack_context = ---;
-        
-        if !stbtt_PackBegin(*pack_context, bitmap.data, 512, 512, 0, 1, null) {
-            assert(false, "Unable to begin font packing");
-            return .{}, false;
-        }
-        // stbtt_PackSetOversampling(*pack_context, 2, 2);
-        self.first_char = 0;
-        stbtt_PackFontRange(*pack_context, font_data.data, 0, size, xx self.first_char, 437, self.char_data.data);
-        stbtt_PackEnd(*pack_context);
-
-        self.texture = Texture.init();
-        Texture.bind(self.texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, 512, 512, 0, GL_RED, GL_UNSIGNED_BYTE, bitmap.data);
-        Texture.set_filter(.NEAREST);
-        swizzle := GLint.[GL_RED, GL_RED, GL_RED, GL_RED];
-        glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, swizzle.data);
-
-        // Get additional font info
-        info : stbtt_fontinfo = ---;
-        stbtt_InitFont(*info, font_data.data, 0);
-        scale := stbtt_ScaleForMappingEmToPixels(*info, size);
-
-        advance_width : s32 = ---;
-        left_side_bearing : s32 = ---;
-        stbtt_GetCodepointHMetrics(*info, #char "W", *advance_width, *left_side_bearing);
-        self.width = advance_width * scale;
-
-        ascent, descent, line_gap: s32 = ---;
-        stbtt_GetFontVMetrics(*info, *ascent, *descent, *line_gap);
-        self.line_height = (ascent - descent + line_gap) * scale;
-        return self, true;
-    }
-
-    deinit :: (font: *Font) {
-        // Nothing to deinit
     }
 }
 #import "GL";

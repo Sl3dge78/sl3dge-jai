@@ -16,9 +16,9 @@ Engine :: struct {
 
         w := 1280;
         h := 720;
-        global_engine.window = SDL_CreateWindow("Demo", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, xx w, xx h, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+        global_engine.window = SDL_CreateWindow("Demo", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, xx w, xx h, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
         global_engine.renderer = renderer_init(global_engine.window);
-        global_engine.default_font = Font.from_data(default_font_data, 8);
+        global_engine.default_font = create_font_from_data(default_font_data, 8);
 
         Resources.init();
     }

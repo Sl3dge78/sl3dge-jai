@@ -1,7 +1,8 @@
 Vertex :: struct {
     position: Vector3;
-    color: Vector4;      
+    normal: Vector3;
     uv: Vector2;
+    color: Vector4;      
 }
 
 vertex_input_attribute :: #run () -> []VkVertexInputAttributeDescription {

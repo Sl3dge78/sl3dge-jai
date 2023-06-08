@@ -44,10 +44,7 @@ Renderer :: struct {
     }
     compatible_mem_types: [MemoryType.COUNT]u32;
 
-    // Buf
-    upload_buffer: Buffer;
-    buffer: *void;
-
+    vertex_buffer : Buffer;
 
     // Immediate
     MAX_VERTICES :: REGION_SIZE / size_of(Vertex);
@@ -59,9 +56,10 @@ Frame_Data :: struct {
     frame_fence: VkFence;
     image_available_semaphore: VkSemaphore;
     render_finished_semaphore: VkSemaphore;
-    descriptor_set: VkDescriptorSet;
     image_index: u32;
 }
+
+#add_context vk_frame_data: Frame_Data;
 
 global_renderer: Renderer;
 
@@ -86,6 +84,9 @@ debug_callback :: (severity: VkDebugUtilsMessageSeverityFlagsEXT, type: VkDebugU
     push_context ctx {
         msg := to_string(callback_data.pMessage);
         log("%: %", severity, msg);
+        if severity >= .ERROR_BIT_EXT {
+            assert(false);
+        }
     }
     return VK_TRUE;
 }
@@ -109,6 +110,7 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
         extensions.count += nb;
 
         array_add(*extensions, temp_c_string("VK_EXT_debug_utils"));
+        // array_add(*extensions, temp_c_string("VK_KHR_surface"));
         log("Extensions:");
         for ext : extensions {
             log("\t%", to_string(ext));
@@ -235,10 +237,6 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
         renderer.surface_format.format = ifx renderer.surface_format.format == .UNDEFINED then .B8G8R8A8_UNORM else renderer.surface_format.format;
     }
 
-    // Swapchain
-    create_or_update_swapchain();
-    log("Swapchain created");
-
     // Frame data
     {
         cmd_pool_ci := VkCommandPoolCreateInfo.{
@@ -266,52 +264,24 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
         }
         log("Rendering context created");
     }
+        
+    // Vertex Buffer
+    { 
+        renderer.vertex_buffer = create_buffer(Renderer.BUFFER_SIZE, VkBufferUsageFlagBits.VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT | .UNIFORM_BUFFER_BIT | .STORAGE_BUFFER_BIT | .TRANSFER_SRC_BIT, .UPLOAD, true);
+        log("Buffer created.");
+    }
 
     renderer.color_pass = init_color_pass(renderer.device);
+
+    // Swapchain
+    create_or_update_swapchain(renderer.color_pass.render_pass);
+    log("Swapchain created");
 
     log("Renderer successfully initialized!");
     return renderer;
 }
 
-create_renderpass :: (device: VkDevice, format: VkFormat) -> VkRenderPass{
-    create_info := VkRenderPassCreateInfo.{
-        attachmentCount = 1,
-        pAttachments = *VkAttachmentDescription.{
-            format = format,
-            samples = ._1_BIT,
-            loadOp = .CLEAR,
-            storeOp = .STORE,
-            stencilLoadOp = .DONT_CARE,
-            stencilStoreOp = .DONT_CARE,
-            initialLayout = .UNDEFINED,
-            finalLayout = .PRESENT_SRC_KHR,
-        },
-        subpassCount = 1,
-        pSubpasses = *VkSubpassDescription.{
-            pipelineBindPoint = .GRAPHICS,
-            colorAttachmentCount = 1,
-            pColorAttachments = *VkAttachmentReference.{
-                attachment = 0,
-                layout = .COLOR_ATTACHMENT_OPTIMAL,
-            },
-        },
-        dependencyCount = 1,
-        pDependencies = *VkSubpassDependency.{
-            srcSubpass = VK_SUBPASS_EXTERNAL,
-            dstSubpass = 0,
-            srcStageMask = .COLOR_ATTACHMENT_OUTPUT_BIT,
-            dstStageMask = .COLOR_ATTACHMENT_OUTPUT_BIT,
-            srcAccessMask = 0,
-            dstAccessMask = VkAccessFlagBits.COLOR_ATTACHMENT_READ_BIT | .COLOR_ATTACHMENT_WRITE_BIT,
-            dependencyFlags = 0,
-        },
-    };
-    render_pass: VkRenderPass = ---;
-    Vk_Check(vkCreateRenderPass(device, *create_info, null, *render_pass));
-    return render_pass;
-}
-
-create_or_update_swapchain :: () {
+create_or_update_swapchain :: (render_pass: VkRenderPass) {
     using global_renderer;
     Vk_Check(vkDeviceWaitIdle(device));
 
@@ -420,7 +390,7 @@ renderer_deinit :: () {
 
 
     vkDestroyDescriptorPool(device, descriptor_pool, null);
-    destroy_buffer(upload_buffer);
+    destroy_buffer(vertex_buffer);
 
 
     for framebuffers {
@@ -449,22 +419,24 @@ renderer_deinit :: () {
     vkDestroyInstance(instance, null);
 }
 
-begin_frame :: (view: Matrix4, clear_color: Vector4 = .{0, 0, 0, 1}) -> *Frame_Data {
+begin_frame :: (view: Matrix4, clear_color: Vector4 = .{0, 0, 0, 1}) {
     using global_renderer;
+    // Update the context's frame data
     frame_index = (frame_index + 1) % FRAME_COUNT;
     idx := frame_index;
-    frame := *frame_data[idx];
+    context.vk_frame_data = *frame_data[idx];
+    using context.vk_frame_data;
 
-    vkWaitForFences(device, 1, *frame.frame_fence, VK_TRUE, U64_MAX);
-    vkResetFences(device, 1, *frame.frame_fence);
+    vkWaitForFences(device, 1, *frame_fence, VK_TRUE, U64_MAX);
+    vkResetFences(device, 1, *frame_fence);
 
-    Vk_Check(vkAcquireNextImageKHR(device, swapchain, U64_MAX, frame.image_available_semaphore, VK_NULL_HANDLE, *frame.image_index));
+    Vk_Check(vkAcquireNextImageKHR(device, swapchain, U64_MAX, image_available_semaphore, VK_NULL_HANDLE, *image_index));
     begin_info := VkCommandBufferBeginInfo.{
         flags = .ONE_TIME_SUBMIT_BIT,
     };
-    vkBeginCommandBuffer(frame.command_buffer, *begin_info);
+    vkBeginCommandBuffer(command_buffer, *begin_info);
 
-    begin_pass(color_pass, frame, clear_color);
+    begin_pass(color_pass, clear_color);
 
     // Update uniform
     proj := make_projection_matrix(radians(45), cast(float)swapchain_extent.width/cast(float)swapchain_extent.height, 0.1, 1000);
@@ -474,55 +446,59 @@ begin_frame :: (view: Matrix4, clear_color: Vector4 = .{0, 0, 0, 1}) -> *Frame_D
         view = transpose(view),
         view_proj = transpose(view * proj),
     };
-    memcpy(color_pass.uniform_data[frame.image_index].mapped, *camera_data, size_of(type_of(camera_data)));
-
-    return frame;
+    memcpy(color_pass.uniform_data[image_index].mapped, *camera_data, size_of(type_of(camera_data)));
 }
 
-flush :: (cmd: VkCommandBuffer) {
+flush :: () {
     using global_renderer;
-    offset : u64 = xx (frame_index * Renderer.REGION_SIZE);
-    vkCmdBindVertexBuffers(cmd, 0, 1, *upload_buffer.buffer, *offset);
-    vkCmdDraw(cmd, nb_vertices, 1, 0, 0);
+    offset : u64 = xx (context.vk_frame_data.image_index * Renderer.REGION_SIZE);
+    vkCmdBindVertexBuffers(context.vk_frame_data.command_buffer, 0, 1, *vertex_buffer.buffer, *offset);
+    vkCmdDraw(context.vk_frame_data.command_buffer, nb_vertices, 1, 0, 0);
     nb_vertices = 0;
+
 }
 
-set_transform_matrix :: (cmd: VkCommandBuffer, mat: Matrix4) {
+get_window_dims :: () -> Vector2i {
+    return .{global_renderer.swapchain_extent.width, global_renderer.swapchain_extent.height};
+}
+
+set_transform_matrix :: (mat: Matrix4) {
     using global_renderer;
     constants := PushConstantData.{
         transpose(mat),
     };
-    vkCmdPushConstants(cmd, color_pass.pipeline_layout, .VERTEX_BIT, 0, size_of(type_of(constants)), *constants);
+    vkCmdPushConstants(context.vk_frame_data.command_buffer, color_pass.pipeline_layout, .VERTEX_BIT, 0, size_of(type_of(constants)), *constants);
 }
 
-end_frame :: (frame: *Frame_Data) {
+end_frame :: () {
     using global_renderer;
-    flush(frame.command_buffer);
+    using context.vk_frame_data;
+    flush();
 
-    vkCmdEndRenderPass(frame.command_buffer);
+    vkCmdEndRenderPass(command_buffer);
 
-    Vk_Check(vkEndCommandBuffer(frame.command_buffer));
+    Vk_Check(vkEndCommandBuffer(command_buffer));
     submit_info := VkSubmitInfo.{
         waitSemaphoreCount = 1,
-        pWaitSemaphores = *frame.image_available_semaphore,
+        pWaitSemaphores = *image_available_semaphore,
         pWaitDstStageMask = VkPipelineStageFlags.[.COLOR_ATTACHMENT_OUTPUT_BIT].data,
         commandBufferCount = 1,
-        pCommandBuffers = *frame.command_buffer,
+        pCommandBuffers = *command_buffer,
         signalSemaphoreCount = 1,
-        pSignalSemaphores = *frame.render_finished_semaphore,
+        pSignalSemaphores = *render_finished_semaphore,
     };
-    Vk_Check(vkQueueSubmit(graphics_queue, 1, *submit_info, frame.frame_fence));
+    Vk_Check(vkQueueSubmit(graphics_queue, 1, *submit_info, frame_fence));
 
     present_info := VkPresentInfoKHR.{
         waitSemaphoreCount = 1,
-        pWaitSemaphores = *frame.render_finished_semaphore,
+        pWaitSemaphores = *render_finished_semaphore,
         swapchainCount = 1,
         pSwapchains = *swapchain,
-        pImageIndices = *frame.image_index
+        pImageIndices = *image_index
     };
     result := vkQueuePresentKHR(graphics_queue, *present_info);
     if result == .ERROR_OUT_OF_DATE_KHR { // Window was resized
-        create_or_update_swapchain();
+        create_or_update_swapchain(color_pass.render_pass);
     } else {
         Vk_Check(result);
     }

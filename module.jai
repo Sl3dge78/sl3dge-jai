@@ -14,15 +14,20 @@ File_Watcher :: #import "File_Watcher";
 
 #load "src/engine.jai";
 #load "src/input.jai";
-#load "src/opengl/renderer.jai";
-#load "src/opengl/render_texture.jai";
-#load "src/opengl/shaders.jai";
-// #load "src/renderer/immediate.jai";
-// #load "src/renderer/renderer.jai";
-// #load "src/renderer/utils.jai";
-// #load "src/renderer/buffer.jai";
-// #load "src/renderer/texture.jai";
-// #load "src/renderer/color_pass.jai";
+#if RENDERER == .OPENGL {
+    #load "src/opengl/renderer.jai";
+    #load "src/opengl/render_texture.jai";
+    #load "src/opengl/shaders.jai";
+} else #if RENDERER == .VULKAN {
+    #load "src/vulkan/immediate.jai";
+    #load "src/vulkan/renderer.jai";
+    #load "src/vulkan/utils.jai";
+    #load "src/vulkan/buffer.jai";
+    #load "src/vulkan/texture.jai";
+    #load "src/vulkan/color_pass.jai";
+    #load "src/vulkan/2d_pass.jai";
+}
+#load "src/renderer/text.jai";
 #load "src/camera.jai";
 #load "src/console.jai";
 #load "src/resources.jai";
@@ -31,3 +36,10 @@ File_Watcher :: #import "File_Watcher";
 #load "src/math/geometry.jai";
 #load "src/math/gjk.jai";
 #load "src/math/ray.jai";
+
+RendererBackend :: enum {
+    OPENGL;
+    VULKAN;
+}
+
+#module_parameters (RENDERER : RendererBackend = .OPENGL);
