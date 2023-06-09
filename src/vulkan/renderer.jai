@@ -453,14 +453,21 @@ begin_frame :: (view: Matrix4, clear_color: Vector4 = .{0, 0, 0, 1}) {
     vkResetFences(device, 1, *frame_fence);
     Vk_Check(vkAcquireNextImageKHR(device, swapchain, U64_MAX, image_available_semaphore, VK_NULL_HANDLE, *image_index));
 
-    // Begin recording
-    begin_info := VkCommandBufferBeginInfo.{
-        flags = .ONE_TIME_SUBMIT_BIT,
-    };
-
-    vkBeginCommandBuffer(command_buffer, *begin_info);
+    // Prepare frame buffer
+    vkBeginCommandBuffer(command_buffer, *VkCommandBufferBeginInfo.{flags = .ONE_TIME_SUBMIT_BIT});
     transition_image_layout(swapchain_images[image_index], .UNDEFINED, .COLOR_ATTACHMENT_OPTIMAL, command_buffer);
+    Vk_Check(vkEndCommandBuffer(command_buffer));
+    submit_info := VkSubmitInfo.{
+        waitSemaphoreCount = 1,
+        pWaitSemaphores = *image_available_semaphore,
+        pWaitDstStageMask = VkPipelineStageFlags.[.COLOR_ATTACHMENT_OUTPUT_BIT].data,
+        commandBufferCount = 1,
+        pCommandBuffers = *command_buffer,
+    };
+    Vk_Check(vkQueueSubmit(global_renderer.graphics_queue, 1, *submit_info, VK_NULL_HANDLE));
+    vkDeviceWaitIdle(global_renderer.device);
 
+    vkBeginCommandBuffer(command_buffer, *VkCommandBufferBeginInfo.{flags = .ONE_TIME_SUBMIT_BIT});
     begin_render(.CLEAR, clear_color);
     set_transform_matrix(Matrix4_Identity);
 
@@ -503,7 +510,6 @@ begin_render :: (load_op : VkAttachmentLoadOp, clear_color: Vector4 = .{0, 0, 0,
     }
     vkCmdBindPipeline(command_buffer, .GRAPHICS, color_pass.pipeline);
     vkCmdBeginRendering(command_buffer, *render_info);
-
 }
 
 end_frame :: () {
@@ -554,8 +560,8 @@ flush :: () {
     vkCmdEndRendering(command_buffer);
     Vk_Check(vkEndCommandBuffer(command_buffer));
     submit_info := VkSubmitInfo.{
-        waitSemaphoreCount = 1,
-        pWaitSemaphores = *image_available_semaphore,
+        // waitSemaphoreCount = 1,
+        // pWaitSemaphores = *image_available_semaphore,
         pWaitDstStageMask = VkPipelineStageFlags.[.COLOR_ATTACHMENT_OUTPUT_BIT].data,
         commandBufferCount = 1,
         pCommandBuffers = *command_buffer,
