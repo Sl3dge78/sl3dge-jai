@@ -1,9 +1,20 @@
 prepare_vertices :: (nb: u32) -> *Vertex {
-    using global_renderer.color_pass;
+    using context.vk.current_pass;
 
     array_reserve(*vertices, vertices.count + nb);
+    if draw_cmds.count == 0 {
+        array_add(*draw_cmds, Draw_Cmd.{xx vertices.count, nb, transform});
+    } else { 
+        prev := *draw_cmds[draw_cmds.count - 1];
+        if prev.xform == transform { // Don't create a new entry if the state hasn't changed
+            prev.count += nb;
+        } else {
+            array_add(*draw_cmds, Draw_Cmd.{xx vertices.count, nb, transform});
+        }
+    }
     ptr := vertices.data + vertices.count;
     vertices.count += nb;
+
     return ptr;
 }
 

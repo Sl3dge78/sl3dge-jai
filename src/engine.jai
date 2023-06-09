@@ -24,7 +24,7 @@ Engine :: struct {
     }
 
     deinit :: () {
-        wait_idle();
+        renderer_wait_idle();
         destroy_font(*global_engine.default_font);
         Resources.deinit();
         renderer_deinit();

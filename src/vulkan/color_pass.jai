@@ -14,6 +14,14 @@ Render_Pass :: struct {
     // @TODO: Might be moved elsewhere because some passes might use the same vtx data
     vertex_buffer: Buffer;
     vertices: [..]Vertex;
+    draw_cmds : [..]Draw_Cmd;
+    transform: Matrix4;
+}
+
+Draw_Cmd :: struct {
+    id: u32;
+    count: u32;
+    xform: Matrix4;
 }
 
 create_color_pass :: (device: VkDevice) -> Render_Pass {
@@ -195,8 +203,9 @@ destroy_color_pass :: (using color_pass: *Render_Pass, device: VkDevice) {
 
 begin_color_pass :: (view: Matrix4, clear_color: Vector4 = .{0, 0, 0, 1} ) {
     using global_renderer;
-    using context.vk_frame_data;
+    using context.vk;
 
+    current_pass = *global_renderer.color_pass;
 
     {   // Update uniform data 
         proj := make_projection_matrix(radians(45), cast(float)global_renderer.swapchain_extent.width/cast(float)global_renderer.swapchain_extent.height, 0.1, 1000);
@@ -268,12 +277,12 @@ begin_color_pass :: (view: Matrix4, clear_color: Vector4 = .{0, 0, 0, 1} ) {
         vkCmdSetScissor(command_buffer, 0, 1, *VkRect2D.{.{0, 0}, swapchain_extent});
         vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, color_pass.pipeline_layout, 0, 1, *color_pass.descriptor_sets[image_index][0], 0, null);
         vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, color_pass.pipeline_layout, 1, 1, *color_pass.descriptor_sets[image_index][1], 0, null);
-        
-        vkCmdPushConstants(command_buffer, color_pass.pipeline_layout, .VERTEX_BIT, 0, size_of(PushConstantData), *PushConstantData.{Matrix4_Identity});
     }
 
     {   // Reset vertex buffer
         color_pass.vertices.count = 0;
+        color_pass.draw_cmds.count = 0;
+        color_pass.transform = Matrix4_Identity;
     }
 
     {   // Begin rendering
@@ -298,7 +307,7 @@ begin_color_pass :: (view: Matrix4, clear_color: Vector4 = .{0, 0, 0, 1} ) {
 
 end_color_pass :: () {
     using global_renderer;
-    using context.vk_frame_data;
+    using context.vk;
 
     if color_pass.vertices.count > 0 {
         size : u64 = xx (color_pass.vertices.count * size_of(Vertex));
@@ -307,46 +316,18 @@ end_color_pass :: () {
         offset : u64 = 0;
         vkCmdBindVertexBuffers(command_buffer, 0, 1, *color_pass.vertex_buffer.buffer, *offset);
 
-        // Issue draw call & end command buffer
-        vkCmdDraw(command_buffer, xx color_pass.vertices.count, 1, 0, 0);
-        vkCmdEndRendering(command_buffer);
+        // Issue draw calls & end command buffer
+        for color_pass.draw_cmds {
+            vkCmdPushConstants(command_buffer, color_pass.pipeline_layout, .VERTEX_BIT, 0, size_of(PushConstantData), *PushConstantData.{transpose(it.xform)});
+            vkCmdDraw(command_buffer, it.count, 1, it.id, 0);
+        }
     }
+
+    vkCmdEndRendering(command_buffer);
 
     {   // Transition image for present & end command buffer
         transition_image_layout(swapchain_images[image_index], .COLOR_ATTACHMENT_OPTIMAL, .PRESENT_SRC_KHR, command_buffer);
         Vk_Check(vkEndCommandBuffer(command_buffer));
     }
    
-}
-
-update_descriptors :: (pass: Render_Pass, id : u32, texture: Texture) {
-    descriptor_writes : [2]VkWriteDescriptorSet;
-    buffer_info := VkDescriptorBufferInfo .{
-        buffer = pass.uniform_data[id].buffer,
-        offset = 0,
-        range = size_of(CameraData),
-    };
-    descriptor_writes[0] = .{
-        dstSet = pass.descriptor_sets[id],
-        dstBinding = 0,
-        dstArrayElement = 0,
-        descriptorType = .UNIFORM_BUFFER,
-        descriptorCount = 1,
-        pBufferInfo = *buffer_info,
-    };
-
-    image_info := VkDescriptorImageInfo.{
-        sampler = pass.sampler,
-        imageView = texture.view,
-        imageLayout = .SHADER_READ_ONLY_OPTIMAL,
-    };
-    descriptor_writes[1] = .{
-        dstSet = pass.descriptor_sets[id],
-        dstBinding = 1,
-        dstArrayElement = 0,
-        descriptorType = .COMBINED_IMAGE_SAMPLER,
-        descriptorCount = 1,
-        pImageInfo = *image_info,
-    };
-    vkUpdateDescriptorSets(global_renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
 }
