@@ -20,6 +20,7 @@ File_Watcher :: #import "File_Watcher";
     #load "src/opengl/shaders.jai";
 } else #if RENDERER == .VULKAN {
     #import,dir "../Vulkan";
+    #load "src/vulkan/initialization.jai";
     #load "src/vulkan/immediate.jai";
     #load "src/vulkan/renderer.jai";
     #load "src/vulkan/utils.jai";

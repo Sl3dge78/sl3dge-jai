@@ -59,6 +59,7 @@ size_text :: (text: string, font: *Font) -> float {
 }
 
 draw_text :: (text: string, x: float, y: float, font: *Font, color: Vector4 = .{1, 1, 1, 1}) {
+    #if 0 {
     bind_texture(font.texture);
     i := 0;
     while(i < text.count) {
@@ -76,4 +77,7 @@ draw_text :: (text: string, x: float, y: float, font: *Font, color: Vector4 = .{
         i += 1;
     }
     flush();
+    } else {
+        assert(false);
+    }
 }

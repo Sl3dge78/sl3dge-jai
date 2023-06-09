@@ -32,7 +32,7 @@ create_texture_from_data :: (ptr: *void, w: s32, h: s32, channels: int, $data_ty
     image_size: VkDeviceSize = xx(texture.w * texture.h * channels);
 
     staging_buffer := create_buffer(image_size, .TRANSFER_SRC_BIT, .UPLOAD);
-    defer destroy_buffer(staging_buffer);
+    defer destroy_buffer(*staging_buffer);
     copy_data(staging_buffer, ptr, image_size);
 
     create_info := VkImageCreateInfo.{

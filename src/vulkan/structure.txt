@@ -1,0 +1,27 @@
+//
+
+begin_pass :
+- Creates a command buffer
+- Reset the vtx buffer
+- Update frame descriptor
+-> Transition image
+-> Bind pipeline
+-> Bind frame descriptor
+
+all `immediate` calls
+-> Bind decriptor sets
+-> Draw call
+-> Add vertices to ram buffer
+
+end_pass :
+-> Transition image
+- Copy the vtx buffer to vram
+- Submits the queue
+
+Desriptors 
+- Set 0 - Framewide : 
+    - Proj/View matrices
+- Set 1 - Per draw call :
+    - Material data (texture, color, ...)
+- Push Constants :
+    - Transform

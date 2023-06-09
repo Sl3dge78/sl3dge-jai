@@ -1,58 +1,23 @@
 Render_Pass :: struct {
-    render_pass: VkRenderPass;
+    // render_pass: VkRenderPass;
     descriptor_pool: VkDescriptorPool;
-    descriptor_set_layout: VkDescriptorSetLayout;
+    descriptor_set_layouts: [2]VkDescriptorSetLayout;
     pipeline_layout: VkPipelineLayout;
     pipeline: VkPipeline;
 
-    uniform_data: [Renderer.FRAME_COUNT] Buffer;
-    descriptor_sets: [Renderer.FRAME_COUNT] VkDescriptorSet;
-    sampler: VkSampler;
-}
+    descriptor_sets: [Renderer.FRAME_COUNT][2] VkDescriptorSet;
 
-create_vkrenderpass :: (device: VkDevice, format: VkFormat) -> VkRenderPass {
-    create_info := VkRenderPassCreateInfo.{
-        attachmentCount = 1,
-        pAttachments = *VkAttachmentDescription.{
-            format = format,
-            samples = ._1_BIT,
-            loadOp = .CLEAR,
-            storeOp = .STORE,
-            stencilLoadOp = .DONT_CARE,
-            stencilStoreOp = .DONT_CARE,
-            initialLayout = .UNDEFINED,
-            finalLayout = .PRESENT_SRC_KHR,
-        },
-        subpassCount = 1,
-        pSubpasses = *VkSubpassDescription.{
-            pipelineBindPoint = .GRAPHICS,
-            colorAttachmentCount = 1,
-            pColorAttachments = *VkAttachmentReference.{
-                attachment = 0,
-                layout = .COLOR_ATTACHMENT_OPTIMAL,
-            },
-        },
-        dependencyCount = 1,
-        pDependencies = *VkSubpassDependency.{
-            srcSubpass = VK_SUBPASS_EXTERNAL,
-            dstSubpass = 0,
-            srcStageMask = .COLOR_ATTACHMENT_OUTPUT_BIT,
-            dstStageMask = .COLOR_ATTACHMENT_OUTPUT_BIT,
-            srcAccessMask = 0,
-            dstAccessMask = VkAccessFlagBits.COLOR_ATTACHMENT_READ_BIT | .COLOR_ATTACHMENT_WRITE_BIT,
-            dependencyFlags = 0,
-        },
-    };
-    render_pass: VkRenderPass = ---;
-    Vk_Check(vkCreateRenderPass(device, *create_info, null, *render_pass));
-    return render_pass;
+    uniform_data: [Renderer.FRAME_COUNT] Buffer;
+    
+    sampler: VkSampler;
+
+    // @TODO: Might be moved elsewhere because some passes might use the same vtx data
+    vertex_buffer: Buffer;
+    vertices: [..]Vertex;
 }
 
 create_color_pass :: (device: VkDevice) -> Render_Pass {
     color_pass : Render_Pass;
-
-    // Render pass
-    color_pass.render_pass = create_vkrenderpass(device, global_renderer.surface_format.format);
 
     // Pipeline
     {
@@ -62,7 +27,7 @@ create_color_pass :: (device: VkDevice) -> Render_Pass {
         frag := create_shader_module(device, "shaders/shader.frag.spv");
         defer vkDestroyShaderModule(device, frag, null);
 
-        bindings : [2]VkDescriptorSetLayoutBinding;
+        bindings : [1]VkDescriptorSetLayoutBinding;
         bindings[0] = .{
             binding = 0,
             descriptorType = .UNIFORM_BUFFER,
@@ -70,20 +35,21 @@ create_color_pass :: (device: VkDevice) -> Render_Pass {
             stageFlags = .VERTEX_BIT,
             pImmutableSamplers = null,
         };
-        bindings[1] = .{
-            binding = 1,
-            descriptorType = .COMBINED_IMAGE_SAMPLER,
-            descriptorCount = 1,
-            stageFlags = .FRAGMENT_BIT,
-            pImmutableSamplers = null,
-        };
-
         layout_info := VkDescriptorSetLayoutCreateInfo.{
             bindingCount = bindings.count,
             pBindings = bindings.data,
         };        
         
-        Vk_Check(vkCreateDescriptorSetLayout(device, *layout_info, null, *color_pass.descriptor_set_layout));
+        Vk_Check(vkCreateDescriptorSetLayout(device, *layout_info, null, *color_pass.descriptor_set_layouts[0]));
+
+        bindings[0] = .{
+            binding = 0,
+            descriptorType = .COMBINED_IMAGE_SAMPLER,
+            descriptorCount = 1,
+            stageFlags = .FRAGMENT_BIT,
+            pImmutableSamplers = null,
+        };
+        Vk_Check(vkCreateDescriptorSetLayout(device, *layout_info, null, *color_pass.descriptor_set_layouts[1]));
 
         for *color_pass.uniform_data {
             it.* = create_buffer(size_of(CameraData), .UNIFORM_BUFFER_BIT, .UPLOAD, map = true);
@@ -98,8 +64,8 @@ create_color_pass :: (device: VkDevice) -> Render_Pass {
         layout_ci := VkPipelineLayoutCreateInfo.{ 
             pushConstantRangeCount = 1,
             pPushConstantRanges = *push_constant_ci,
-            setLayoutCount = 1,
-            pSetLayouts = *color_pass.descriptor_set_layout,
+            setLayoutCount = color_pass.descriptor_set_layouts.count,
+            pSetLayouts = color_pass.descriptor_set_layouts.data,
         };
         Vk_Check(vkCreatePipelineLayout(device, *layout_ci, null, *color_pass.pipeline_layout));
 
@@ -179,28 +145,6 @@ create_color_pass :: (device: VkDevice) -> Render_Pass {
         log("Pipeline created.");
     }
 
-    // Sampler 
-    {
-        create_info := VkSamplerCreateInfo.{
-            magFilter = .NEAREST,
-            minFilter = .NEAREST,
-            addressModeU = .REPEAT,
-            addressModeV = .REPEAT,
-            addressModeW = .REPEAT,
-            anisotropyEnable = VK_TRUE,
-            maxAnisotropy = global_renderer.physical_device_properties.limits.maxSamplerAnisotropy,
-            borderColor = .INT_OPAQUE_BLACK,
-            unnormalizedCoordinates = VK_FALSE,
-            compareEnable = VK_FALSE,
-            compareOp = .ALWAYS,
-            mipmapMode = .LINEAR,
-            mipLodBias = 0,
-            minLod = 0,
-            maxLod = 0,
-        };
-        Vk_Check(vkCreateSampler(device, *create_info, null, *color_pass.sampler));
-    }
-
     // DescriptorPool & DescriptorSet
     {
         pool_sizes : [2]VkDescriptorPoolSize;
@@ -210,28 +154,27 @@ create_color_pass :: (device: VkDevice) -> Render_Pass {
         };
         pool_sizes[1] = VkDescriptorPoolSize.{
             type = .COMBINED_IMAGE_SAMPLER,
-            descriptorCount = Renderer.FRAME_COUNT,
+            descriptorCount = Renderer.FRAME_COUNT, //@TODO: 32?
         };
 
         pool_info := VkDescriptorPoolCreateInfo.{
             poolSizeCount = pool_sizes.count,
             pPoolSizes = pool_sizes.data,
-            maxSets = Renderer.FRAME_COUNT,
+            maxSets = Renderer.FRAME_COUNT * 2,
         };
         Vk_Check(vkCreateDescriptorPool(device, *pool_info, null, *color_pass.descriptor_pool));
 
         alloc_info := VkDescriptorSetAllocateInfo.{
             descriptorPool = color_pass.descriptor_pool,
-            descriptorSetCount = 1,
-            pSetLayouts = *color_pass.descriptor_set_layout,
+            descriptorSetCount = color_pass.descriptor_set_layouts.count,
+            pSetLayouts = color_pass.descriptor_set_layouts.data,
         };
 
         for *color_pass.descriptor_sets {
-            Vk_Check(vkAllocateDescriptorSets(device, *alloc_info, it));
+            Vk_Check(vkAllocateDescriptorSets(device, *alloc_info, it.data));
             
         }
     }
-
 
     return color_pass;
 }
@@ -239,28 +182,141 @@ create_color_pass :: (device: VkDevice) -> Render_Pass {
 destroy_color_pass :: (using color_pass: *Render_Pass, device: VkDevice) {
     vkDestroyDescriptorPool(device, descriptor_pool, null);
     vkDestroySampler(device, sampler, null);
-    vkDestroyDescriptorSetLayout(device, descriptor_set_layout, null);
+    for descriptor_set_layouts {
+        vkDestroyDescriptorSetLayout(device, it, null);
+    }
     vkDestroyPipelineLayout(device, pipeline_layout, null);
     vkDestroyPipeline(device, pipeline, null);
-    vkDestroyRenderPass(device, render_pass, null);
-    for uniform_data {
+    for *uniform_data {
         destroy_buffer(it);
+    }
+    destroy_buffer(*vertex_buffer);
+}
+
+begin_color_pass :: (view: Matrix4, clear_color: Vector4 = .{0, 0, 0, 1} ) {
+    using global_renderer;
+    using context.vk_frame_data;
+
+
+    {   // Update uniform data 
+        proj := make_projection_matrix(radians(45), cast(float)global_renderer.swapchain_extent.width/cast(float)global_renderer.swapchain_extent.height, 0.1, 1000);
+        proj._22 *= -1;
+        camera_data := CameraData.{
+            proj = transpose(proj),
+            view = transpose(view),
+            view_proj = transpose(view * proj),
+        };
+        memcpy(color_pass.uniform_data[image_index].mapped, *camera_data, size_of(type_of(camera_data)));
+
+        // @Hardcoded: Create a Material struct, that allocates a descriptor set on a specific pipline and gets bound when needed
+        // @Todo: Only write the frame constant data here
+        descriptor_writes : [2]VkWriteDescriptorSet;
+        buffer_info := VkDescriptorBufferInfo .{
+            buffer = color_pass.uniform_data[image_index].buffer,
+            offset = 0,
+            range = size_of(CameraData),
+        };
+        descriptor_writes[0] = .{
+            dstSet = color_pass.descriptor_sets[image_index][0],
+            dstBinding = 0,
+            dstArrayElement = 0,
+            descriptorType = .UNIFORM_BUFFER,
+            descriptorCount = 1,
+            pBufferInfo = *buffer_info,
+        };
+
+        image_info := VkDescriptorImageInfo.{
+            sampler = sampler, // @Hardcoded
+            imageView = resources.block_texture.view, // @Hardcoded
+            imageLayout = .SHADER_READ_ONLY_OPTIMAL,
+        };
+        descriptor_writes[1] = .{
+            dstSet = color_pass.descriptor_sets[image_index][1],
+            dstBinding = 0,
+            dstArrayElement = 0,
+            descriptorType = .COMBINED_IMAGE_SAMPLER,
+            descriptorCount = 1,
+            pImageInfo = *image_info,
+        };
+        vkUpdateDescriptorSets(global_renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
+        /*
+        buffer_info := VkDescriptorBufferInfo .{
+            buffer = color_pass.uniform_data[image_index].buffer,
+            offset = 0,
+            range = size_of(CameraData),
+        };
+        descriptor_write := VkWriteDescriptorSet.{
+            dstSet = color_pass.descriptor_sets[image_index][0],
+            dstBinding = 0,
+            dstArrayElement = 0,
+            descriptorType = .UNIFORM_BUFFER,
+            descriptorCount = 1,
+            pBufferInfo = *buffer_info,
+        };
+        vkUpdateDescriptorSets(global_renderer.device, 1, *descriptor_write, 0, null);
+        */
+    }
+
+    {   // Prepare frame buffer
+        vkBeginCommandBuffer(command_buffer, *VkCommandBufferBeginInfo.{flags = .ONE_TIME_SUBMIT_BIT});
+        transition_image_layout(swapchain_images[image_index], .UNDEFINED, .COLOR_ATTACHMENT_OPTIMAL, command_buffer);
+    }
+
+    {   // Bind pipeline, dynamic state, global descriptors and a default push constant
+        vkCmdBindPipeline(command_buffer, .GRAPHICS, color_pass.pipeline);
+        vkCmdSetViewport(command_buffer, 0, 1, *VkViewport.{0, 0, xx swapchain_extent.width, xx swapchain_extent.height, 0, 1});
+        vkCmdSetScissor(command_buffer, 0, 1, *VkRect2D.{.{0, 0}, swapchain_extent});
+        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, color_pass.pipeline_layout, 0, 1, *color_pass.descriptor_sets[image_index][0], 0, null);
+        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, color_pass.pipeline_layout, 1, 1, *color_pass.descriptor_sets[image_index][1], 0, null);
+        
+        vkCmdPushConstants(command_buffer, color_pass.pipeline_layout, .VERTEX_BIT, 0, size_of(PushConstantData), *PushConstantData.{Matrix4_Identity});
+    }
+
+    {   // Reset vertex buffer
+        color_pass.vertices.count = 0;
+    }
+
+    {   // Begin rendering
+        render_info := VkRenderingInfoKHR.{
+            renderArea = .{
+                offset = .{0, 0},
+                extent = swapchain_extent,
+            },
+            layerCount = 1,
+            colorAttachmentCount = 1,
+            pColorAttachments = *VkRenderingAttachmentInfoKHR.{
+                imageView = swapchain_image_views[image_index],
+                imageLayout = .ATTACHMENT_OPTIMAL,
+                loadOp = .CLEAR,
+                storeOp = .STORE,
+                clearValue = VkClearValue.{color = .{_float32 = clear_color.component }},
+            },
+        };
+        vkCmdBeginRendering(command_buffer, *render_info);
     }
 }
 
-begin_pass :: (pass: Render_Pass, clear_color: Vector4) {
+end_color_pass :: () {
     using global_renderer;
     using context.vk_frame_data;
-    vkCmdBeginRenderPass(command_buffer, *VkRenderPassBeginInfo.{
-        renderPass = pass.render_pass,
-        framebuffer = framebuffers[image_index],
-        clearValueCount = 1,
-        pClearValues = *VkClearValue.{color = .{_float32 = clear_color.component }},
-        renderArea = .{
-            offset = .{0, 0},
-            extent = swapchain_extent,
-        },
-    }, .INLINE);
+
+    if color_pass.vertices.count > 0 {
+        size : u64 = xx (color_pass.vertices.count * size_of(Vertex));
+        create_or_update_buffer(*color_pass.vertex_buffer, size, VkBufferUsageFlagBits.VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT | .UNIFORM_BUFFER_BIT | .STORAGE_BUFFER_BIT | .TRANSFER_SRC_BIT, .UPLOAD);
+        copy_data(color_pass.vertex_buffer, color_pass.vertices.data, size);
+        offset : u64 = 0;
+        vkCmdBindVertexBuffers(command_buffer, 0, 1, *color_pass.vertex_buffer.buffer, *offset);
+
+        // Issue draw call & end command buffer
+        vkCmdDraw(command_buffer, xx color_pass.vertices.count, 1, 0, 0);
+        vkCmdEndRendering(command_buffer);
+    }
+
+    {   // Transition image for present & end command buffer
+        transition_image_layout(swapchain_images[image_index], .COLOR_ATTACHMENT_OPTIMAL, .PRESENT_SRC_KHR, command_buffer);
+        Vk_Check(vkEndCommandBuffer(command_buffer));
+    }
+   
 }
 
 update_descriptors :: (pass: Render_Pass, id : u32, texture: Texture) {
@@ -293,5 +349,4 @@ update_descriptors :: (pass: Render_Pass, id : u32, texture: Texture) {
         pImageInfo = *image_info,
     };
     vkUpdateDescriptorSets(global_renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
-    
 }
