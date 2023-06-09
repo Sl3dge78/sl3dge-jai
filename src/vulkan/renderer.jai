@@ -82,7 +82,7 @@ debug_callback :: (severity: VkDebugUtilsMessageSeverityFlagsEXT, type: VkDebugU
         msg := to_string(callback_data.pMessage);
         log("%: %", severity, msg);
         if severity >= .ERROR_BIT_EXT {
-            // assert(false);
+            assert(false);
         }
     }
     return VK_TRUE;
@@ -91,6 +91,10 @@ debug_callback :: (severity: VkDebugUtilsMessageSeverityFlagsEXT, type: VkDebugU
 renderer_init :: (window: *SDL_Window) -> Renderer {
     renderer := *global_renderer;
 
+    api_version: u32 = ---;
+    Vk_Check(vkEnumerateInstanceVersion(*api_version));
+    log("Vk v%.%.%", VK_VERSION_MAJOR(api_version), VK_VERSION_MINOR(api_version), VK_VERSION_PATCH(api_version));
+    
     // Create instance
     {
         layers: [..]*u8; 

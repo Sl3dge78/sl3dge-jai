@@ -67,7 +67,7 @@ destroy_texture :: (texture: *Texture) {
     texture.memory = null;
 }
 
-transition_image_layout :: (image: VkImage, $old_layout: VkImageLayout, $new_layout: VkImageLayout, $cmd: VkCommandBuffer = VK_NULL_HANDLE) {
+transition_image_layout :: (image: VkImage, $old_layout: VkImageLayout, $new_layout: VkImageLayout, cmd: VkCommandBuffer = VK_NULL_HANDLE) {
     src_access: VkAccessFlagBits;
     dst_access: VkAccessFlagBits;
     src_stage: VkPipelineStageFlagBits;
@@ -117,12 +117,7 @@ transition_image_layout :: (image: VkImage, $old_layout: VkImageLayout, $new_lay
         dstAccessMask = dst_access,
     };
 
-    command_buffer : VkCommandBuffer;
-    #if cmd == VK_NULL_HANDLE {
-        command_buffer = single_time_command_buffer();
-    } else {
-        command_buffer = cmd;
-    }
+    command_buffer := ifx cmd == VK_NULL_HANDLE then begin_single_time_command_buffer() else cmd;
     vkCmdPipelineBarrier(
         command_buffer,
         src_stage, dst_stage,
@@ -130,10 +125,15 @@ transition_image_layout :: (image: VkImage, $old_layout: VkImageLayout, $new_lay
         0, null,
         0, null,
         1, *barrier);
+
+    if cmd == VK_NULL_HANDLE {
+        end_single_time_command_buffer(command_buffer);
+    }
 }
 
 copy_buffer_to_image :: (buffer: VkBuffer, image: VkImage, w: u32, h: u32) {
-    cmd := single_time_command_buffer();
+    cmd := begin_single_time_command_buffer();
+    defer end_single_time_command_buffer(cmd);
     region := VkBufferImageCopy.{
         imageSubresource = .{
             aspectMask = .COLOR_BIT,

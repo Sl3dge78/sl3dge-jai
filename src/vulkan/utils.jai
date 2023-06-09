@@ -71,7 +71,7 @@ alloc_device_memory :: (item: $T, mem_type: Renderer.MemoryType) -> VkDeviceMemo
 }
 
 // Maybe a bad idea, allocates and starts a command command then ends it at the end of the current scope.
-single_time_command_buffer :: () -> VkCommandBuffer #expand {
+begin_single_time_command_buffer :: () -> VkCommandBuffer {
     alloc_info := VkCommandBufferAllocateInfo.{
         level = .PRIMARY,
         commandPool = global_renderer.command_pool,
@@ -86,18 +86,19 @@ single_time_command_buffer :: () -> VkCommandBuffer #expand {
     };
     vkBeginCommandBuffer(cmd, *begin_info);
 
-    `defer {
-        vkEndCommandBuffer(cmd);
-        si := VkSubmitInfo.{
-            commandBufferCount = 1,
-            pCommandBuffers = *cmd
-        };
-        vkQueueSubmit(global_renderer.graphics_queue, 1, *si, null);
-        vkQueueWaitIdle(global_renderer.graphics_queue);
-
-        vkFreeCommandBuffers(global_renderer.device, global_renderer.command_pool, 1, *cmd);
-    }
     return cmd;
+}
+
+end_single_time_command_buffer :: (cmd: VkCommandBuffer) {
+    vkEndCommandBuffer(cmd);
+    si := VkSubmitInfo.{
+        commandBufferCount = 1,
+        pCommandBuffers = *cmd
+    };
+    vkQueueSubmit(global_renderer.graphics_queue, 1, *si, null);
+    vkQueueWaitIdle(global_renderer.graphics_queue);
+
+    vkFreeCommandBuffers(global_renderer.device, global_renderer.command_pool, 1, *cmd);
 }
 
 vkCreateDebugUtilsMessengerEXT: PFN_vkCreateDebugUtilsMessengerEXT;
