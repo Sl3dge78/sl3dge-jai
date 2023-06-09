@@ -459,7 +459,7 @@ begin_frame :: (view: Matrix4, clear_color: Vector4 = .{0, 0, 0, 1}) {
     };
 
     vkBeginCommandBuffer(command_buffer, *begin_info);
-    transition_image_layout(swapchain_images[image_index], .UNDEFINED, .COLOR_ATTACHMENT_OPTIMAL);
+    transition_image_layout(swapchain_images[image_index], .UNDEFINED, .COLOR_ATTACHMENT_OPTIMAL, command_buffer);
 
     begin_render(.CLEAR, clear_color);
     set_transform_matrix(Matrix4_Identity);
@@ -517,7 +517,7 @@ end_frame :: () {
     vkCmdEndRendering(command_buffer);
     global_renderer.nb_vertices = 0;
 
-    transition_image_layout(swapchain_images[image_index], .COLOR_ATTACHMENT_OPTIMAL, .PRESENT_SRC_KHR);
+    transition_image_layout(swapchain_images[image_index], .COLOR_ATTACHMENT_OPTIMAL, .PRESENT_SRC_KHR, command_buffer);
 
     Vk_Check(vkEndCommandBuffer(command_buffer));
     submit_info := VkSubmitInfo.{
