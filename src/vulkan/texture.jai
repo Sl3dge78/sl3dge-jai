@@ -53,7 +53,7 @@ create_texture_from_data :: (ptr: *void, w: s32, h: s32, channels: int, $data_ty
     transition_image_layout(texture.image, .UNDEFINED, .TRANSFER_DST_OPTIMAL);
     copy_buffer_to_image(staging_buffer.buffer, texture.image, xx texture.w, xx texture.h);
     transition_image_layout(texture.image, .TRANSFER_DST_OPTIMAL, .SHADER_READ_ONLY_OPTIMAL);
-
+    
     texture.view = make_image_view(texture.image, format);
 
     return texture;
@@ -160,8 +160,4 @@ make_image_view :: (image: VkImage, format: VkFormat) -> VkImageView {
     };
     Vk_Check(vkCreateImageView(global_renderer.device, *image_view_ci, null, *img_view));
     return img_view;
-}
-
-bind_texture :: (texture: Texture) {
-
 }
