@@ -16,6 +16,7 @@ Renderer :: struct {
     swapchain_images: [..]VkImage;
     surface_format: VkSurfaceFormatKHR;
     swapchain_image_views: [..]VkImageView;
+    framebuffers: [..]VkFramebuffer;
     
     descriptor_pool: VkDescriptorPool;
     command_pool : VkCommandPool;
@@ -314,13 +315,13 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
     }
 
     renderer.sampler = create_sampler(renderer.device);
-        
-    renderer.color_pass = create_color_pass(renderer.device);
-    renderer.ui_pass = create_ui_pass(renderer.device);
 
     // Swapchain
     create_or_update_swapchain();
     log("Swapchain created");
+
+    renderer.color_pass = create_color_pass(renderer.device);
+    renderer.ui_pass = create_ui_pass(renderer.device);
 
     log("Renderer successfully initialized!");
     return renderer;

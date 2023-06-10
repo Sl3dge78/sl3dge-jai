@@ -22,18 +22,18 @@ create_sampler :: (device: VkDevice) -> VkSampler {
     return result;
 }
 
-create_renderpass :: (device: VkDevice, format: VkFormat) -> VkRenderPass {
+create_renderpass :: (device: VkDevice, format: VkFormat, loadOp: VkAttachmentLoadOp, initial_layout: VkImageLayout, final_layout: VkImageLayout) -> VkRenderPass {
     create_info := VkRenderPassCreateInfo.{
         attachmentCount = 1,
         pAttachments = *VkAttachmentDescription.{
             format = format,
             samples = ._1_BIT,
-            loadOp = .CLEAR,
+            loadOp = loadOp,
             storeOp = .STORE,
             stencilLoadOp = .DONT_CARE,
             stencilStoreOp = .DONT_CARE,
-            initialLayout = .UNDEFINED,
-            finalLayout = .PRESENT_SRC_KHR,
+            initialLayout = initial_layout,
+            finalLayout = final_layout,
         },
         subpassCount = 1,
         pSubpasses = *VkSubpassDescription.{
@@ -118,6 +118,11 @@ create_or_update_swapchain :: () {
     Vk_Check(vkCreateSwapchainKHR(device, *create_info, null, *swapchain));
 
     if old_swapchain != VK_NULL_HANDLE {
+        for framebuffers {
+            vkDestroyFramebuffer(device, it, null);
+        }
+        framebuffers.count = 0;
+
         for swapchain_image_views {
             vkDestroyImageView(device, it, null);
         }
@@ -129,9 +134,12 @@ create_or_update_swapchain :: () {
 
     swapchain_images = fill_array(VkImage, vkGetSwapchainImagesKHR, device, swapchain, allocator = context.allocator);
 
-    for swapchain_images{
+    for swapchain_images {
         image_view := make_image_view(it, surface_format.format);
         array_add(*swapchain_image_views, image_view);
+
+        
+
     }
     log("Swapchain created:");
     log("\tFormat: %", surface_format.format);

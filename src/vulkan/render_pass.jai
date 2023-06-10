@@ -1,14 +1,16 @@
 Render_Pass :: struct {
+    render_pass: VkRenderPass;
     descriptor_set_layouts: [2]VkDescriptorSetLayout;
     pipeline_layout: VkPipelineLayout;
     pipeline: VkPipeline;
-
+    framebuffers: [Renderer.FRAME_COUNT] VkFramebuffer;
     descriptor_sets: [Renderer.FRAME_COUNT][2] VkDescriptorSet;
 
     uniform_data: [Renderer.FRAME_COUNT] Buffer;
 }
 
 destroy_render_pass :: (using pass: *Render_Pass, device: VkDevice) {
+    vkDestroyRenderPass(device, pass.render_pass, null);
     for descriptor_set_layouts {
         vkDestroyDescriptorSetLayout(device, it, null);
     }
@@ -17,13 +19,31 @@ destroy_render_pass :: (using pass: *Render_Pass, device: VkDevice) {
     for *uniform_data {
         destroy_buffer(it);
     }
+
+    for framebuffers {
+        vkDestroyFramebuffer(device, it, null);
+    }
 }
 
 // -------
 // Color pass
 
 create_color_pass :: (device: VkDevice) -> Render_Pass {
-    color_pass : Render_Pass;
+    pass : Render_Pass;
+
+    pass.render_pass = create_renderpass(device, global_renderer.surface_format.format, .CLEAR, .COLOR_ATTACHMENT_OPTIMAL, .COLOR_ATTACHMENT_OPTIMAL);
+
+    framebuffer_ci := VkFramebufferCreateInfo.{
+        renderPass = pass.render_pass,
+        attachmentCount = 1,
+        pAttachments = *global_renderer.swapchain_image_views[0],
+        width = global_renderer.swapchain_extent.width,
+        height = global_renderer.swapchain_extent.height,
+        layers = 1,
+    };
+    vkCreateFramebuffer(device, *framebuffer_ci, null, *pass.framebuffers[0]);
+    framebuffer_ci.pAttachments = *global_renderer.swapchain_image_views[1];
+    vkCreateFramebuffer(device, *framebuffer_ci, null, *pass.framebuffers[1]);
 
     // Pipeline
     {
@@ -46,7 +66,7 @@ create_color_pass :: (device: VkDevice) -> Render_Pass {
             pBindings = bindings.data,
         };        
         
-        Vk_Check(vkCreateDescriptorSetLayout(device, *layout_info, null, *color_pass.descriptor_set_layouts[0]));
+        Vk_Check(vkCreateDescriptorSetLayout(device, *layout_info, null, *pass.descriptor_set_layouts[0]));
 
         bindings[0] = .{
             binding = 0,
@@ -55,9 +75,9 @@ create_color_pass :: (device: VkDevice) -> Render_Pass {
             stageFlags = .FRAGMENT_BIT,
             pImmutableSamplers = null,
         };
-        Vk_Check(vkCreateDescriptorSetLayout(device, *layout_info, null, *color_pass.descriptor_set_layouts[1]));
+        Vk_Check(vkCreateDescriptorSetLayout(device, *layout_info, null, *pass.descriptor_set_layouts[1]));
 
-        for *color_pass.uniform_data {
+        for *pass.uniform_data {
             it.* = create_buffer(size_of(CameraData), .UNIFORM_BUFFER_BIT, .UPLOAD, map = true);
         }
 
@@ -70,13 +90,14 @@ create_color_pass :: (device: VkDevice) -> Render_Pass {
         layout_ci := VkPipelineLayoutCreateInfo.{ 
             pushConstantRangeCount = 1,
             pPushConstantRanges = *push_constant_ci,
-            setLayoutCount = color_pass.descriptor_set_layouts.count,
-            pSetLayouts = color_pass.descriptor_set_layouts.data,
+            setLayoutCount = pass.descriptor_set_layouts.count,
+            pSetLayouts = pass.descriptor_set_layouts.data,
         };
-        Vk_Check(vkCreatePipelineLayout(device, *layout_ci, null, *color_pass.pipeline_layout));
+        Vk_Check(vkCreatePipelineLayout(device, *layout_ci, null, *pass.pipeline_layout));
 
-        create_info := pipeline_create_info(vtx, frag, color_pass.pipeline_layout);
-        vkCreateGraphicsPipelines(device, null, 1, *create_info, null, *color_pass.pipeline);
+        create_info := pipeline_create_info(vtx, frag, pass.pipeline_layout);
+        create_info.renderPass = pass.render_pass;
+        vkCreateGraphicsPipelines(device, null, 1, *create_info, null, *pass.pipeline);
         log("Pipeline created.");
     }
 
@@ -85,17 +106,16 @@ create_color_pass :: (device: VkDevice) -> Render_Pass {
         
         alloc_info := VkDescriptorSetAllocateInfo.{
             descriptorPool = global_renderer.descriptor_pool,
-            descriptorSetCount = color_pass.descriptor_set_layouts.count,
-            pSetLayouts = color_pass.descriptor_set_layouts.data,
+            descriptorSetCount = pass.descriptor_set_layouts.count,
+            pSetLayouts = pass.descriptor_set_layouts.data,
         };
 
-        for *color_pass.descriptor_sets {
-            Vk_Check(vkAllocateDescriptorSets(device, *alloc_info, it.data));
-            
+        for *pass.descriptor_sets {
+            Vk_Check(vkAllocateDescriptorSets(device, *alloc_info, it.data));   
         }
     }
 
-    return color_pass;
+    return pass;
 }
 
 draw_color_pass :: (dd: *Draw_Data, command_buffer: VkCommandBuffer) {
@@ -113,26 +133,18 @@ draw_color_pass :: (dd: *Draw_Data, command_buffer: VkCommandBuffer) {
     }
 
     clear_color := Vector4.{0, 0, 0, 1};
-    {   // Begin rendering
-        render_info := VkRenderingInfoKHR.{
-            renderArea = .{
-                offset = .{0, 0},
-                extent = swapchain_extent,
-            },
-            layerCount = 1,
-            colorAttachmentCount = 1,
-            pColorAttachments = *VkRenderingAttachmentInfoKHR.{
-                imageView = swapchain_image_views[image_index],
-                imageLayout = .ATTACHMENT_OPTIMAL,
-                loadOp = .CLEAR,
-                storeOp = .STORE,
-                clearValue = VkClearValue.{color = .{_float32 = clear_color.component }},
-            },
-        };
-        vkCmdBeginRendering(command_buffer, *render_info);
-    }
 
-
+    vkCmdBeginRenderPass(command_buffer, *VkRenderPassBeginInfo.{
+        renderPass = global_renderer.color_pass.render_pass,
+        framebuffer = global_renderer.color_pass.framebuffers[image_index],
+        clearValueCount = 1,
+        pClearValues = *VkClearValue.{color = .{_float32 = clear_color.component }},
+        renderArea = .{
+            offset = .{0, 0},
+            extent = swapchain_extent,
+        },
+    }, .INLINE);
+    
     size : u64 = xx (dd.vertices.count * size_of(Vertex));
     create_or_update_buffer(*dd.vertex_buffer, size, VkBufferUsageFlagBits.VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT | .UNIFORM_BUFFER_BIT | .STORAGE_BUFFER_BIT | .TRANSFER_SRC_BIT, .UPLOAD);
     copy_data(dd.vertex_buffer, dd.vertices.data, size);
@@ -145,7 +157,7 @@ draw_color_pass :: (dd: *Draw_Data, command_buffer: VkCommandBuffer) {
         vkCmdDraw(command_buffer, it.count, 1, it.id, 0);
     }
 
-    vkCmdEndRendering(command_buffer);
+    vkCmdEndRenderPass(command_buffer);
 }
 
 // --------
@@ -153,6 +165,20 @@ draw_color_pass :: (dd: *Draw_Data, command_buffer: VkCommandBuffer) {
 
 create_ui_pass :: (device: VkDevice) -> Render_Pass {
     pass : Render_Pass;
+
+    pass.render_pass = create_renderpass(device, global_renderer.surface_format.format, .LOAD, .COLOR_ATTACHMENT_OPTIMAL, .COLOR_ATTACHMENT_OPTIMAL);
+
+    framebuffer_ci := VkFramebufferCreateInfo.{
+        renderPass = pass.render_pass,
+        attachmentCount = 1,
+        pAttachments = *global_renderer.swapchain_image_views[0],
+        width = global_renderer.swapchain_extent.width,
+        height = global_renderer.swapchain_extent.height,
+        layers = 1,
+    };
+    vkCreateFramebuffer(device, *framebuffer_ci, null, *pass.framebuffers[0]);
+    framebuffer_ci.pAttachments = *global_renderer.swapchain_image_views[1];
+    vkCreateFramebuffer(device, *framebuffer_ci, null, *pass.framebuffers[1]);
 
     // Pipeline
     {
@@ -197,6 +223,17 @@ create_ui_pass :: (device: VkDevice) -> Render_Pass {
         Vk_Check(vkCreatePipelineLayout(device, *layout_ci, null, *pass.pipeline_layout));
 
         create_info := pipeline_create_info(vtx, frag, pass.pipeline_layout);
+        create_info.renderPass = pass.render_pass;
+        create_info.pColorBlendState.pAttachments = *VkPipelineColorBlendAttachmentState.{
+            blendEnable = VK_TRUE,
+            srcColorBlendFactor = .SRC_ALPHA,
+            dstColorBlendFactor = .ONE_MINUS_SRC_ALPHA,
+            colorBlendOp = .ADD,
+            srcAlphaBlendFactor = .SRC_ALPHA,
+            dstAlphaBlendFactor = .ONE_MINUS_SRC_ALPHA,
+            alphaBlendOp = .ADD,
+            colorWriteMask = VkColorComponentFlagBits.R_BIT | .G_BIT | .B_BIT | .A_BIT,
+        };
         vkCreateGraphicsPipelines(device, null, 1, *create_info, null, *pass.pipeline);
         log("Pipeline created.");
     }
@@ -267,7 +304,6 @@ draw_ui_pass :: (dd: *Draw_Data, command_buffer: VkCommandBuffer) {
         vkUpdateDescriptorSets(global_renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
     }
 
-
     if dd.vertices.count == 0 return;
 
     {   // Bind pipeline, dynamic state, global descriptors and a default push constant
@@ -279,23 +315,16 @@ draw_ui_pass :: (dd: *Draw_Data, command_buffer: VkCommandBuffer) {
     }
 
     clear_color := Vector4.{0, 0, 0, 1};
-    {   // Begin rendering
-        render_info := VkRenderingInfoKHR.{
-            renderArea = .{
-                offset = .{0, 0},
-                extent = swapchain_extent,
-            },
-            layerCount = 1,
-            colorAttachmentCount = 1,
-            pColorAttachments = *VkRenderingAttachmentInfoKHR.{
-                imageView = swapchain_image_views[image_index],
-                imageLayout = .ATTACHMENT_OPTIMAL,
-                loadOp = .LOAD,
-                storeOp = .STORE,
-            },
-        };
-        vkCmdBeginRendering(command_buffer, *render_info);
-    }
+
+    vkCmdBeginRenderPass(command_buffer, *VkRenderPassBeginInfo.{
+        renderPass = pass.render_pass,
+        framebuffer = pass.framebuffers[image_index],
+        renderArea = .{
+            offset = .{0, 0},
+            extent = swapchain_extent,
+        },
+    }, .INLINE);
+    
 
     size : u64 = xx (dd.vertices.count * size_of(Vertex));
     create_or_update_buffer(*dd.vertex_buffer, size, VkBufferUsageFlagBits.VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT | .UNIFORM_BUFFER_BIT | .STORAGE_BUFFER_BIT | .TRANSFER_SRC_BIT, .UPLOAD);
@@ -308,6 +337,6 @@ draw_ui_pass :: (dd: *Draw_Data, command_buffer: VkCommandBuffer) {
         vkCmdDraw(command_buffer, it.count, 1, it.id, 0);
     }
 
-    vkCmdEndRendering(command_buffer);
+    vkCmdEndRenderPass(command_buffer);
 }
 
