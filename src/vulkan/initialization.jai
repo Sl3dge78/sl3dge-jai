@@ -84,6 +84,7 @@ create_shader_module :: (device: VkDevice, path: string) -> VkShaderModule {
     file, success := read_entire_file(path);
     assert(success, "Unable to read %!", path);
     if !success then return result;
+    defer free(file);
 
     create_info := VkShaderModuleCreateInfo.{
         codeSize = xx file.count,

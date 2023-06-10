@@ -36,6 +36,7 @@ fill_array :: ($type: Type, func: $R, arg: $S) -> [..]type #expand {
 fill_array :: ($type: Type, func: $R, arg1: $S, arg2: $U, allocator := temp) -> [..]type #expand {
     nb: u32 = ---;
     array: [..]type;
+    `defer array_reset(*array);
     array.allocator = allocator;
     func(arg1, arg2, *nb, null);
     array_reserve(*array, nb);

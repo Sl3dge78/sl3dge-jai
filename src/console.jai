@@ -5,6 +5,18 @@ Console :: struct {
     console: [20]string;
     console_pos: int;
 
+    init :: () {
+        context.logger = Console.log;
+    }
+
+    deinit :: () {
+        context.logger = Context.default_logger;
+        for global_console.console {
+            free(it);
+        }
+        free(global_console.current_message);
+    }
+
     update :: (delta_time: float) {
         using global_console;
         if message_timer >= 0 {

@@ -11,8 +11,6 @@ Engine :: struct {
         set_working_directory(path);
 
         SDL_Init(SDL_INIT_EVERYTHING);
-        
-        context.logger = Console.log;
 
         w := 1280;
         h := 720;
@@ -20,6 +18,7 @@ Engine :: struct {
         global_engine.renderer = renderer_init(global_engine.window);
         global_engine.default_font = create_font_from_data(default_font_data, 8);
 
+        Console.init();
         Resources.init();
     }
 
@@ -27,6 +26,7 @@ Engine :: struct {
         renderer_wait_idle();
         destroy_font(*global_engine.default_font);
         Resources.deinit();
+        Console.deinit();
         renderer_deinit();
         SDL_DestroyWindow(global_engine.window);
         SDL_Quit();

@@ -63,6 +63,11 @@ Draw_Data :: struct {
     transform: Matrix4;
 }
 
+destroy_draw_data :: (dd: *Draw_Data) {
+    array_reset(*dd.draw_cmds);
+    array_reset(*dd.vertices);
+}
+
 Draw_Cmd :: struct {
     id: u32;
     count: u32;
@@ -366,6 +371,9 @@ get_window_dims :: () -> Vector2i {
 renderer_deinit :: () {
     using global_renderer;
     vkDeviceWaitIdle(device);
+
+    destroy_draw_data(*color_draw_data);
+    destroy_draw_data(*ui_draw_data);
 
     destroy_texture(*depth_texture);
 
