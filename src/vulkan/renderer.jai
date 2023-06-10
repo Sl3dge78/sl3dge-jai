@@ -16,7 +16,6 @@ Renderer :: struct {
     swapchain_images: [..]VkImage;
     surface_format: VkSurfaceFormatKHR;
     swapchain_image_views: [..]VkImageView;
-    // framebuffers: [..]VkFramebuffer;
     
     descriptor_pool: VkDescriptorPool;
     command_pool : VkCommandPool;
@@ -25,7 +24,6 @@ Renderer :: struct {
     frame_index := 0;
     frame_data: [FRAME_COUNT]Frame_Data;
 
-    
     sampler: VkSampler;
 
     memory_properties: VkPhysicalDeviceMemoryProperties;
@@ -52,8 +50,6 @@ Frame_Data :: struct {
     render_finished_semaphore: VkSemaphore;
     image_index: u32;
 }
-
-
 
 Draw_Data :: struct {
     vertex_buffer: Buffer;
@@ -352,6 +348,7 @@ renderer_deinit :: () {
     destroy_buffer(*color_draw_data.vertex_buffer);
 
     destroy_render_pass(*ui_pass, device);
+    destroy_buffer(*ui_draw_data.vertex_buffer);
 
     vkDestroySampler(device, sampler, null);
 
@@ -388,6 +385,10 @@ begin_frame :: () {
     color_draw_data.draw_cmds.count = 0;
     color_draw_data.transform = Matrix4_Identity;
 
+    ui_draw_data.vertices.count = 0;
+    ui_draw_data.draw_cmds.count = 0;
+    ui_draw_data.transform = Matrix4_Identity;
+
     // Wait for image
     vkWaitForFences(device, 1, *frame_fence, VK_TRUE, U64_MAX);
     vkResetFences(device, 1, *frame_fence);
@@ -398,7 +399,18 @@ end_frame :: () {
     using global_renderer;
     using context.vk;
 
-    draw_color_pass(*color_draw_data);
+    {   // Prepare frame buffer
+        vkBeginCommandBuffer(command_buffer, *VkCommandBufferBeginInfo.{flags = .ONE_TIME_SUBMIT_BIT});
+        transition_image_layout(swapchain_images[image_index], .UNDEFINED, .COLOR_ATTACHMENT_OPTIMAL, command_buffer);
+    }
+
+    draw_color_pass(*color_draw_data, command_buffer);
+    draw_ui_pass(*ui_draw_data, command_buffer);
+
+    {   // Transition image for present & end command buffer
+        transition_image_layout(swapchain_images[image_index], .COLOR_ATTACHMENT_OPTIMAL, .PRESENT_SRC_KHR, command_buffer);
+        Vk_Check(vkEndCommandBuffer(command_buffer));
+    }
 
     submit_info := VkSubmitInfo.{
         waitSemaphoreCount = 1,
@@ -481,21 +493,5 @@ set_view_matrix :: (view: Matrix4) {
             pImageInfo = *image_info,
         };
         vkUpdateDescriptorSets(global_renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
-        /*
-        buffer_info := VkDescriptorBufferInfo .{
-            buffer = color_pass.uniform_data[image_index].buffer,
-            offset = 0,
-            range = size_of(CameraData),
-        };
-        descriptor_write := VkWriteDescriptorSet.{
-            dstSet = color_pass.descriptor_sets[image_index][0],
-            dstBinding = 0,
-            dstArrayElement = 0,
-            descriptorType = .UNIFORM_BUFFER,
-            descriptorCount = 1,
-            pBufferInfo = *buffer_info,
-        };
-        vkUpdateDescriptorSets(global_renderer.device, 1, *descriptor_write, 0, null);
-        */
     }
 }

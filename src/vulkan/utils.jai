@@ -6,11 +6,13 @@ Vertex :: struct {
 }
 
 vertex_input_attribute :: #run () -> []VkVertexInputAttributeDescription {
-    vtx_attr : [3]VkVertexInputAttributeDescription;
+    vtx_attr : [4]VkVertexInputAttributeDescription;
     offset: *Vertex = null;
     vtx_attr[0] = .{location = 0, binding = 0, format = .R32G32B32_SFLOAT, offset = xx *offset.position};
-    vtx_attr[1] = .{location = 1, binding = 0, format = .R32G32B32A32_SFLOAT, offset = xx *offset.color};
+    vtx_attr[1] = .{location = 1, binding = 0, format = .R32G32B32_SFLOAT, offset = xx *offset.normal};
     vtx_attr[2] = .{location = 2, binding = 0, format = .R32G32_SFLOAT, offset = xx *offset.uv};
+    vtx_attr[3] = .{location = 3, binding = 0, format = .R32G32B32A32_SFLOAT, offset = xx *offset.color};
+    
     return vtx_attr;
 }();
 

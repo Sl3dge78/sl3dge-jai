@@ -178,7 +178,7 @@ pipeline_create_info :: (vertex_shader: VkShaderModule, fragment_shader: VkShade
             rasterizerDiscardEnable = VK_FALSE,
             polygonMode = .FILL,
             cullMode = .NONE,
-            frontFace = .CLOCKWISE,
+            frontFace = .COUNTER_CLOCKWISE,
             depthBiasEnable = VK_FALSE,
             depthBiasConstantFactor = 0,
             depthBiasClamp = 0,

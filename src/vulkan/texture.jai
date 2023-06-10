@@ -23,7 +23,7 @@ create_texture_from_data :: (ptr: *void, w: s32, h: s32, channels: int, $data_ty
     format : VkFormat = ---;
     #if data_type == u8 {
         if channels == {
-            case 1; format = .R8_UINT;
+            case 1; format = .R8_UNORM;
             case 4; format = .R8G8B8A8_SRGB;
             case; assert(false, "Unhandled channel count of %!", channels);
         }

@@ -59,8 +59,7 @@ size_text :: (text: string, font: *Font) -> float {
 }
 
 draw_text :: (text: string, x: float, y: float, font: *Font, color: Vector4 = .{1, 1, 1, 1}) {
-    #if 0 {
-    bind_texture(font.texture);
+    // bind_texture(font.texture); // @TODO
     i := 0;
     while(i < text.count) {
         it := text[i];
@@ -75,9 +74,5 @@ draw_text :: (text: string, x: float, y: float, font: *Font, color: Vector4 = .{
         v[4] = Vertex.{ .{q.x0, q.y1, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s0, q.t1}, color };
         v[5] = Vertex.{ .{q.x1, q.y1, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s1, q.t1}, color };
         i += 1;
-    }
-    flush();
-    } else {
-        assert(false);
     }
 }

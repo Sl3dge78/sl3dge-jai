@@ -98,66 +98,54 @@ create_color_pass :: (device: VkDevice) -> Render_Pass {
     return color_pass;
 }
 
-draw_color_pass :: (dd: *Draw_Data) {
+draw_color_pass :: (dd: *Draw_Data, command_buffer: VkCommandBuffer) {
     using global_renderer;
-    using context.vk;
+    image_index := context.vk.image_index;
 
-    {   // Prepare frame buffer
-        vkBeginCommandBuffer(command_buffer, *VkCommandBufferBeginInfo.{flags = .ONE_TIME_SUBMIT_BIT});
-        transition_image_layout(swapchain_images[image_index], .UNDEFINED, .COLOR_ATTACHMENT_OPTIMAL, command_buffer);
+    if dd.vertices.count == 0 return;
+
+    {   // Bind pipeline, dynamic state, global descriptors and a default push constant
+        vkCmdBindPipeline(command_buffer, .GRAPHICS, color_pass.pipeline);
+        vkCmdSetViewport(command_buffer, 0, 1, *VkViewport.{0, 0, xx swapchain_extent.width, xx swapchain_extent.height, 0, 1});
+        vkCmdSetScissor(command_buffer, 0, 1, *VkRect2D.{.{0, 0}, swapchain_extent});
+        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, color_pass.pipeline_layout, 0, 1, *color_pass.descriptor_sets[image_index][0], 0, null);
+        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, color_pass.pipeline_layout, 1, 1, *color_pass.descriptor_sets[image_index][1], 0, null);
     }
 
-    if dd.vertices.count > 0 {
-
-        {   // Bind pipeline, dynamic state, global descriptors and a default push constant
-            vkCmdBindPipeline(command_buffer, .GRAPHICS, color_pass.pipeline);
-            vkCmdSetViewport(command_buffer, 0, 1, *VkViewport.{0, 0, xx swapchain_extent.width, xx swapchain_extent.height, 0, 1});
-            vkCmdSetScissor(command_buffer, 0, 1, *VkRect2D.{.{0, 0}, swapchain_extent});
-            vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, color_pass.pipeline_layout, 0, 1, *color_pass.descriptor_sets[image_index][0], 0, null);
-            vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, color_pass.pipeline_layout, 1, 1, *color_pass.descriptor_sets[image_index][1], 0, null);
-        }
-
-        clear_color := Vector4.{0, 0, 0, 1};
-        {   // Begin rendering
-            render_info := VkRenderingInfoKHR.{
-                renderArea = .{
-                    offset = .{0, 0},
-                    extent = swapchain_extent,
-                },
-                layerCount = 1,
-                colorAttachmentCount = 1,
-                pColorAttachments = *VkRenderingAttachmentInfoKHR.{
-                    imageView = swapchain_image_views[image_index],
-                    imageLayout = .ATTACHMENT_OPTIMAL,
-                    loadOp = .CLEAR,
-                    storeOp = .STORE,
-                    clearValue = VkClearValue.{color = .{_float32 = clear_color.component }},
-                },
-            };
-            vkCmdBeginRendering(command_buffer, *render_info);
-        }
-
-    
-        size : u64 = xx (dd.vertices.count * size_of(Vertex));
-        create_or_update_buffer(*dd.vertex_buffer, size, VkBufferUsageFlagBits.VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT | .UNIFORM_BUFFER_BIT | .STORAGE_BUFFER_BIT | .TRANSFER_SRC_BIT, .UPLOAD);
-        copy_data(dd.vertex_buffer, dd.vertices.data, size);
-        offset : u64 = 0;
-        vkCmdBindVertexBuffers(command_buffer, 0, 1, *dd.vertex_buffer.buffer, *offset);
-
-        // Issue draw calls & end command buffer
-        for dd.draw_cmds {
-            vkCmdPushConstants(command_buffer, color_pass.pipeline_layout, .VERTEX_BIT, 0, size_of(PushConstantData), *PushConstantData.{transpose(it.xform)});
-            vkCmdDraw(command_buffer, it.count, 1, it.id, 0);
-        }
-
-        vkCmdEndRendering(command_buffer);
+    clear_color := Vector4.{0, 0, 0, 1};
+    {   // Begin rendering
+        render_info := VkRenderingInfoKHR.{
+            renderArea = .{
+                offset = .{0, 0},
+                extent = swapchain_extent,
+            },
+            layerCount = 1,
+            colorAttachmentCount = 1,
+            pColorAttachments = *VkRenderingAttachmentInfoKHR.{
+                imageView = swapchain_image_views[image_index],
+                imageLayout = .ATTACHMENT_OPTIMAL,
+                loadOp = .CLEAR,
+                storeOp = .STORE,
+                clearValue = VkClearValue.{color = .{_float32 = clear_color.component }},
+            },
+        };
+        vkCmdBeginRendering(command_buffer, *render_info);
     }
 
-    {   // Transition image for present & end command buffer
-        transition_image_layout(swapchain_images[image_index], .COLOR_ATTACHMENT_OPTIMAL, .PRESENT_SRC_KHR, command_buffer);
-        Vk_Check(vkEndCommandBuffer(command_buffer));
+
+    size : u64 = xx (dd.vertices.count * size_of(Vertex));
+    create_or_update_buffer(*dd.vertex_buffer, size, VkBufferUsageFlagBits.VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT | .UNIFORM_BUFFER_BIT | .STORAGE_BUFFER_BIT | .TRANSFER_SRC_BIT, .UPLOAD);
+    copy_data(dd.vertex_buffer, dd.vertices.data, size);
+    offset : u64 = 0;
+    vkCmdBindVertexBuffers(command_buffer, 0, 1, *dd.vertex_buffer.buffer, *offset);
+
+    // Issue draw calls & end command buffer
+    for dd.draw_cmds {
+        vkCmdPushConstants(command_buffer, color_pass.pipeline_layout, .VERTEX_BIT, 0, size_of(PushConstantData), *PushConstantData.{transpose(it.xform)});
+        vkCmdDraw(command_buffer, it.count, 1, it.id, 0);
     }
-   
+
+    vkCmdEndRendering(command_buffer);
 }
 
 // --------
@@ -230,7 +218,96 @@ create_ui_pass :: (device: VkDevice) -> Render_Pass {
     return pass;
 }
 
-draw_ui_pass :: () {
+draw_ui_pass :: (dd: *Draw_Data, command_buffer: VkCommandBuffer) {
 
+    using global_renderer;
+    image_index := context.vk.image_index;
+    pass := ui_pass;
+
+    {   // Update uniform data 
+        proj := orthographic_projection_matrix(0, xx global_renderer.swapchain_extent.width, 0, xx global_renderer.swapchain_extent.height, -1, 1);
+        // proj._22 *= -1;
+        camera_data := CameraData.{
+            proj = transpose(proj),
+            view = Matrix4_Identity,
+            view_proj = transpose(proj),
+        };
+        memcpy(pass.uniform_data[image_index].mapped, *camera_data, size_of(type_of(camera_data)));
+
+        // @Hardcoded: Create a Material struct, that allocates a descriptor set on a specific pipline and gets bound when needed
+        // @Todo: Only write the frame constant data here
+        descriptor_writes : [2]VkWriteDescriptorSet;
+        buffer_info := VkDescriptorBufferInfo .{
+            buffer = pass.uniform_data[image_index].buffer,
+            offset = 0,
+            range = size_of(CameraData),
+        };
+        descriptor_writes[0] = .{
+            dstSet = pass.descriptor_sets[image_index][0],
+            dstBinding = 0,
+            dstArrayElement = 0,
+            descriptorType = .UNIFORM_BUFFER,
+            descriptorCount = 1,
+            pBufferInfo = *buffer_info,
+        };
+
+        image_info := VkDescriptorImageInfo.{
+            sampler = sampler, // @Hardcoded
+            imageView = global_engine.default_font.texture.view, // @Hardcoded
+            imageLayout = .SHADER_READ_ONLY_OPTIMAL,
+        };
+        descriptor_writes[1] = .{
+            dstSet = pass.descriptor_sets[image_index][1],
+            dstBinding = 0,
+            dstArrayElement = 0,
+            descriptorType = .COMBINED_IMAGE_SAMPLER,
+            descriptorCount = 1,
+            pImageInfo = *image_info,
+        };
+        vkUpdateDescriptorSets(global_renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
+    }
+
+
+    if dd.vertices.count == 0 return;
+
+    {   // Bind pipeline, dynamic state, global descriptors and a default push constant
+        vkCmdBindPipeline(command_buffer, .GRAPHICS, pass.pipeline);
+        vkCmdSetViewport(command_buffer, 0, 1, *VkViewport.{0, 0, xx swapchain_extent.width, xx swapchain_extent.height, 0, 1});
+        vkCmdSetScissor(command_buffer, 0, 1, *VkRect2D.{.{0, 0}, swapchain_extent});
+        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pass.pipeline_layout, 0, 1, *pass.descriptor_sets[image_index][0], 0, null);
+        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pass.pipeline_layout, 1, 1, *pass.descriptor_sets[image_index][1], 0, null);
+    }
+
+    clear_color := Vector4.{0, 0, 0, 1};
+    {   // Begin rendering
+        render_info := VkRenderingInfoKHR.{
+            renderArea = .{
+                offset = .{0, 0},
+                extent = swapchain_extent,
+            },
+            layerCount = 1,
+            colorAttachmentCount = 1,
+            pColorAttachments = *VkRenderingAttachmentInfoKHR.{
+                imageView = swapchain_image_views[image_index],
+                imageLayout = .ATTACHMENT_OPTIMAL,
+                loadOp = .LOAD,
+                storeOp = .STORE,
+            },
+        };
+        vkCmdBeginRendering(command_buffer, *render_info);
+    }
+
+    size : u64 = xx (dd.vertices.count * size_of(Vertex));
+    create_or_update_buffer(*dd.vertex_buffer, size, VkBufferUsageFlagBits.VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT | .UNIFORM_BUFFER_BIT | .STORAGE_BUFFER_BIT | .TRANSFER_SRC_BIT, .UPLOAD);
+    copy_data(dd.vertex_buffer, dd.vertices.data, size);
+    offset : u64 = 0;
+    vkCmdBindVertexBuffers(command_buffer, 0, 1, *dd.vertex_buffer.buffer, *offset);
+
+    // Issue draw calls & end command buffer
+    for dd.draw_cmds {
+        vkCmdDraw(command_buffer, it.count, 1, it.id, 0);
+    }
+
+    vkCmdEndRendering(command_buffer);
 }
 
