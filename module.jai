@@ -26,8 +26,7 @@ File_Watcher :: #import "File_Watcher";
     #load "src/vulkan/utils.jai";
     #load "src/vulkan/buffer.jai";
     #load "src/vulkan/texture.jai";
-    #load "src/vulkan/color_pass.jai";
-    #load "src/vulkan/2d_pass.jai";
+    #load "src/vulkan/render_pass.jai";
 }
 #load "src/renderer/text.jai";
 #load "src/camera.jai";

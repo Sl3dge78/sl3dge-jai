@@ -25,7 +25,7 @@ Renderer :: struct {
     frame_index := 0;
     frame_data: [FRAME_COUNT]Frame_Data;
 
-    color_pass: Render_Pass;
+    
     sampler: VkSampler;
 
     memory_properties: VkPhysicalDeviceMemoryProperties;
@@ -37,7 +37,11 @@ Renderer :: struct {
     }
     compatible_mem_types: [MemoryType.COUNT]u32;
 
+    color_pass: Render_Pass;
     color_draw_data: Draw_Data;
+
+    ui_pass: Render_Pass;
+    ui_draw_data: Draw_Data;
 }
 
 Frame_Data :: struct {
@@ -48,6 +52,8 @@ Frame_Data :: struct {
     render_finished_semaphore: VkSemaphore;
     image_index: u32;
 }
+
+
 
 Draw_Data :: struct {
     vertex_buffer: Buffer;
@@ -314,6 +320,7 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
     renderer.sampler = create_sampler(renderer.device);
         
     renderer.color_pass = create_color_pass(renderer.device);
+    renderer.ui_pass = create_ui_pass(renderer.device);
 
     // Swapchain
     create_or_update_swapchain();
@@ -339,11 +346,13 @@ renderer_deinit :: () {
     using global_renderer;
     vkDeviceWaitIdle(device);
 
-    destroy_buffer(*color_draw_data.vertex_buffer);
-
     vkDestroyDescriptorPool(device, descriptor_pool, null);
     
-    destroy_color_pass(*color_pass, device);
+    destroy_render_pass(*color_pass, device);
+    destroy_buffer(*color_draw_data.vertex_buffer);
+
+    destroy_render_pass(*ui_pass, device);
+
     vkDestroySampler(device, sampler, null);
 
     for swapchain_image_views {
@@ -421,8 +430,12 @@ begin_3d :: () {
     context.vk.current_draw_data = *global_renderer.color_draw_data;
 }
 
+begin_2d :: () {
+    context.vk.current_draw_data = *global_renderer.ui_draw_data;
+}
+
 set_transform_matrix :: (mat: Matrix4) {
-    context.vk.current_pass.transform = mat;
+    context.vk.current_draw_data.transform = mat;
 }
 
 set_view_matrix :: (view: Matrix4) {
