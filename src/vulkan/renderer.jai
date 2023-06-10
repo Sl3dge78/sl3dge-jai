@@ -16,7 +16,7 @@ Renderer :: struct {
     swapchain_images: [..]VkImage;
     surface_format: VkSurfaceFormatKHR;
     swapchain_image_views: [..]VkImageView;
-    framebuffers: [..]VkFramebuffer;
+    framebuffers: [FRAME_COUNT]VkFramebuffer;
     
     descriptor_pool: VkDescriptorPool;
     command_pool : VkCommandPool;
@@ -36,10 +36,12 @@ Renderer :: struct {
     }
     compatible_mem_types: [MemoryType.COUNT]u32;
 
-    color_pass: Render_Pass;
+    render_pass: VkRenderPass;
+
+    color_pipeline: Pipeline;
     color_draw_data: Draw_Data;
 
-    ui_pass: Render_Pass;
+    ui_pipeline: Pipeline;
     ui_draw_data: Draw_Data;
 }
 
@@ -316,12 +318,14 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
 
     renderer.sampler = create_sampler(renderer.device);
 
+    renderer.render_pass = create_renderpass(renderer.device, global_renderer.surface_format.format, .CLEAR, .UNDEFINED, .PRESENT_SRC_KHR);
+    renderer.color_pipeline = create_color_pipeline(renderer.device, renderer.render_pass);
+    renderer.ui_pipeline = create_ui_pipeline(renderer.device, renderer.render_pass);
+
     // Swapchain
     create_or_update_swapchain();
     log("Swapchain created");
 
-    renderer.color_pass = create_color_pass(renderer.device);
-    renderer.ui_pass = create_ui_pass(renderer.device);
 
     log("Renderer successfully initialized!");
     return renderer;
@@ -335,6 +339,20 @@ renderer_resize :: (w: s32, h: s32) {
     create_or_update_swapchain(xx w, xx h);
 }
 
+create_framebuffers :: () {
+    framebuffer_ci := VkFramebufferCreateInfo.{
+        renderPass = global_renderer.render_pass,
+        attachmentCount = 1,
+        pAttachments = *global_renderer.swapchain_image_views[0],
+        width = global_renderer.swapchain_extent.width,
+        height = global_renderer.swapchain_extent.height,
+        layers = 1,
+    };
+    vkCreateFramebuffer(global_renderer.device, *framebuffer_ci, null, *global_renderer.framebuffers[0]);
+    framebuffer_ci.pAttachments = *global_renderer.swapchain_image_views[1];
+    vkCreateFramebuffer(global_renderer.device, *framebuffer_ci, null, *global_renderer.framebuffers[1]);
+}
+
 get_window_dims :: () -> Vector2i {
     return .{global_renderer.swapchain_extent.width, global_renderer.swapchain_extent.height};
 }
@@ -344,11 +362,12 @@ renderer_deinit :: () {
     vkDeviceWaitIdle(device);
 
     vkDestroyDescriptorPool(device, descriptor_pool, null);
+    vkDestroyRenderPass(device, render_pass, null);
     
-    destroy_render_pass(*color_pass, device);
+    destroy_pipeline(*color_pipeline, device);
     destroy_buffer(*color_draw_data.vertex_buffer);
 
-    destroy_render_pass(*ui_pass, device);
+    destroy_pipeline(*ui_pipeline, device);
     destroy_buffer(*ui_draw_data.vertex_buffer);
 
     vkDestroySampler(device, sampler, null);
@@ -365,6 +384,9 @@ renderer_deinit :: () {
         vkDestroySemaphore(device, it.image_available_semaphore, null);
     }
     vkDestroyCommandPool(device, command_pool, null);
+    for framebuffers {
+        vkDestroyFramebuffer(device, it, null);
+    }
 
     vkDestroySwapchainKHR(device, swapchain, null);
     vkDestroyDevice(device, null);
@@ -400,18 +422,24 @@ end_frame :: () {
     using global_renderer;
     using context.vk;
 
-    {   // Prepare frame buffer
-        vkBeginCommandBuffer(command_buffer, *VkCommandBufferBeginInfo.{flags = .ONE_TIME_SUBMIT_BIT});
-        transition_image_layout(swapchain_images[image_index], .UNDEFINED, .COLOR_ATTACHMENT_OPTIMAL, command_buffer);
-    }
+    clear_color := Vector4.{0, 0, 0, 0};
+    vkBeginCommandBuffer(command_buffer, *VkCommandBufferBeginInfo.{flags = .ONE_TIME_SUBMIT_BIT});
+    vkCmdBeginRenderPass(command_buffer, *VkRenderPassBeginInfo.{
+        renderPass = render_pass,
+        framebuffer = framebuffers[image_index],
+        clearValueCount = 1,
+        pClearValues = *VkClearValue.{color = .{_float32 = clear_color.component }},
+        renderArea = .{
+            offset = .{0, 0},
+            extent = swapchain_extent,
+        },
+    }, .INLINE);
 
-    draw_color_pass(*color_draw_data, command_buffer);
-    draw_ui_pass(*ui_draw_data, command_buffer);
+    draw_color_pipeline(*color_draw_data, command_buffer);
+    draw_ui_pipeline(*ui_draw_data, command_buffer);
 
-    {   // Transition image for present & end command buffer
-        transition_image_layout(swapchain_images[image_index], .COLOR_ATTACHMENT_OPTIMAL, .PRESENT_SRC_KHR, command_buffer);
-        Vk_Check(vkEndCommandBuffer(command_buffer));
-    }
+    vkCmdEndRenderPass(command_buffer);
+    Vk_Check(vkEndCommandBuffer(command_buffer));
 
     submit_info := VkSubmitInfo.{
         waitSemaphoreCount = 1,
@@ -461,18 +489,18 @@ set_view_matrix :: (view: Matrix4) {
             view = transpose(view),
             view_proj = transpose(view * proj),
         };
-        memcpy(color_pass.uniform_data[context.vk.image_index].mapped, *camera_data, size_of(type_of(camera_data)));
+        memcpy(color_pipeline.uniform_data[context.vk.image_index].mapped, *camera_data, size_of(type_of(camera_data)));
 
         // @Hardcoded: Create a Material struct, that allocates a descriptor set on a specific pipline and gets bound when needed
         // @Todo: Only write the frame constant data here
         descriptor_writes : [2]VkWriteDescriptorSet;
         buffer_info := VkDescriptorBufferInfo .{
-            buffer = color_pass.uniform_data[context.vk.image_index].buffer,
+            buffer = color_pipeline.uniform_data[context.vk.image_index].buffer,
             offset = 0,
             range = size_of(CameraData),
         };
         descriptor_writes[0] = .{
-            dstSet = color_pass.descriptor_sets[context.vk.image_index][0],
+            dstSet = color_pipeline.descriptor_sets[context.vk.image_index][0],
             dstBinding = 0,
             dstArrayElement = 0,
             descriptorType = .UNIFORM_BUFFER,
@@ -486,7 +514,7 @@ set_view_matrix :: (view: Matrix4) {
             imageLayout = .SHADER_READ_ONLY_OPTIMAL,
         };
         descriptor_writes[1] = .{
-            dstSet = color_pass.descriptor_sets[context.vk.image_index][1],
+            dstSet = color_pipeline.descriptor_sets[context.vk.image_index][1],
             dstBinding = 0,
             dstArrayElement = 0,
             descriptorType = .COMBINED_IMAGE_SAMPLER,

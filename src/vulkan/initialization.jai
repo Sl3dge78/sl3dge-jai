@@ -121,7 +121,6 @@ create_or_update_swapchain :: () {
         for framebuffers {
             vkDestroyFramebuffer(device, it, null);
         }
-        framebuffers.count = 0;
 
         for swapchain_image_views {
             vkDestroyImageView(device, it, null);
@@ -138,9 +137,10 @@ create_or_update_swapchain :: () {
         image_view := make_image_view(it, surface_format.format);
         array_add(*swapchain_image_views, image_view);
 
-        
-
     }
+
+    create_framebuffers();
+
     log("Swapchain created:");
     log("\tFormat: %", surface_format.format);
     log("\tPresent mode: %", present_mode);
