@@ -17,6 +17,8 @@ Renderer :: struct {
     surface_format: VkSurfaceFormatKHR;
     swapchain_image_views: [..]VkImageView;
     framebuffers: [FRAME_COUNT]VkFramebuffer;
+    depth_texture: Texture;
+    depth_format: VkFormat = .D32_SFLOAT_S8_UINT;
     
     descriptor_pool: VkDescriptorPool;
     command_pool : VkCommandPool;
@@ -318,7 +320,7 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
 
     renderer.sampler = create_sampler(renderer.device);
 
-    renderer.render_pass = create_renderpass(renderer.device, global_renderer.surface_format.format, .CLEAR, .UNDEFINED, .PRESENT_SRC_KHR);
+    renderer.render_pass = create_renderpass(renderer.device, global_renderer.surface_format.format, global_renderer.depth_format, .CLEAR, .UNDEFINED, .PRESENT_SRC_KHR);
     renderer.color_pipeline = create_color_pipeline(renderer.device, renderer.render_pass);
     renderer.ui_pipeline = create_ui_pipeline(renderer.device, renderer.render_pass);
 
@@ -340,16 +342,20 @@ renderer_resize :: (w: s32, h: s32) {
 }
 
 create_framebuffers :: () {
+    attachments : [2]VkImageView;
+    attachments[0] = global_renderer.swapchain_image_views[0];
+    attachments[1] = global_renderer.depth_texture.view;
+
     framebuffer_ci := VkFramebufferCreateInfo.{
         renderPass = global_renderer.render_pass,
-        attachmentCount = 1,
-        pAttachments = *global_renderer.swapchain_image_views[0],
+        attachmentCount = attachments.count,
+        pAttachments = attachments.data,
         width = global_renderer.swapchain_extent.width,
         height = global_renderer.swapchain_extent.height,
         layers = 1,
     };
     vkCreateFramebuffer(global_renderer.device, *framebuffer_ci, null, *global_renderer.framebuffers[0]);
-    framebuffer_ci.pAttachments = *global_renderer.swapchain_image_views[1];
+    attachments[0] = global_renderer.swapchain_image_views[1];
     vkCreateFramebuffer(global_renderer.device, *framebuffer_ci, null, *global_renderer.framebuffers[1]);
 }
 
@@ -360,6 +366,8 @@ get_window_dims :: () -> Vector2i {
 renderer_deinit :: () {
     using global_renderer;
     vkDeviceWaitIdle(device);
+
+    destroy_texture(*depth_texture);
 
     vkDestroyDescriptorPool(device, descriptor_pool, null);
     vkDestroyRenderPass(device, render_pass, null);
@@ -423,12 +431,15 @@ end_frame :: () {
     using context.vk;
 
     clear_color := Vector4.{0, 0, 0, 0};
+    clear_values :[2] VkClearValue;
+    clear_values[0] = .{color = .{_float32 = clear_color.component}};
+    clear_values[1] = .{depthStencil = .{1, 0}};
     vkBeginCommandBuffer(command_buffer, *VkCommandBufferBeginInfo.{flags = .ONE_TIME_SUBMIT_BIT});
     vkCmdBeginRenderPass(command_buffer, *VkRenderPassBeginInfo.{
         renderPass = render_pass,
         framebuffer = framebuffers[image_index],
-        clearValueCount = 1,
-        pClearValues = *VkClearValue.{color = .{_float32 = clear_color.component }},
+        clearValueCount = clear_values.count,
+        pClearValues = clear_values.data,
         renderArea = .{
             offset = .{0, 0},
             extent = swapchain_extent,

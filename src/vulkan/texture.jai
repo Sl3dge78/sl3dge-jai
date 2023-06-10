@@ -2,38 +2,14 @@ Texture :: struct {
     image: VkImage;
     memory: VkDeviceMemory;
     view: VkImageView;
-    w : s32;
-    h : s32;
+    w : u32;
+    h : u32;
 }
 
-create_texture_from_file :: (path: string) -> Texture {
-    channels: s32;
-    w: s32;
-    h: s32;
-    img := stbi_load(temp_c_string(path), *w, *h, *channels, 4);
-    assert(img != null, "Unable to load %.", path);
-    defer stbi_image_free(img);
-    return create_texture_from_data(img, w, h, channels, u8);
-}
-
-create_texture_from_data :: (ptr: *void, w: s32, h: s32, channels: int, $data_type: Type) -> Texture {
-    texture : Texture;
+create_texture :: (w: u32, h: u32, format: VkFormat, $usage: VkImageUsageFlags) -> Texture {
+    texture: Texture;
     texture.w = w;
     texture.h = h;
-    format : VkFormat = ---;
-    #if data_type == u8 {
-        if channels == {
-            case 1; format = .R8_UNORM;
-            case 4; format = .R8G8B8A8_SRGB;
-            case; assert(false, "Unhandled channel count of %!", channels);
-        }
-    } else #assert false;
-
-    image_size: VkDeviceSize = xx(texture.w * texture.h * channels);
-
-    staging_buffer := create_buffer(image_size, .TRANSFER_SRC_BIT, .UPLOAD);
-    defer destroy_buffer(*staging_buffer);
-    copy_data(staging_buffer, ptr, image_size);
 
     create_info := VkImageCreateInfo.{
         imageType = ._2D,
@@ -43,18 +19,50 @@ create_texture_from_data :: (ptr: *void, w: s32, h: s32, channels: int, $data_ty
         format = format,
         tiling = .OPTIMAL,
         initialLayout = .UNDEFINED,
-        usage = VkImageUsageFlags.TRANSFER_DST_BIT | .SAMPLED_BIT,
+        usage = usage,
         sharingMode = .EXCLUSIVE,
         samples = ._1_BIT
     }; 
     Vk_Check(vkCreateImage(global_renderer.device, *create_info, null, *texture.image));
     texture.memory = alloc_device_memory(texture.image, .LOCAL);
+    #if usage == .DEPTH_STENCIL_ATTACHMENT_BIT {
+        texture.view = make_image_view(texture.image, format, VkImageAspectFlags.DEPTH_BIT | .STENCIL_BIT);
+    } else {
+        texture.view = make_image_view(texture.image, format);
+    }
+    return texture;
+}
+
+create_texture_from_file :: (path: string) -> Texture {
+    channels: s32;
+    w: s32;
+    h: s32;
+    img := stbi_load(temp_c_string(path), *w, *h, *channels, 4);
+    assert(img != null, "Unable to load %.", path);
+    defer stbi_image_free(img);
+    return create_texture_from_data(img, xx w, xx h, channels, u8);
+}
+
+create_texture_from_data :: (ptr: *void, w: u32, h: u32, channels: int, $data_type: Type) -> Texture {
+    format : VkFormat = ---;
+    #if data_type == u8 {
+        if channels == {
+            case 1; format = .R8_UNORM;
+            case 4; format = .R8G8B8A8_SRGB;
+            case; assert(false, "Unhandled channel count of %!", channels);
+        }
+    } else #assert false;
+
+    texture := create_texture(w, h, format, VkImageUsageFlags.TRANSFER_DST_BIT | .SAMPLED_BIT);
+
+    image_size: VkDeviceSize = xx(texture.w * texture.h * channels);
+    staging_buffer := create_buffer(image_size, .TRANSFER_SRC_BIT, .UPLOAD);
+    defer destroy_buffer(*staging_buffer);
+    copy_data(staging_buffer, ptr, image_size);
 
     transition_image_layout(texture.image, .UNDEFINED, .TRANSFER_DST_OPTIMAL);
     copy_buffer_to_image(staging_buffer.buffer, texture.image, xx texture.w, xx texture.h);
     transition_image_layout(texture.image, .TRANSFER_DST_OPTIMAL, .SHADER_READ_ONLY_OPTIMAL);
-    
-    texture.view = make_image_view(texture.image, format);
 
     return texture;
 }
@@ -72,6 +80,23 @@ transition_image_layout :: (image: VkImage, $old_layout: VkImageLayout, $new_lay
     dst_access: VkAccessFlagBits;
     src_stage: VkPipelineStageFlagBits;
     dst_stage: VkPipelineStageFlagBits;
+    barrier := VkImageMemoryBarrier.{
+        oldLayout = old_layout,
+        newLayout = new_layout,
+        srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        image = image,
+        subresourceRange = .{
+            aspectMask = .COLOR_BIT,
+            baseMipLevel = 0,
+            levelCount = 1,
+            baseArrayLayer = 0,
+            layerCount = 1,
+        },
+        srcAccessMask = src_access,
+        dstAccessMask = dst_access,
+    };
+
     #if old_layout == .UNDEFINED {
         src_access = 0;
         src_stage = .TOP_OF_PIPE_BIT;
@@ -96,26 +121,13 @@ transition_image_layout :: (image: VkImage, $old_layout: VkImageLayout, $new_lay
     } else #if new_layout == .COLOR_ATTACHMENT_OPTIMAL {
         dst_access = .COLOR_ATTACHMENT_WRITE_BIT;
         dst_stage = .COLOR_ATTACHMENT_OUTPUT_BIT;
+    } else #if new_layout == .DEPTH_STENCIL_ATTACHMENT_OPTIMAL {
+        dst_access = VkAccessFlagBits.DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | .DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+        dst_stage  = .EARLY_FRAGMENT_TESTS_BIT;
+        barrier.subresourceRange.aspectMask = VkImageAspectFlags.DEPTH_BIT | .STENCIL_BIT;
     } else {
         #assert false, "Unsupported image layout transition.";
     }
-
-    barrier := VkImageMemoryBarrier.{
-        oldLayout = old_layout,
-        newLayout = new_layout,
-        srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        image = image,
-        subresourceRange = .{
-            aspectMask = .COLOR_BIT,
-            baseMipLevel = 0,
-            levelCount = 1,
-            baseArrayLayer = 0,
-            layerCount = 1,
-        },
-        srcAccessMask = src_access,
-        dstAccessMask = dst_access,
-    };
 
     command_buffer := ifx cmd == VK_NULL_HANDLE then begin_single_time_command_buffer() else cmd;
     vkCmdPipelineBarrier(
@@ -144,14 +156,14 @@ copy_buffer_to_image :: (buffer: VkBuffer, image: VkImage, w: u32, h: u32) {
     vkCmdCopyBufferToImage(cmd, buffer, image, .TRANSFER_DST_OPTIMAL, 1, *region);
 }
 
-make_image_view :: (image: VkImage, format: VkFormat) -> VkImageView {
+make_image_view :: (image: VkImage, format: VkFormat, aspect_mask : VkImageAspectFlags = .COLOR_BIT) -> VkImageView {
     img_view : VkImageView;
     image_view_ci := VkImageViewCreateInfo.{
         image = image,
         viewType = ._2D,
         format = format,
         subresourceRange = .{
-            aspectMask = .COLOR_BIT, 
+            aspectMask = aspect_mask, 
             baseMipLevel = 0,
             levelCount = 1,
             baseArrayLayer = 0,

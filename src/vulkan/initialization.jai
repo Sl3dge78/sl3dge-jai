@@ -22,19 +22,33 @@ create_sampler :: (device: VkDevice) -> VkSampler {
     return result;
 }
 
-create_renderpass :: (device: VkDevice, format: VkFormat, loadOp: VkAttachmentLoadOp, initial_layout: VkImageLayout, final_layout: VkImageLayout) -> VkRenderPass {
+create_renderpass :: (device: VkDevice, color_format: VkFormat, depth_format: VkFormat, loadOp: VkAttachmentLoadOp, initial_layout: VkImageLayout, final_layout: VkImageLayout) -> VkRenderPass {
+
+    attachments : [2] VkAttachmentDescription;
+    attachments[0] = .{
+        format = color_format,
+        samples = ._1_BIT,
+        loadOp = loadOp,
+        storeOp = .STORE,
+        stencilLoadOp = .DONT_CARE,
+        stencilStoreOp = .DONT_CARE,
+        initialLayout = initial_layout,
+        finalLayout = final_layout,
+    };
+    attachments[1] = .{
+        format = depth_format,
+        samples = ._1_BIT,
+        loadOp = loadOp,
+        storeOp = .STORE,
+        stencilLoadOp = .DONT_CARE,
+        stencilStoreOp = .DONT_CARE,
+        initialLayout = .UNDEFINED,
+        finalLayout = .DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+    };
+
     create_info := VkRenderPassCreateInfo.{
-        attachmentCount = 1,
-        pAttachments = *VkAttachmentDescription.{
-            format = format,
-            samples = ._1_BIT,
-            loadOp = loadOp,
-            storeOp = .STORE,
-            stencilLoadOp = .DONT_CARE,
-            stencilStoreOp = .DONT_CARE,
-            initialLayout = initial_layout,
-            finalLayout = final_layout,
-        },
+        attachmentCount = attachments.count,
+        pAttachments = attachments.data,
         subpassCount = 1,
         pSubpasses = *VkSubpassDescription.{
             pipelineBindPoint = .GRAPHICS,
@@ -43,15 +57,19 @@ create_renderpass :: (device: VkDevice, format: VkFormat, loadOp: VkAttachmentLo
                 attachment = 0,
                 layout = .COLOR_ATTACHMENT_OPTIMAL,
             },
+            pDepthStencilAttachment = *VkAttachmentReference.{
+                attachment = 1,
+                layout = .DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+            },
         },
         dependencyCount = 1,
         pDependencies = *VkSubpassDependency.{
             srcSubpass = VK_SUBPASS_EXTERNAL,
             dstSubpass = 0,
-            srcStageMask = .COLOR_ATTACHMENT_OUTPUT_BIT,
-            dstStageMask = .COLOR_ATTACHMENT_OUTPUT_BIT,
+            srcStageMask = VkPipelineStageFlagBits.COLOR_ATTACHMENT_OUTPUT_BIT | .EARLY_FRAGMENT_TESTS_BIT,
+            dstStageMask = VkPipelineStageFlagBits.COLOR_ATTACHMENT_OUTPUT_BIT | .EARLY_FRAGMENT_TESTS_BIT,
             srcAccessMask = 0,
-            dstAccessMask = VkAccessFlagBits.COLOR_ATTACHMENT_READ_BIT | .COLOR_ATTACHMENT_WRITE_BIT,
+            dstAccessMask = VkAccessFlagBits.COLOR_ATTACHMENT_WRITE_BIT | .DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
             dependencyFlags = 0,
         },
     };
@@ -129,6 +147,8 @@ create_or_update_swapchain :: () {
 
         vkDestroySwapchainKHR(device, old_swapchain, null);
         swapchain_images.count = 0;
+
+        destroy_texture(*depth_texture);
     }
 
     swapchain_images = fill_array(VkImage, vkGetSwapchainImagesKHR, device, swapchain, allocator = context.allocator);
@@ -137,6 +157,11 @@ create_or_update_swapchain :: () {
         image_view := make_image_view(it, surface_format.format);
         array_add(*swapchain_image_views, image_view);
 
+    }
+
+    {   // Depth image
+        depth_texture = create_texture(swapchain_extent.width, swapchain_extent.height, depth_format, .DEPTH_STENCIL_ATTACHMENT_BIT);
+        transition_image_layout(depth_texture.image, .UNDEFINED, .DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
     }
 
     create_framebuffers();
@@ -218,6 +243,15 @@ pipeline_create_info :: (vertex_shader: VkShaderModule, fragment_shader: VkShade
         pDynamicState = *VkPipelineDynamicStateCreateInfo.{
             dynamicStateCount = dynamic_state.count,
             pDynamicStates = dynamic_state.data,
+        },
+        pDepthStencilState = *VkPipelineDepthStencilStateCreateInfo.{
+            depthTestEnable = VK_TRUE,
+            depthWriteEnable = VK_TRUE,
+            depthCompareOp = .LESS,
+            depthBoundsTestEnable = VK_FALSE,
+            minDepthBounds = 0,
+            maxDepthBounds = 1,
+            stencilTestEnable = VK_FALSE,
         },
         layout = layout,
     };
