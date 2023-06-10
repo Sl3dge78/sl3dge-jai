@@ -139,3 +139,79 @@ create_or_update_swapchain :: () {
     log("\tImage count: %", image_count);
     log("\tExtent: %", swapchain_extent);
 }
+
+pipeline_create_info :: (vertex_shader: VkShaderModule, fragment_shader: VkShaderModule, layout: VkPipelineLayout) -> VkGraphicsPipelineCreateInfo #expand {
+    `stages : [2]VkPipelineShaderStageCreateInfo;
+    stages[0] = .{stage = .VERTEX_BIT,   module = vertex_shader, pName = "main"};
+    stages[1] = .{stage = .FRAGMENT_BIT, module = fragment_shader, pName = "main"};
+            /* Non constant array litterals pls
+        stages := VkPipelineShaderStageCreateInfo.[
+            .{stage = .VERTEX_BIT,   module = vertex_shader, pName = "main"},
+            .{stage = .FRAGMENT_BIT, module = vertex_shader, pName = "main"},
+        ]; */     
+
+    `dynamic_state := VkDynamicState.[.VIEWPORT, .SCISSOR];
+
+    create_info := VkGraphicsPipelineCreateInfo.{
+        stageCount = stages.count,
+        pStages = stages.data,
+        pVertexInputState = *VkPipelineVertexInputStateCreateInfo.{
+            vertexBindingDescriptionCount = 1,
+            pVertexBindingDescriptions = *VkVertexInputBindingDescription.{
+                binding = 0, stride = size_of(Vertex), inputRate = .VERTEX
+            },
+            vertexAttributeDescriptionCount = vertex_input_attribute.count,
+            pVertexAttributeDescriptions = vertex_input_attribute.data,
+        },
+        pInputAssemblyState = *VkPipelineInputAssemblyStateCreateInfo.{
+            topology = .TRIANGLE_LIST,
+            primitiveRestartEnable = VK_FALSE,
+        },
+        pViewportState = *VkPipelineViewportStateCreateInfo.{
+            viewportCount = 1,
+            pViewports = VK_NULL_HANDLE,
+            scissorCount = 1,
+            pScissors = VK_NULL_HANDLE,
+        },
+        pRasterizationState = *VkPipelineRasterizationStateCreateInfo.{
+            depthClampEnable = VK_FALSE,
+            rasterizerDiscardEnable = VK_FALSE,
+            polygonMode = .FILL,
+            cullMode = .NONE,
+            frontFace = .CLOCKWISE,
+            depthBiasEnable = VK_FALSE,
+            depthBiasConstantFactor = 0,
+            depthBiasClamp = 0,
+            depthBiasSlopeFactor = 0,
+            lineWidth = 1,
+        },
+        pMultisampleState = *VkPipelineMultisampleStateCreateInfo.{
+            rasterizationSamples = ._1_BIT,
+            sampleShadingEnable = VK_FALSE,
+            minSampleShading = 1,
+            pSampleMask = VK_NULL_HANDLE,
+            alphaToCoverageEnable = VK_FALSE,
+            alphaToOneEnable = VK_FALSE,
+        },
+        pColorBlendState = *VkPipelineColorBlendStateCreateInfo.{
+            logicOpEnable = VK_FALSE,
+            attachmentCount = 1,
+            pAttachments = *VkPipelineColorBlendAttachmentState.{
+                blendEnable = VK_FALSE,
+                srcColorBlendFactor = .ONE,
+                dstColorBlendFactor = .ZERO,
+                colorBlendOp = .ADD,
+                srcAlphaBlendFactor = .ONE,
+                dstAlphaBlendFactor = .ZERO,
+                alphaBlendOp = .ADD,
+                colorWriteMask = VkColorComponentFlagBits.R_BIT | .G_BIT | .B_BIT | .A_BIT,
+            },
+        },
+        pDynamicState = *VkPipelineDynamicStateCreateInfo.{
+            dynamicStateCount = dynamic_state.count,
+            pDynamicStates = dynamic_state.data,
+        },
+        layout = layout,
+    };
+    return create_info;
+}

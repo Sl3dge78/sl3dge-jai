@@ -1,5 +1,5 @@
 prepare_vertices :: (nb: u32) -> *Vertex {
-    using context.vk.current_pass;
+    using context.vk.current_draw_data;
 
     array_reserve(*vertices, vertices.count + nb);
     if draw_cmds.count == 0 {

@@ -36,15 +36,30 @@ Renderer :: struct {
         COUNT;
     }
     compatible_mem_types: [MemoryType.COUNT]u32;
+
+    color_draw_data: Draw_Data;
 }
 
 Frame_Data :: struct {
     command_buffer: VkCommandBuffer;
-    current_pass: *Render_Pass;
+    current_draw_data: *Draw_Data;
     frame_fence: VkFence;
     image_available_semaphore: VkSemaphore;
     render_finished_semaphore: VkSemaphore;
     image_index: u32;
+}
+
+Draw_Data :: struct {
+    vertex_buffer: Buffer;
+    vertices: [..]Vertex;
+    draw_cmds : [..]Draw_Cmd;
+    transform: Matrix4;
+}
+
+Draw_Cmd :: struct {
+    id: u32;
+    count: u32;
+    xform: Matrix4;
 }
 
 #add_context vk: Frame_Data;
@@ -275,9 +290,30 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
         }
         log("Rendering context created");
     }
+
+    // Descriptor pools
+    {
+        pool_sizes : [2]VkDescriptorPoolSize;
+        pool_sizes[0] = VkDescriptorPoolSize.{
+            type = .UNIFORM_BUFFER,
+            descriptorCount = 32,
+        };
+        pool_sizes[1] = VkDescriptorPoolSize.{
+            type = .COMBINED_IMAGE_SAMPLER,
+            descriptorCount = 32, 
+        };
+
+        pool_info := VkDescriptorPoolCreateInfo.{
+            poolSizeCount = pool_sizes.count,
+            pPoolSizes = pool_sizes.data,
+            maxSets = 8,
+        };
+        Vk_Check(vkCreateDescriptorPool(renderer.device, *pool_info, null, *renderer.descriptor_pool));
+    }
+
+    renderer.sampler = create_sampler(renderer.device);
         
     renderer.color_pass = create_color_pass(renderer.device);
-    renderer.sampler = create_sampler(renderer.device);
 
     // Swapchain
     create_or_update_swapchain();
@@ -302,6 +338,8 @@ get_window_dims :: () -> Vector2i {
 renderer_deinit :: () {
     using global_renderer;
     vkDeviceWaitIdle(device);
+
+    destroy_buffer(*color_draw_data.vertex_buffer);
 
     vkDestroyDescriptorPool(device, descriptor_pool, null);
     
@@ -328,7 +366,6 @@ renderer_deinit :: () {
     vkDestroyInstance(instance, null);
 }
 
-
 begin_frame :: () {
     using global_renderer;
 
@@ -338,16 +375,21 @@ begin_frame :: () {
     context.vk = *frame_data[idx];
     using context.vk;
 
+    color_draw_data.vertices.count = 0;
+    color_draw_data.draw_cmds.count = 0;
+    color_draw_data.transform = Matrix4_Identity;
+
     // Wait for image
     vkWaitForFences(device, 1, *frame_fence, VK_TRUE, U64_MAX);
     vkResetFences(device, 1, *frame_fence);
     Vk_Check(vkAcquireNextImageKHR(device, swapchain, U64_MAX, image_available_semaphore, VK_NULL_HANDLE, *image_index));
 }
 
-
 end_frame :: () {
     using global_renderer;
     using context.vk;
+
+    draw_color_pass(*color_draw_data);
 
     submit_info := VkSubmitInfo.{
         waitSemaphoreCount = 1,
@@ -375,6 +417,72 @@ end_frame :: () {
     }
 }
 
+begin_3d :: () {
+    context.vk.current_draw_data = *global_renderer.color_draw_data;
+}
+
 set_transform_matrix :: (mat: Matrix4) {
     context.vk.current_pass.transform = mat;
+}
+
+set_view_matrix :: (view: Matrix4) {
+    using global_renderer;
+    {   // Update uniform data 
+        proj := make_projection_matrix(radians(45), cast(float)global_renderer.swapchain_extent.width/cast(float)global_renderer.swapchain_extent.height, 0.1, 1000);
+        proj._22 *= -1;
+        camera_data := CameraData.{
+            proj = transpose(proj),
+            view = transpose(view),
+            view_proj = transpose(view * proj),
+        };
+        memcpy(color_pass.uniform_data[context.vk.image_index].mapped, *camera_data, size_of(type_of(camera_data)));
+
+        // @Hardcoded: Create a Material struct, that allocates a descriptor set on a specific pipline and gets bound when needed
+        // @Todo: Only write the frame constant data here
+        descriptor_writes : [2]VkWriteDescriptorSet;
+        buffer_info := VkDescriptorBufferInfo .{
+            buffer = color_pass.uniform_data[context.vk.image_index].buffer,
+            offset = 0,
+            range = size_of(CameraData),
+        };
+        descriptor_writes[0] = .{
+            dstSet = color_pass.descriptor_sets[context.vk.image_index][0],
+            dstBinding = 0,
+            dstArrayElement = 0,
+            descriptorType = .UNIFORM_BUFFER,
+            descriptorCount = 1,
+            pBufferInfo = *buffer_info,
+        };
+
+        image_info := VkDescriptorImageInfo.{
+            sampler = sampler, // @Hardcoded
+            imageView = resources.block_texture.view, // @Hardcoded
+            imageLayout = .SHADER_READ_ONLY_OPTIMAL,
+        };
+        descriptor_writes[1] = .{
+            dstSet = color_pass.descriptor_sets[context.vk.image_index][1],
+            dstBinding = 0,
+            dstArrayElement = 0,
+            descriptorType = .COMBINED_IMAGE_SAMPLER,
+            descriptorCount = 1,
+            pImageInfo = *image_info,
+        };
+        vkUpdateDescriptorSets(global_renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
+        /*
+        buffer_info := VkDescriptorBufferInfo .{
+            buffer = color_pass.uniform_data[image_index].buffer,
+            offset = 0,
+            range = size_of(CameraData),
+        };
+        descriptor_write := VkWriteDescriptorSet.{
+            dstSet = color_pass.descriptor_sets[image_index][0],
+            dstBinding = 0,
+            dstArrayElement = 0,
+            descriptorType = .UNIFORM_BUFFER,
+            descriptorCount = 1,
+            pBufferInfo = *buffer_info,
+        };
+        vkUpdateDescriptorSets(global_renderer.device, 1, *descriptor_write, 0, null);
+        */
+    }
 }
