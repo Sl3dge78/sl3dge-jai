@@ -6,7 +6,7 @@ Texture :: struct {
     h : u32;
 }
 
-create_texture :: (w: u32, h: u32, format: VkFormat, $usage: VkImageUsageFlags) -> Texture {
+create_texture :: (w: u32, h: u32, format: VkFormat, $usage: VkImageUsageFlags, aspect: VkImageAspectFlags = .COLOR_BIT) -> Texture {
     texture: Texture;
     texture.w = w;
     texture.h = h;
@@ -25,11 +25,7 @@ create_texture :: (w: u32, h: u32, format: VkFormat, $usage: VkImageUsageFlags) 
     }; 
     Vk_Check(vkCreateImage(global_renderer.device, *create_info, null, *texture.image));
     texture.memory = alloc_device_memory(texture.image, .LOCAL);
-    #if usage == .DEPTH_STENCIL_ATTACHMENT_BIT {
-        texture.view = make_image_view(texture.image, format, VkImageAspectFlags.DEPTH_BIT | .STENCIL_BIT);
-    } else {
-        texture.view = make_image_view(texture.image, format);
-    }
+    texture.view = make_image_view(texture.image, format, aspect);
     return texture;
 }
 

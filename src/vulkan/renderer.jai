@@ -40,11 +40,20 @@ Renderer :: struct {
 
     render_pass: VkRenderPass;
 
-    color_pipeline: Pipeline;
+    color_pipeline: Pipeline(2);
     color_draw_data: Draw_Data;
 
-    ui_pipeline: Pipeline;
+    ui_pipeline: Pipeline(2);
     ui_draw_data: Draw_Data;
+
+    shadowmap_render_pass: VkRenderPass;
+    shadowmap_pipeline: Pipeline(1);
+    shadowmap_texture: Texture;
+    shadowmap_framebuffer: VkFramebuffer;
+
+    projection: Matrix4;
+    view: Matrix4;
+    light: Matrix4;
 }
 
 Frame_Data :: struct {
@@ -66,6 +75,14 @@ Draw_Data :: struct {
 destroy_draw_data :: (dd: *Draw_Data) {
     array_reset(*dd.draw_cmds);
     array_reset(*dd.vertices);
+    destroy_buffer(*dd.vertex_buffer);
+}
+
+upload_draw_data :: (dd: *Draw_Data) {
+    if dd.vertices.count == 0 then return; 
+    size : u64 = xx (dd.vertices.count * size_of(Vertex));
+    create_or_update_buffer(*dd.vertex_buffer, size, VkBufferUsageFlagBits.VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT | .UNIFORM_BUFFER_BIT | .STORAGE_BUFFER_BIT | .TRANSFER_SRC_BIT, .UPLOAD);
+    copy_data(dd.vertex_buffer, dd.vertices.data, size);
 }
 
 Draw_Cmd :: struct {
@@ -82,6 +99,8 @@ CameraData :: struct {
     view: Matrix4;
     proj: Matrix4;
     view_proj: Matrix4;
+    light: Matrix4;
+    light_dir: Vector3;
 }
 
 PushConstantData :: struct {
@@ -318,21 +337,40 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
         pool_info := VkDescriptorPoolCreateInfo.{
             poolSizeCount = pool_sizes.count,
             pPoolSizes = pool_sizes.data,
-            maxSets = 8,
+            maxSets = 16,
         };
         Vk_Check(vkCreateDescriptorPool(renderer.device, *pool_info, null, *renderer.descriptor_pool));
     }
 
     renderer.sampler = create_sampler(renderer.device);
 
-    renderer.render_pass = create_renderpass(renderer.device, global_renderer.surface_format.format, global_renderer.depth_format, .CLEAR, .UNDEFINED, .PRESENT_SRC_KHR);
+    renderer.render_pass = create_standard_renderpass(renderer.device);
     renderer.color_pipeline = create_color_pipeline(renderer.device, renderer.render_pass);
     renderer.ui_pipeline = create_ui_pipeline(renderer.device, renderer.render_pass);
+
+    {   // Shadowmap
+        SHADOWMAP_SIZE :: 2048;
+        renderer.shadowmap_render_pass = create_shadowmap_renderpass(renderer.device);
+        renderer.shadowmap_pipeline = create_shadowmap_pipeline(renderer.device, renderer.shadowmap_render_pass, SHADOWMAP_SIZE);
+        renderer.shadowmap_texture = create_texture(SHADOWMAP_SIZE, SHADOWMAP_SIZE, global_renderer.depth_format, VkImageUsageFlags.DEPTH_STENCIL_ATTACHMENT_BIT | .SAMPLED_BIT, .DEPTH_BIT);
+        // @todo: separate sampler
+        fb_ci := VkFramebufferCreateInfo.{
+            renderPass = renderer.shadowmap_render_pass,
+            attachmentCount = 1,
+            pAttachments = *renderer.shadowmap_texture.view,
+            width = renderer.shadowmap_texture.w,
+            height = renderer.shadowmap_texture.h,
+            layers = 1
+        };
+        Vk_Check(vkCreateFramebuffer(renderer.device, *fb_ci, null, *renderer.shadowmap_framebuffer));
+    }
 
     // Swapchain
     create_or_update_swapchain();
     log("Swapchain created");
 
+    renderer.projection = make_projection_matrix(radians(45), cast(float)global_renderer.swapchain_extent.width/cast(float)global_renderer.swapchain_extent.height, 0.1, 1000);
+    renderer.view = Matrix4_Identity;
 
     log("Renderer successfully initialized!");
     return renderer;
@@ -378,13 +416,17 @@ renderer_deinit :: () {
     destroy_texture(*depth_texture);
 
     vkDestroyDescriptorPool(device, descriptor_pool, null);
-    vkDestroyRenderPass(device, render_pass, null);
-    
-    destroy_pipeline(*color_pipeline, device);
-    destroy_buffer(*color_draw_data.vertex_buffer);
 
+    // Standard render pass
+    vkDestroyRenderPass(device, render_pass, null);
+    destroy_pipeline(*color_pipeline, device);
     destroy_pipeline(*ui_pipeline, device);
-    destroy_buffer(*ui_draw_data.vertex_buffer);
+
+    // Shadowmap render pass
+    vkDestroyRenderPass(device, shadowmap_render_pass, null);
+    destroy_pipeline(*shadowmap_pipeline, device);
+    vkDestroyFramebuffer(device, shadowmap_framebuffer, null);
+    destroy_texture(*shadowmap_texture);
 
     vkDestroySampler(device, sampler, null);
 
@@ -438,11 +480,27 @@ end_frame :: () {
     using global_renderer;
     using context.vk;
 
+    // Commit draw data
+    upload_draw_data(*color_draw_data);
+    upload_draw_data(*ui_draw_data);
+
     clear_color := Vector4.{0, 0, 0, 0};
     clear_values :[2] VkClearValue;
     clear_values[0] = .{color = .{_float32 = clear_color.component}};
     clear_values[1] = .{depthStencil = .{1, 0}};
     vkBeginCommandBuffer(command_buffer, *VkCommandBufferBeginInfo.{flags = .ONE_TIME_SUBMIT_BIT});
+
+    vkCmdBeginRenderPass(command_buffer, *VkRenderPassBeginInfo.{
+        renderPass = shadowmap_render_pass,
+        framebuffer = shadowmap_framebuffer,
+        clearValueCount = 1,
+        pClearValues = *clear_values[1],
+        renderArea = .{ offset = .{0, 0}, extent = .{shadowmap_texture.w, shadowmap_texture.h}},
+    }, .INLINE);
+    draw_shadowmap_pipeline(*color_draw_data, command_buffer);
+
+    vkCmdEndRenderPass(command_buffer);
+
     vkCmdBeginRenderPass(command_buffer, *VkRenderPassBeginInfo.{
         renderPass = render_pass,
         framebuffer = framebuffers[image_index],
@@ -499,47 +557,40 @@ set_transform_matrix :: (mat: Matrix4) {
 }
 
 set_view_matrix :: (view: Matrix4) {
-    using global_renderer;
-    {   // Update uniform data 
-        proj := make_projection_matrix(radians(45), cast(float)global_renderer.swapchain_extent.width/cast(float)global_renderer.swapchain_extent.height, 0.1, 1000);
-        proj._22 *= -1;
-        camera_data := CameraData.{
-            proj = transpose(proj),
-            view = transpose(view),
-            view_proj = transpose(view * proj),
-        };
-        memcpy(color_pipeline.uniform_data[context.vk.image_index].mapped, *camera_data, size_of(type_of(camera_data)));
+    global_renderer.view = view;
+}
 
-        // @Hardcoded: Create a Material struct, that allocates a descriptor set on a specific pipline and gets bound when needed
-        // @Todo: Only write the frame constant data here
-        descriptor_writes : [2]VkWriteDescriptorSet;
-        buffer_info := VkDescriptorBufferInfo .{
-            buffer = color_pipeline.uniform_data[context.vk.image_index].buffer,
-            offset = 0,
-            range = size_of(CameraData),
-        };
-        descriptor_writes[0] = .{
-            dstSet = color_pipeline.descriptor_sets[context.vk.image_index][0],
-            dstBinding = 0,
-            dstArrayElement = 0,
-            descriptorType = .UNIFORM_BUFFER,
-            descriptorCount = 1,
-            pBufferInfo = *buffer_info,
-        };
+set_projection_matrix :: (proj: Matrix4) {
+    global_renderer.projection = proj;
+    global_renderer.projection._22 *= -1;
+}
 
-        image_info := VkDescriptorImageInfo.{
-            sampler = sampler, // @Hardcoded
-            imageView = resources.block_texture.view, // @Hardcoded
-            imageLayout = .SHADER_READ_ONLY_OPTIMAL,
-        };
-        descriptor_writes[1] = .{
-            dstSet = color_pipeline.descriptor_sets[context.vk.image_index][1],
-            dstBinding = 0,
-            dstArrayElement = 0,
-            descriptorType = .COMBINED_IMAGE_SAMPLER,
-            descriptorCount = 1,
-            pImageInfo = *image_info,
-        };
-        vkUpdateDescriptorSets(global_renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
-    }
+change_light_direction :: (dir: Vector3) {
+    size:: 20;
+    proj := orthographic_projection_matrix(-size, size, -size, size, -size, size, true);
+    view := make_look_at_matrix(.{0, 0, 0}, dir, .{0, 1, 0}, false);
+    proj._22 *= -1;
+    global_renderer.light = proj * view;
+    camera_data := CameraData.{
+        proj = transpose(global_renderer.projection),
+        view = transpose(global_renderer.view),
+        view_proj = transpose(global_renderer.projection * global_renderer.view),
+        light = transpose(global_renderer.light),
+    };
+    memcpy(global_renderer.shadowmap_pipeline.uniform_data[context.vk.image_index].mapped, *camera_data, size_of(type_of(camera_data)));
+    descriptor_writes : [1]VkWriteDescriptorSet;
+    buffer_info := VkDescriptorBufferInfo .{
+        buffer = global_renderer.shadowmap_pipeline.uniform_data[context.vk.image_index].buffer,
+        offset = 0,
+        range = size_of(CameraData),
+    };
+    descriptor_writes[0] = .{
+        dstSet = global_renderer.shadowmap_pipeline.descriptor_sets[context.vk.image_index][0],
+        dstBinding = 0,
+        dstArrayElement = 0,
+        descriptorType = .UNIFORM_BUFFER,
+        descriptorCount = 1,
+        pBufferInfo = *buffer_info,
+    };
+    vkUpdateDescriptorSets(global_renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
 }

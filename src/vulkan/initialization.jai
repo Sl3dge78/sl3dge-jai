@@ -22,23 +22,25 @@ create_sampler :: (device: VkDevice) -> VkSampler {
     return result;
 }
 
-create_renderpass :: (device: VkDevice, color_format: VkFormat, depth_format: VkFormat, loadOp: VkAttachmentLoadOp, initial_layout: VkImageLayout, final_layout: VkImageLayout) -> VkRenderPass {
+create_standard_renderpass :: (device: VkDevice) -> VkRenderPass {
+    format := global_renderer.surface_format.format;
+    depth_format := global_renderer.depth_format;
 
     attachments : [2] VkAttachmentDescription;
     attachments[0] = .{
-        format = color_format,
+        format = format,
         samples = ._1_BIT,
-        loadOp = loadOp,
+        loadOp = .CLEAR,
         storeOp = .STORE,
         stencilLoadOp = .DONT_CARE,
         stencilStoreOp = .DONT_CARE,
-        initialLayout = initial_layout,
-        finalLayout = final_layout,
+        initialLayout = .UNDEFINED,
+        finalLayout = .PRESENT_SRC_KHR,
     };
     attachments[1] = .{
         format = depth_format,
         samples = ._1_BIT,
-        loadOp = loadOp,
+        loadOp = .CLEAR,
         storeOp = .STORE,
         stencilLoadOp = .DONT_CARE,
         stencilStoreOp = .DONT_CARE,
@@ -72,6 +74,62 @@ create_renderpass :: (device: VkDevice, color_format: VkFormat, depth_format: Vk
             dstAccessMask = VkAccessFlagBits.COLOR_ATTACHMENT_WRITE_BIT | .DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
             dependencyFlags = 0,
         },
+    };
+    render_pass: VkRenderPass = ---;
+    Vk_Check(vkCreateRenderPass(device, *create_info, null, *render_pass));
+    return render_pass;
+}
+
+create_shadowmap_renderpass :: (device: VkDevice) -> VkRenderPass {
+    format := global_renderer.surface_format.format;
+    depth_format := global_renderer.depth_format;
+
+    attachments : [1] VkAttachmentDescription;
+    attachments[0] = .{
+        format = depth_format,
+        samples = ._1_BIT,
+        loadOp = .CLEAR,
+        storeOp = .STORE,
+        stencilLoadOp = .DONT_CARE,
+        stencilStoreOp = .DONT_CARE,
+        initialLayout = .UNDEFINED,
+        finalLayout = .DEPTH_STENCIL_READ_ONLY_OPTIMAL,
+    };
+
+    dependencies: [2]VkSubpassDependency;
+    dependencies[0] = .{
+        srcSubpass = VK_SUBPASS_EXTERNAL,
+        dstSubpass = 0,
+        srcStageMask = .FRAGMENT_SHADER_BIT, 
+        dstStageMask = .EARLY_FRAGMENT_TESTS_BIT,
+        srcAccessMask = .SHADER_READ_BIT,
+        dstAccessMask = .DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+        dependencyFlags = .BY_REGION_BIT,
+    };
+    dependencies[1] = .{
+        srcSubpass = 0,
+        dstSubpass = VK_SUBPASS_EXTERNAL,
+        srcStageMask = .LATE_FRAGMENT_TESTS_BIT, 
+        dstStageMask = .FRAGMENT_SHADER_BIT,
+        srcAccessMask = .DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+        dstAccessMask = .SHADER_READ_BIT,
+        dependencyFlags = .BY_REGION_BIT,
+    };
+
+    create_info := VkRenderPassCreateInfo.{
+        attachmentCount = attachments.count,
+        pAttachments = attachments.data,
+        subpassCount = 1,
+        pSubpasses = *VkSubpassDescription.{
+            pipelineBindPoint = .GRAPHICS,
+            colorAttachmentCount = 0,
+            pDepthStencilAttachment = *VkAttachmentReference.{
+                attachment = 0,
+                layout = .DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+            },
+        },
+        dependencyCount = dependencies.count,
+        pDependencies = dependencies.data
     };
     render_pass: VkRenderPass = ---;
     Vk_Check(vkCreateRenderPass(device, *create_info, null, *render_pass));
@@ -161,7 +219,7 @@ create_or_update_swapchain :: () {
     }
 
     {   // Depth image
-        depth_texture = create_texture(swapchain_extent.width, swapchain_extent.height, depth_format, .DEPTH_STENCIL_ATTACHMENT_BIT);
+        depth_texture = create_texture(swapchain_extent.width, swapchain_extent.height, depth_format, .DEPTH_STENCIL_ATTACHMENT_BIT, VkImageAspectFlags.DEPTH_BIT | .STENCIL_BIT);
         transition_image_layout(depth_texture.image, .UNDEFINED, .DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
     }
 
@@ -174,21 +232,39 @@ create_or_update_swapchain :: () {
     log("\tExtent: %", swapchain_extent);
 }
 
-pipeline_create_info :: (vertex_shader: VkShaderModule, fragment_shader: VkShaderModule, layout: VkPipelineLayout) -> VkGraphicsPipelineCreateInfo #expand {
-    `stages : [2]VkPipelineShaderStageCreateInfo;
-    stages[0] = .{stage = .VERTEX_BIT,   module = vertex_shader, pName = "main"};
-    stages[1] = .{stage = .FRAGMENT_BIT, module = fragment_shader, pName = "main"};
-            /* Non constant array litterals pls
-        stages := VkPipelineShaderStageCreateInfo.[
-            .{stage = .VERTEX_BIT,   module = vertex_shader, pName = "main"},
-            .{stage = .FRAGMENT_BIT, module = vertex_shader, pName = "main"},
-        ]; */     
+viewport_state_ci :: (w: u32, h: u32) -> VkPipelineViewportStateCreateInfo #expand {
+    `__viewport := VkViewport.{0, 0, xx w, xx h, 0, 1};
+    `__scissors := VkRect2D.{offset = .{0, 0}, extent = .{w, h}};
+    return .{
+        viewportCount = 1,
+        pViewports = *__viewport,
+        scissorCount = 1,
+        pScissors = *__scissors,
+    };
+}
+
+rasterization_state_ci :: () -> VkPipelineRasterizationStateCreateInfo {
+    return .{
+        depthClampEnable = VK_FALSE,
+        rasterizerDiscardEnable = VK_FALSE,
+        polygonMode = .FILL,
+        cullMode = .NONE,
+        frontFace = .COUNTER_CLOCKWISE,
+        depthBiasEnable = VK_FALSE,
+        depthBiasConstantFactor = 0,
+        depthBiasClamp = 0,
+        depthBiasSlopeFactor = 0,
+        lineWidth = 1,
+    };
+}
+
+pipeline_create_info :: (layout: VkPipelineLayout, renderpass: VkRenderPass) -> VkGraphicsPipelineCreateInfo #expand {
 
     `dynamic_state := VkDynamicState.[.VIEWPORT, .SCISSOR];
 
     create_info := VkGraphicsPipelineCreateInfo.{
-        stageCount = stages.count,
-        pStages = stages.data,
+        stageCount = `stages.count,
+        pStages = `stages.data,
         pVertexInputState = *VkPipelineVertexInputStateCreateInfo.{
             vertexBindingDescriptionCount = 1,
             pVertexBindingDescriptions = *VkVertexInputBindingDescription.{
@@ -255,6 +331,7 @@ pipeline_create_info :: (vertex_shader: VkShaderModule, fragment_shader: VkShade
             stencilTestEnable = VK_FALSE,
         },
         layout = layout,
+        renderPass = renderpass
     };
     return create_info;
 }
