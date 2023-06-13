@@ -106,6 +106,69 @@ create_color_pipeline :: (device: VkDevice, render_pass: VkRenderPass) -> Pipeli
 
         for *pipeline.descriptor_sets {
             Vk_Check(vkAllocateDescriptorSets(device, *alloc_info, it.data));   
+
+            // @Hardcoded: Create a Material struct, that allocates a descriptor set on a specific pipline and gets bound when needed
+            // @Todo: Only write the frame constant data here
+            descriptor_writes : [4]VkWriteDescriptorSet;
+            buffer_info := VkDescriptorBufferInfo .{
+                buffer = color_pipeline.uniform_data[context.vk.image_index].buffer,
+                offset = 0,
+                range = size_of(CameraData) - size_of(Vector3),
+            };
+            descriptor_writes[0] = .{
+                dstSet = color_pipeline.descriptor_sets[context.vk.image_index][0],
+                dstBinding = 0,
+                dstArrayElement = 0,
+                descriptorType = .UNIFORM_BUFFER,
+                descriptorCount = 1,
+                pBufferInfo = *buffer_info,
+            };
+
+            // Diffuse
+            image_info := VkDescriptorImageInfo.{
+                sampler = sampler, // @Hardcoded
+                imageView = resources.block_texture.view, // @Hardcoded
+                imageLayout = .SHADER_READ_ONLY_OPTIMAL,
+            };
+            descriptor_writes[1] = .{
+                dstSet = color_pipeline.descriptor_sets[context.vk.image_index][1],
+                dstBinding = 0,
+                dstArrayElement = 0,
+                descriptorType = .COMBINED_IMAGE_SAMPLER,
+                descriptorCount = 1,
+                pImageInfo = *image_info,
+            };
+
+            // Shadowmap
+            image_info2 := VkDescriptorImageInfo.{
+                sampler = sampler, // @Hardcoded
+                imageView = global_renderer.shadowmap_texture.view, // @Hardcoded
+                imageLayout = .DEPTH_STENCIL_READ_ONLY_OPTIMAL,
+            };
+            descriptor_writes[2] = .{
+                dstSet = color_pipeline.descriptor_sets[context.vk.image_index][0],
+                dstBinding = 1,
+                dstArrayElement = 0,
+                descriptorType = .COMBINED_IMAGE_SAMPLER,
+                descriptorCount = 1,
+                pImageInfo = *image_info2,
+            };
+
+            buffer_info2 := VkDescriptorBufferInfo .{
+                buffer = color_pipeline.uniform_data[context.vk.image_index].buffer,
+                offset = size_of(CameraData) - size_of(Vector3),
+                range = size_of(Vector3),
+            };
+            descriptor_writes[3] = .{
+                dstSet = color_pipeline.descriptor_sets[context.vk.image_index][0],
+                dstBinding = 2,
+                dstArrayElement = 0,
+                descriptorType = .UNIFORM_BUFFER,
+                descriptorCount = 1,
+                pBufferInfo = *buffer_info2,
+            };
+
+            vkUpdateDescriptorSets(global_renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
         }
     }
 
@@ -126,72 +189,11 @@ draw_color_pipeline :: (dd: *Draw_Data, command_buffer: VkCommandBuffer) {
             view = transpose(view),
             view_proj = transpose(projection * view),
             light = transpose(light),
-            light_dir = unit_vector(.{1, -2, -1}),
+            light_dir = global_renderer.light_dir,
         };
         memcpy(color_pipeline.uniform_data[context.vk.image_index].mapped, *camera_data, size_of(type_of(camera_data)));
 
-        // @Hardcoded: Create a Material struct, that allocates a descriptor set on a specific pipline and gets bound when needed
-        // @Todo: Only write the frame constant data here
-        descriptor_writes : [4]VkWriteDescriptorSet;
-        buffer_info := VkDescriptorBufferInfo .{
-            buffer = color_pipeline.uniform_data[context.vk.image_index].buffer,
-            offset = 0,
-            range = size_of(CameraData) - size_of(Vector3),
-        };
-        descriptor_writes[0] = .{
-            dstSet = color_pipeline.descriptor_sets[context.vk.image_index][0],
-            dstBinding = 0,
-            dstArrayElement = 0,
-            descriptorType = .UNIFORM_BUFFER,
-            descriptorCount = 1,
-            pBufferInfo = *buffer_info,
-        };
-
-        // Diffuse
-        image_info := VkDescriptorImageInfo.{
-            sampler = sampler, // @Hardcoded
-            imageView = resources.block_texture.view, // @Hardcoded
-            imageLayout = .SHADER_READ_ONLY_OPTIMAL,
-        };
-        descriptor_writes[1] = .{
-            dstSet = color_pipeline.descriptor_sets[context.vk.image_index][1],
-            dstBinding = 0,
-            dstArrayElement = 0,
-            descriptorType = .COMBINED_IMAGE_SAMPLER,
-            descriptorCount = 1,
-            pImageInfo = *image_info,
-        };
-
-        // Shadowmap
-        image_info2 := VkDescriptorImageInfo.{
-            sampler = sampler, // @Hardcoded
-            imageView = global_renderer.shadowmap_texture.view, // @Hardcoded
-            imageLayout = .DEPTH_STENCIL_READ_ONLY_OPTIMAL,
-        };
-        descriptor_writes[2] = .{
-            dstSet = color_pipeline.descriptor_sets[context.vk.image_index][0],
-            dstBinding = 1,
-            dstArrayElement = 0,
-            descriptorType = .COMBINED_IMAGE_SAMPLER,
-            descriptorCount = 1,
-            pImageInfo = *image_info2,
-        };
-
-        buffer_info2 := VkDescriptorBufferInfo .{
-            buffer = color_pipeline.uniform_data[context.vk.image_index].buffer,
-            offset = size_of(CameraData) - size_of(Vector3),
-            range = size_of(Vector3),
-        };
-        descriptor_writes[3] = .{
-            dstSet = color_pipeline.descriptor_sets[context.vk.image_index][0],
-            dstBinding = 2,
-            dstArrayElement = 0,
-            descriptorType = .UNIFORM_BUFFER,
-            descriptorCount = 1,
-            pBufferInfo = *buffer_info2,
-        };
-
-        vkUpdateDescriptorSets(global_renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
+        
     }
 
     {   // Bind pipeline, dynamic state, global descriptors and a default push constant
@@ -445,6 +447,28 @@ draw_shadowmap_pipeline :: (dd: *Draw_Data, command_buffer: VkCommandBuffer) {
     using global_renderer;
     image_index := context.vk.image_index;
     pipeline := *shadowmap_pipeline;
+
+    { // Update uniform data
+        camera_data := CameraData.{
+            light = transpose(global_renderer.light),
+        };
+        memcpy(global_renderer.shadowmap_pipeline.uniform_data[context.vk.image_index].mapped, *camera_data, size_of(type_of(camera_data)));
+        descriptor_writes : [1]VkWriteDescriptorSet;
+        buffer_info := VkDescriptorBufferInfo .{
+            buffer = global_renderer.shadowmap_pipeline.uniform_data[context.vk.image_index].buffer,
+            offset = 0,
+            range = size_of(CameraData),
+        };
+        descriptor_writes[0] = .{
+            dstSet = global_renderer.shadowmap_pipeline.descriptor_sets[context.vk.image_index][0],
+            dstBinding = 0,
+            dstArrayElement = 0,
+            descriptorType = .UNIFORM_BUFFER,
+            descriptorCount = 1,
+            pBufferInfo = *buffer_info,
+        };
+        vkUpdateDescriptorSets(global_renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
+    }
 
     if dd.vertices.count == 0 return;
 

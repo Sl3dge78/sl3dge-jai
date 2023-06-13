@@ -54,6 +54,7 @@ Renderer :: struct {
     projection: Matrix4;
     view: Matrix4;
     light: Matrix4;
+    light_dir: Vector3;
 }
 
 Frame_Data :: struct {
@@ -372,6 +373,8 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
     renderer.projection = make_projection_matrix(radians(45), cast(float)global_renderer.swapchain_extent.width/cast(float)global_renderer.swapchain_extent.height, 0.1, 1000);
     renderer.view = Matrix4_Identity;
 
+    context.vk = *renderer.frame_data[0];
+
     log("Renderer successfully initialized!");
     return renderer;
 }
@@ -453,32 +456,15 @@ renderer_deinit :: () {
     vkDestroyInstance(instance, null);
 }
 
-begin_frame :: () {
+
+end_frame :: () {
     using global_renderer;
-
-    // Update the context's frame data
-    frame_index = (frame_index + 1) % FRAME_COUNT;
-    idx := frame_index;
-    context.vk = *frame_data[idx];
     using context.vk;
-
-    color_draw_data.vertices.count = 0;
-    color_draw_data.draw_cmds.count = 0;
-    color_draw_data.transform = Matrix4_Identity;
-
-    ui_draw_data.vertices.count = 0;
-    ui_draw_data.draw_cmds.count = 0;
-    ui_draw_data.transform = Matrix4_Identity;
 
     // Wait for image
     vkWaitForFences(device, 1, *frame_fence, VK_TRUE, U64_MAX);
     vkResetFences(device, 1, *frame_fence);
     Vk_Check(vkAcquireNextImageKHR(device, swapchain, U64_MAX, image_available_semaphore, VK_NULL_HANDLE, *image_index));
-}
-
-end_frame :: () {
-    using global_renderer;
-    using context.vk;
 
     // Commit draw data
     upload_draw_data(*color_draw_data);
@@ -542,6 +528,19 @@ end_frame :: () {
     } else {
         Vk_Check(result);
     }
+
+    color_draw_data.vertices.count = 0;
+    color_draw_data.draw_cmds.count = 0;
+    color_draw_data.transform = Matrix4_Identity;
+
+    ui_draw_data.vertices.count = 0;
+    ui_draw_data.draw_cmds.count = 0;
+    ui_draw_data.transform = Matrix4_Identity;
+
+    // Update the context's frame data
+    frame_index = (frame_index + 1) % FRAME_COUNT;
+    idx := frame_index;
+    context.vk = *frame_data[idx];
 }
 
 begin_3d :: () {
@@ -571,26 +570,5 @@ change_light_direction :: (dir: Vector3) {
     view := make_look_at_matrix(.{0, 0, 0}, dir, .{0, 1, 0}, false);
     proj._22 *= -1;
     global_renderer.light = proj * view;
-    camera_data := CameraData.{
-        proj = transpose(global_renderer.projection),
-        view = transpose(global_renderer.view),
-        view_proj = transpose(global_renderer.projection * global_renderer.view),
-        light = transpose(global_renderer.light),
-    };
-    memcpy(global_renderer.shadowmap_pipeline.uniform_data[context.vk.image_index].mapped, *camera_data, size_of(type_of(camera_data)));
-    descriptor_writes : [1]VkWriteDescriptorSet;
-    buffer_info := VkDescriptorBufferInfo .{
-        buffer = global_renderer.shadowmap_pipeline.uniform_data[context.vk.image_index].buffer,
-        offset = 0,
-        range = size_of(CameraData),
-    };
-    descriptor_writes[0] = .{
-        dstSet = global_renderer.shadowmap_pipeline.descriptor_sets[context.vk.image_index][0],
-        dstBinding = 0,
-        dstArrayElement = 0,
-        descriptorType = .UNIFORM_BUFFER,
-        descriptorCount = 1,
-        pBufferInfo = *buffer_info,
-    };
-    vkUpdateDescriptorSets(global_renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
+    global_renderer.light_dir = dir;
 }
