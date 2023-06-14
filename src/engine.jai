@@ -36,6 +36,7 @@ Engine :: struct {
         Input.update();
         Console.update(delta_time);
         Resources.update();
+        update_tweens(delta_time);
     }
 
     draw :: () {

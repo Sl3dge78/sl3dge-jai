@@ -37,6 +37,7 @@ File_Watcher :: #import "File_Watcher";
 #load "src/math/geometry.jai";
 #load "src/math/gjk.jai";
 #load "src/math/ray.jai";
+#load "src/tween.jai";
 
 RendererBackend :: enum {
     OPENGL;
