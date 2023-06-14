@@ -1,2 +1,13 @@
-- [ ] Update the renderer : 
+- [X] Update the renderer : 
     - Register the scene objects once and do multiple passes (eg: shadow map, color)
+
+- [ ] Figure out why the normals don't work!!!
+- [ ] Better materials
+- [ ] Unify descriptor sets
+    - [ ] Global buffer
+    - [ ] Diffuse/Normal/... texture (local)
+
+// --------
+// Things to iron out
+
+- [ ] Why do I need to reflect the light on X in the color fragment shader

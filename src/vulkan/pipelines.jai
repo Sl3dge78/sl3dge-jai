@@ -113,7 +113,7 @@ create_color_pipeline :: (device: VkDevice, render_pass: VkRenderPass) -> Pipeli
             buffer_info := VkDescriptorBufferInfo .{
                 buffer = pipeline.uniform_data[it_index].buffer,
                 offset = 0,
-                range = size_of(CameraData) - size_of(Vector3),
+                range = size_of(CameraData),
             };
             descriptor_writes[0] = .{
                 dstSet = it.*[0],
@@ -211,7 +211,8 @@ draw_color_pipeline :: (dd: *Draw_Data, command_buffer: VkCommandBuffer) {
 
     // Issue draw calls & end command buffer
     for dd.draw_cmds {
-        vkCmdPushConstants(command_buffer, pipeline.pipeline_layout, .VERTEX_BIT, 0, size_of(PushConstantData), *PushConstantData.{transpose(it.xform)});
+        pc := PushConstantData.{transpose(it.xform), transpose(inverse(it.xform))};
+        vkCmdPushConstants(command_buffer, pipeline.pipeline_layout, .VERTEX_BIT, 0, size_of(PushConstantData), *pc);
         vkCmdDraw(command_buffer, it.count, 1, it.id, 0);
     }
 }
@@ -487,7 +488,9 @@ draw_shadowmap_pipeline :: (dd: *Draw_Data, command_buffer: VkCommandBuffer) {
 
     // Issue draw calls & end command buffer
     for dd.draw_cmds {
-        vkCmdPushConstants(command_buffer, pipeline.pipeline_layout, .VERTEX_BIT, 0, size_of(PushConstantData), *PushConstantData.{transpose(it.xform)});
+        // pc := PushConstantData.{transpose(it.xform), transpose(inverse(it.xform))};
+        pc := PushConstantData.{transpose(it.xform), transpose(inverse(it.xform))};
+        vkCmdPushConstants(command_buffer, pipeline.pipeline_layout, .VERTEX_BIT, 0, size_of(PushConstantData), *pc);
         vkCmdDraw(command_buffer, it.count, 1, it.id, 0);
     }
 }
