@@ -82,7 +82,7 @@ destroy_draw_data :: (dd: *Draw_Data) {
 upload_draw_data :: (dd: *Draw_Data) {
     if dd.vertices.count == 0 then return; 
     size : u64 = xx (dd.vertices.count * size_of(Vertex));
-    create_or_update_buffer(*dd.vertex_buffer, size, VkBufferUsageFlagBits.VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT | .UNIFORM_BUFFER_BIT | .STORAGE_BUFFER_BIT | .TRANSFER_SRC_BIT, .UPLOAD);
+    create_or_update_buffer(*dd.vertex_buffer, size, .VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT | .UNIFORM_BUFFER_BIT | .STORAGE_BUFFER_BIT | .TRANSFER_SRC_BIT, .UPLOAD);
     copy_data(dd.vertex_buffer, dd.vertices.data, size);
 }
 
@@ -106,6 +106,7 @@ CameraData :: struct {
 
 PushConstantData :: struct {
     transform: Matrix4;
+    inv_transform: Matrix4;
 }
 
 panic :: () {
@@ -178,8 +179,8 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
     // Create debug msger
     {
         create_info := VkDebugUtilsMessengerCreateInfoEXT.{
-            messageSeverity = VkDebugUtilsMessageSeverityFlagBitsEXT.WARNING_BIT_EXT | .ERROR_BIT_EXT,
-            messageType = VkDebugUtilsMessageTypeFlagBitsEXT.GENERAL_BIT_EXT | .VALIDATION_BIT_EXT | .PERFORMANCE_BIT_EXT,
+            messageSeverity = .WARNING_BIT_EXT | .ERROR_BIT_EXT,
+            messageType = .GENERAL_BIT_EXT | .VALIDATION_BIT_EXT | .PERFORMANCE_BIT_EXT,
             pfnUserCallback = debug_callback,
             pUserData = *context,
         };
@@ -224,9 +225,9 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
             return compatible_types;
         }
         vkGetPhysicalDeviceMemoryProperties(renderer.physical_device, *renderer.memory_properties);
-        renderer.compatible_mem_types[Renderer.MemoryType.READBACK] = find_compatible_memory_type(*renderer.memory_properties, VkMemoryPropertyFlagBits.HOST_VISIBLE_BIT | .HOST_CACHED_BIT);
-        renderer.compatible_mem_types[Renderer.MemoryType.UPLOAD] = find_compatible_memory_type(*renderer.memory_properties, VkMemoryPropertyFlagBits.HOST_VISIBLE_BIT | .HOST_COHERENT_BIT);
-        renderer.compatible_mem_types[Renderer.MemoryType.LOCAL] = find_compatible_memory_type(*renderer.memory_properties, VkMemoryPropertyFlagBits.DEVICE_LOCAL_BIT);
+        renderer.compatible_mem_types[Renderer.MemoryType.READBACK] = find_compatible_memory_type(*renderer.memory_properties, .HOST_VISIBLE_BIT | .HOST_CACHED_BIT);
+        renderer.compatible_mem_types[Renderer.MemoryType.UPLOAD] = find_compatible_memory_type(*renderer.memory_properties, .HOST_VISIBLE_BIT | .HOST_COHERENT_BIT);
+        renderer.compatible_mem_types[Renderer.MemoryType.LOCAL] = find_compatible_memory_type(*renderer.memory_properties, .DEVICE_LOCAL_BIT);
     }
 
     // Queue Families
@@ -353,7 +354,7 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
         SHADOWMAP_SIZE :: 2048;
         renderer.shadowmap_render_pass = create_shadowmap_renderpass(renderer.device);
         renderer.shadowmap_pipeline = create_shadowmap_pipeline(renderer.device, renderer.shadowmap_render_pass, SHADOWMAP_SIZE);
-        renderer.shadowmap_texture = create_texture(SHADOWMAP_SIZE, SHADOWMAP_SIZE, global_renderer.depth_format, VkImageUsageFlags.DEPTH_STENCIL_ATTACHMENT_BIT | .SAMPLED_BIT, .DEPTH_BIT);
+        renderer.shadowmap_texture = create_texture(SHADOWMAP_SIZE, SHADOWMAP_SIZE, global_renderer.depth_format, .DEPTH_STENCIL_ATTACHMENT_BIT | .SAMPLED_BIT, .DEPTH_BIT);
         // @todo: separate sampler
         fb_ci := VkFramebufferCreateInfo.{
             renderPass = renderer.shadowmap_render_pass,
@@ -565,7 +566,7 @@ set_projection_matrix :: (proj: Matrix4) {
 
 change_light_direction :: (dir: Vector3) {
     size:: 20;
-    proj := orthographic_projection_matrix(-size, size, -size, size, -size, size, true);
+    proj := orthographic_projection_matrix(size, -size, -size, size, -size, size, true);
     view := make_look_at_matrix(.{0, 0, 0}, dir, .{0, 1, 0}, false);
     global_renderer.light = proj * view;
     global_renderer.light_dir = dir;

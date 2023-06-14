@@ -277,7 +277,7 @@ create_ui_pipeline :: (device: VkDevice, render_pass: VkRenderPass) -> Pipeline(
             srcAlphaBlendFactor = .SRC_ALPHA,
             dstAlphaBlendFactor = .ONE_MINUS_SRC_ALPHA,
             alphaBlendOp = .ADD,
-            colorWriteMask = VkColorComponentFlagBits.R_BIT | .G_BIT | .B_BIT | .A_BIT,
+            colorWriteMask = .R_BIT | .G_BIT | .B_BIT | .A_BIT,
         };
         vkCreateGraphicsPipelines(device, null, 1, *create_info, null, *pipeline.pipeline);
         log("Pipeline created.");

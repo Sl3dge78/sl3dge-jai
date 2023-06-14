@@ -49,7 +49,7 @@ create_texture_from_data :: (ptr: *void, w: u32, h: u32, channels: int, $data_ty
         }
     } else #assert false;
 
-    texture := create_texture(w, h, format, VkImageUsageFlags.TRANSFER_DST_BIT | .SAMPLED_BIT);
+    texture := create_texture(w, h, format, .TRANSFER_DST_BIT | .SAMPLED_BIT);
 
     image_size: VkDeviceSize = xx(texture.w * texture.h * channels);
     staging_buffer := create_buffer(image_size, .TRANSFER_SRC_BIT, .UPLOAD);
@@ -118,9 +118,9 @@ transition_image_layout :: (image: VkImage, $old_layout: VkImageLayout, $new_lay
         dst_access = .COLOR_ATTACHMENT_WRITE_BIT;
         dst_stage = .COLOR_ATTACHMENT_OUTPUT_BIT;
     } else #if new_layout == .DEPTH_STENCIL_ATTACHMENT_OPTIMAL {
-        dst_access = VkAccessFlagBits.DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | .DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+        dst_access = .DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | .DEPTH_STENCIL_ATTACHMENT_READ_BIT;
         dst_stage  = .EARLY_FRAGMENT_TESTS_BIT;
-        barrier.subresourceRange.aspectMask = VkImageAspectFlags.DEPTH_BIT | .STENCIL_BIT;
+        barrier.subresourceRange.aspectMask = .DEPTH_BIT | .STENCIL_BIT;
     } else {
         #assert false, "Unsupported image layout transition.";
     }

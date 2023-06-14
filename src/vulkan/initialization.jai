@@ -68,10 +68,10 @@ create_standard_renderpass :: (device: VkDevice) -> VkRenderPass {
         pDependencies = *VkSubpassDependency.{
             srcSubpass = VK_SUBPASS_EXTERNAL,
             dstSubpass = 0,
-            srcStageMask = VkPipelineStageFlagBits.COLOR_ATTACHMENT_OUTPUT_BIT | .EARLY_FRAGMENT_TESTS_BIT,
-            dstStageMask = VkPipelineStageFlagBits.COLOR_ATTACHMENT_OUTPUT_BIT | .EARLY_FRAGMENT_TESTS_BIT,
+            srcStageMask = .COLOR_ATTACHMENT_OUTPUT_BIT | .EARLY_FRAGMENT_TESTS_BIT,
+            dstStageMask = .COLOR_ATTACHMENT_OUTPUT_BIT | .EARLY_FRAGMENT_TESTS_BIT,
             srcAccessMask = 0,
-            dstAccessMask = VkAccessFlagBits.COLOR_ATTACHMENT_WRITE_BIT | .DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            dstAccessMask = .COLOR_ATTACHMENT_WRITE_BIT | .DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
             dependencyFlags = 0,
         },
     };
@@ -184,7 +184,7 @@ create_or_update_swapchain :: () {
         imageColorSpace = surface_format.colorSpace,
         imageExtent = swapchain_extent,
         imageArrayLayers = 1,
-        imageUsage = VkImageUsageFlagBits.COLOR_ATTACHMENT_BIT | .TRANSFER_DST_BIT,
+        imageUsage = .COLOR_ATTACHMENT_BIT | .TRANSFER_DST_BIT,
         imageSharingMode = .EXCLUSIVE,
         preTransform = surface_capabilities.currentTransform,
         compositeAlpha = .OPAQUE_BIT_KHR,
@@ -219,7 +219,7 @@ create_or_update_swapchain :: () {
     }
 
     {   // Depth image
-        depth_texture = create_texture(swapchain_extent.width, swapchain_extent.height, depth_format, .DEPTH_STENCIL_ATTACHMENT_BIT, VkImageAspectFlags.DEPTH_BIT | .STENCIL_BIT);
+        depth_texture = create_texture(swapchain_extent.width, swapchain_extent.height, depth_format, .DEPTH_STENCIL_ATTACHMENT_BIT, .DEPTH_BIT | .STENCIL_BIT);
         transition_image_layout(depth_texture.image, .UNDEFINED, .DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
     }
 
@@ -314,7 +314,7 @@ pipeline_create_info :: (layout: VkPipelineLayout, renderpass: VkRenderPass) -> 
                 srcAlphaBlendFactor = .ONE,
                 dstAlphaBlendFactor = .ZERO,
                 alphaBlendOp = .ADD,
-                colorWriteMask = VkColorComponentFlagBits.R_BIT | .G_BIT | .B_BIT | .A_BIT,
+                colorWriteMask = .R_BIT | .G_BIT | .B_BIT | .A_BIT,
             },
         },
         pDynamicState = *VkPipelineDynamicStateCreateInfo.{
