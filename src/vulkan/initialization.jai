@@ -233,7 +233,7 @@ create_or_update_swapchain :: () {
 }
 
 viewport_state_ci :: (w: u32, h: u32) -> VkPipelineViewportStateCreateInfo #expand {
-    `__viewport := VkViewport.{0, 0, xx w, xx h, 0, 1};
+    `__viewport := VkViewport.{0, 0, xx w,  cast(float)h, 0, 1};
     `__scissors := VkRect2D.{offset = .{0, 0}, extent = .{w, h}};
     return .{
         viewportCount = 1,

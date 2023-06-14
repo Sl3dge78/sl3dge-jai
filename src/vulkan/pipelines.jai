@@ -200,7 +200,7 @@ draw_color_pipeline :: (dd: *Draw_Data, command_buffer: VkCommandBuffer) {
 
     {   // Bind pipeline, dynamic state, global descriptors and a default push constant
         vkCmdBindPipeline(command_buffer, .GRAPHICS, pipeline.pipeline);
-        vkCmdSetViewport(command_buffer, 0, 1, *VkViewport.{0, 0, xx swapchain_extent.width, xx swapchain_extent.height, 0, 1});
+        vkCmdSetViewport(command_buffer, 0, 1, *VkViewport.{0, xx swapchain_extent.height, xx swapchain_extent.width, -(cast(float)swapchain_extent.height), 0, 1});
         vkCmdSetScissor(command_buffer, 0, 1, *VkRect2D.{.{0, 0}, swapchain_extent});
         vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.pipeline_layout, 0, 1, *pipeline.descriptor_sets[image_index][0], 0, null);
         vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.pipeline_layout, 1, 1, *pipeline.descriptor_sets[image_index][1], 0, null);
@@ -324,12 +324,11 @@ draw_ui_pipeline :: (dd: *Draw_Data, command_buffer: VkCommandBuffer) {
 
     {   // Update uniform data 
         proj := orthographic_projection_matrix(0, xx global_renderer.swapchain_extent.width, 0, xx global_renderer.swapchain_extent.height, -1, 1);
-        // proj._22 *= -1;
         camera_data := CameraData.{
             proj = transpose(proj),
             view = Matrix4_Identity,
             view_proj = transpose(proj),
-            light = transpose(light),
+            // light = transpose(light),
         };
         memcpy(pipeline.uniform_data[image_index].mapped, *camera_data, size_of(type_of(camera_data)));
 
@@ -357,7 +356,7 @@ draw_ui_pipeline :: (dd: *Draw_Data, command_buffer: VkCommandBuffer) {
 
     {   // Bind pipeline, dynamic state, global descriptors and a default push constant
         vkCmdBindPipeline(command_buffer, .GRAPHICS, pipeline.pipeline);
-        vkCmdSetViewport(command_buffer, 0, 1, *VkViewport.{0, 0, xx swapchain_extent.width, xx swapchain_extent.height, 0, 1});
+        vkCmdSetViewport(command_buffer, 0, 1, *VkViewport.{0, 0, xx swapchain_extent.width,  (cast(float)swapchain_extent.height), 0, 1});
         vkCmdSetScissor(command_buffer, 0, 1, *VkRect2D.{.{0, 0}, swapchain_extent});
         vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.pipeline_layout, 0, 1, *pipeline.descriptor_sets[image_index][0], 0, null);
         vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.pipeline_layout, 1, 1, *pipeline.descriptor_sets[image_index][1], 0, null);

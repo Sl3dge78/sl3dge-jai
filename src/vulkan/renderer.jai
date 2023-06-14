@@ -561,14 +561,12 @@ set_view_matrix :: (view: Matrix4) {
 
 set_projection_matrix :: (proj: Matrix4) {
     global_renderer.projection = proj;
-    global_renderer.projection._22 *= -1;
 }
 
 change_light_direction :: (dir: Vector3) {
     size:: 20;
     proj := orthographic_projection_matrix(-size, size, -size, size, -size, size, true);
     view := make_look_at_matrix(.{0, 0, 0}, dir, .{0, 1, 0}, false);
-    proj._22 *= -1;
     global_renderer.light = proj * view;
     global_renderer.light_dir = dir;
 }
