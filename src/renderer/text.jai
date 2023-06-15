@@ -61,8 +61,15 @@ size_text :: (text: string, font: *Font) -> float {
 draw_text :: (text: string, x: float, y: float, font: *Font, color: Vector4 = .{1, 1, 1, 1}) {
     // bind_texture(font.texture); // @TODO
     i := 0;
+    start_x := x;
     while(i < text.count) {
         it := text[i];
+        defer i += 1;
+        if it == #char "\n" {
+            x = start_x;
+            y += font.line_height;
+            continue;
+        }
         
         q : stbtt_aligned_quad = ---;
         stbtt_GetPackedQuad(font.char_data.data, 512, 512, xx(it - font.first_char), *x, *y, *q, 0);
@@ -73,6 +80,5 @@ draw_text :: (text: string, x: float, y: float, font: *Font, color: Vector4 = .{
         v[3] = Vertex.{ .{q.x0, q.y0, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s0, q.t0}, color };
         v[4] = Vertex.{ .{q.x0, q.y1, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s0, q.t1}, color };
         v[5] = Vertex.{ .{q.x1, q.y1, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s1, q.t1}, color };
-        i += 1;
     }
 }
