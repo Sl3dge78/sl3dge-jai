@@ -10,4 +10,7 @@
 // --------
 // Things to iron out
 
-- [ ] Why do I need to reflect the light on X in the color fragment shader
+- [X] Why do I need to reflect the light on X in the color fragment shader
+    -> Normals where inverted on the model
+
+- [ ] Handle timings in the engine

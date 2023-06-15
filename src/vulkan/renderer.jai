@@ -542,6 +542,9 @@ end_frame :: () {
     frame_index = (frame_index + 1) % FRAME_COUNT;
     idx := frame_index;
     context.vk = *frame_data[idx];
+
+    // And some perf data
+    global_engine.frame_time = cast(float)(SDL_GetPerformanceCounter() - global_engine.frame_start) / cast(float)(SDL_GetPerformanceFrequency() / 1000);
 }
 
 begin_3d :: () {

@@ -2,8 +2,11 @@ Engine :: struct {
 
     window: *SDL_Window;
     renderer: Renderer;
-    delta_time: float = 0;
     default_font: Font;
+
+    draw_perf_overlay := true;
+    frame_start : u64;
+    frame_time: float;
 
     init :: () {
         log("Init engine");
@@ -41,6 +44,9 @@ Engine :: struct {
 
     draw :: () {
         Console.draw(*global_engine.default_font);
+        if global_engine.draw_perf_overlay {
+            draw_text(tprint("Frametime: %ms", global_engine.frame_time), 0, 8, *global_engine.default_font);
+        }
     }
 }
 
