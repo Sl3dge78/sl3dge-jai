@@ -163,7 +163,7 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
             enabledExtensionCount = xx extensions.count,
             ppEnabledExtensionNames = extensions.data,
             pApplicationInfo = *VkApplicationInfo.{
-                apiVersion = VK_MAKE_VERSION(3, 0 ,0),
+                apiVersion = VK_MAKE_API_VERSION(0, 1, 3, 0),
             },
         };
 
