@@ -471,7 +471,8 @@ end_frame :: () {
     upload_draw_data(*color_draw_data);
     upload_draw_data(*ui_draw_data);
 
-    clear_color := Vector4.{0, 0, 0, 0};
+    // clear_color := Vector4.{0, 0, 0, 0};
+    clear_color := Vector4.{0.529, 0.808, 0.922, 0};
     clear_values :[2] VkClearValue;
     clear_values[0] = .{color = .{_float32 = clear_color.component}};
     clear_values[1] = .{depthStencil = .{1, 0}};
