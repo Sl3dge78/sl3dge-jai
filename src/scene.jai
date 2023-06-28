@@ -11,7 +11,6 @@ push_model :: (scene: *Scene, model: *Model $static := true) {
     }
 }
 
-
 Model :: struct {
     vertices: []Vertex;
 }

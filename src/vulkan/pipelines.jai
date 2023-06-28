@@ -31,47 +31,48 @@ create_color_pipeline :: (device: VkDevice, render_pass: VkRenderPass) -> Pipeli
         frag := create_shader_module(device, "shaders/color.frag.spv");
         defer vkDestroyShaderModule(device, frag, null);
 
-        stages : [2]VkPipelineShaderStageCreateInfo;
-        stages[0] = .{stage = .VERTEX_BIT,   module = vtx, pName = "main"};
-        stages[1] = .{stage = .FRAGMENT_BIT, module = frag, pName = "main"};
+        stages := VkPipelineShaderStageCreateInfo.[
+            .{stage = .VERTEX_BIT,   module = vtx, pName = "main"},
+            .{stage = .FRAGMENT_BIT, module = frag, pName = "main"}
+        ];
 
-        bindings : [3]VkDescriptorSetLayoutBinding;
-        bindings[0] = .{
-            binding = 0,
-            descriptorType = .UNIFORM_BUFFER,
-            descriptorCount = 1,
-            stageFlags = .VERTEX_BIT,
-            pImmutableSamplers = null,
-        };
-        bindings[1] = .{
-            binding = 1,
-            descriptorType = .COMBINED_IMAGE_SAMPLER,
-            descriptorCount = 1,
-            stageFlags = .FRAGMENT_BIT,
-            pImmutableSamplers = null,
-        };
-        bindings[2] = .{
-            binding = 2,
-            descriptorType = .UNIFORM_BUFFER,
-            descriptorCount = 1,
-            stageFlags = .FRAGMENT_BIT,
-            pImmutableSamplers = null,
-        };
-        layout_info := VkDescriptorSetLayoutCreateInfo.{
-            bindingCount = bindings.count,
-            pBindings = bindings.data,
-        };        
-        
-        Vk_Check(vkCreateDescriptorSetLayout(device, *layout_info, null, *pipeline.descriptor_set_layouts[0]));
+        {
+            bindings := VkDescriptorSetLayoutBinding.[
+                .{
+                    binding = 0,
+                    descriptorType = .UNIFORM_BUFFER,
+                    descriptorCount = 1,
+                    stageFlags = .VERTEX_BIT,
+                    pImmutableSamplers = null,
+                },
+                .{
+                    binding = 1,
+                    descriptorType = .COMBINED_IMAGE_SAMPLER,
+                    descriptorCount = 1,
+                    stageFlags = .FRAGMENT_BIT,
+                    pImmutableSamplers = null,
+                },
+                .{
+                    binding = 2,
+                    descriptorType = .UNIFORM_BUFFER,
+                    descriptorCount = 1,
+                    stageFlags = .FRAGMENT_BIT,
+                    pImmutableSamplers = null,
+                }
+            ];
+            pipeline.descriptor_set_layouts[0] = create_descriptor_set_layout(device, bindings);
+        }
 
-        bindings[0] = .{
-            binding = 0,
-            descriptorType = .COMBINED_IMAGE_SAMPLER,
-            descriptorCount = 1,
-            stageFlags = .FRAGMENT_BIT,
-            pImmutableSamplers = null,
-        };
-        Vk_Check(vkCreateDescriptorSetLayout(device, *layout_info, null, *pipeline.descriptor_set_layouts[1]));
+        {
+            bindings := VkDescriptorSetLayoutBinding.[.{
+                binding = 0,
+                descriptorType = .COMBINED_IMAGE_SAMPLER,
+                descriptorCount = 1,
+                stageFlags = .FRAGMENT_BIT,
+                pImmutableSamplers = null,
+            }];
+            pipeline.descriptor_set_layouts[1] = create_descriptor_set_layout(device, bindings);
+        }
 
         for *pipeline.uniform_data {
             it.* = create_buffer(size_of(CameraData), .UNIFORM_BUFFER_BIT, .UPLOAD, map = true);
@@ -109,34 +110,34 @@ create_color_pipeline :: (device: VkDevice, render_pass: VkRenderPass) -> Pipeli
 
             // @Hardcoded: Create a Material struct, that allocates a descriptor set on a specific pipline and gets bound when needed
             // @Todo: Only write the frame constant data here
-            descriptor_writes : [2]VkWriteDescriptorSet;
+            
             buffer_info := VkDescriptorBufferInfo .{
                 buffer = pipeline.uniform_data[it_index].buffer,
                 offset = 0,
                 range = size_of(CameraData),
             };
-            descriptor_writes[0] = .{
-                dstSet = it.*[0],
-                dstBinding = 0,
-                dstArrayElement = 0,
-                descriptorType = .UNIFORM_BUFFER,
-                descriptorCount = 1,
-                pBufferInfo = *buffer_info,
-            };
-           
             buffer_info2 := VkDescriptorBufferInfo .{
                 buffer = pipeline.uniform_data[it_index].buffer,
                 offset = size_of(CameraData) - size_of(Vector3),
                 range = size_of(Vector3),
             };
-            descriptor_writes[1] = .{
-                dstSet = it.*[0],
-                dstBinding = 2,
-                dstArrayElement = 0,
-                descriptorType = .UNIFORM_BUFFER,
-                descriptorCount = 1,
-                pBufferInfo = *buffer_info2,
-            };
+            descriptor_writes := VkWriteDescriptorSet.[
+                .{
+                    dstSet = it.*[0],
+                    dstBinding = 0,
+                    dstArrayElement = 0,
+                    descriptorType = .UNIFORM_BUFFER,
+                    descriptorCount = 1,
+                    pBufferInfo = *buffer_info,
+                },
+                .{
+                    dstSet = it.*[0],
+                    dstBinding = 2,
+                    dstArrayElement = 0,
+                    descriptorType = .UNIFORM_BUFFER,
+                    descriptorCount = 1,
+                    pBufferInfo = *buffer_info2,
+                }];
 
             vkUpdateDescriptorSets(global_renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
         }
@@ -164,36 +165,38 @@ draw_color_pipeline :: (dd: *Draw_Data, command_buffer: VkCommandBuffer) {
 
         // @Hardcoded: Create a Material struct, that allocates a descriptor set on a specific pipline and gets bound when needed
         // @Todo: Only write the frame constant data here
-        descriptor_writes : [2]VkWriteDescriptorSet;
+        
         // Diffuse
         image_info := VkDescriptorImageInfo.{
             sampler = global_renderer.sampler, // @Hardcoded
             imageView = resources.block_texture.view, // @Hardcoded
             imageLayout = .SHADER_READ_ONLY_OPTIMAL,
         };
-        descriptor_writes[0] = .{
-            dstSet = pipeline.descriptor_sets[context.vk.image_index][1],
-            dstBinding = 0,
-            dstArrayElement = 0,
-            descriptorType = .COMBINED_IMAGE_SAMPLER,
-            descriptorCount = 1,
-            pImageInfo = *image_info,
-        };
-
         // Shadowmap
         image_info2 := VkDescriptorImageInfo.{
             sampler = global_renderer.sampler, // @Hardcoded
             imageView = global_renderer.shadowmap_texture.view, // @Hardcoded
             imageLayout = .DEPTH_STENCIL_READ_ONLY_OPTIMAL,
         };
-        descriptor_writes[1] = .{
-            dstSet = pipeline.descriptor_sets[context.vk.image_index][0],
-            dstBinding = 1,
-            dstArrayElement = 0,
-            descriptorType = .COMBINED_IMAGE_SAMPLER,
-            descriptorCount = 1,
-            pImageInfo = *image_info2,
-        };
+
+        descriptor_writes := VkWriteDescriptorSet.[
+            .{
+                dstSet = pipeline.descriptor_sets[context.vk.image_index][1],
+                dstBinding = 0,
+                dstArrayElement = 0,
+                descriptorType = .COMBINED_IMAGE_SAMPLER,
+                descriptorCount = 1,
+                pImageInfo = *image_info,
+            },
+            .{
+                dstSet = pipeline.descriptor_sets[context.vk.image_index][0],
+                dstBinding = 1,
+                dstArrayElement = 0,
+                descriptorType = .COMBINED_IMAGE_SAMPLER,
+                descriptorCount = 1,
+                pImageInfo = *image_info2,
+            }
+        ];
 
         vkUpdateDescriptorSets(global_renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
     }
@@ -231,33 +234,30 @@ create_ui_pipeline :: (device: VkDevice, render_pass: VkRenderPass) -> Pipeline(
         frag := create_shader_module(device, "shaders/ui.frag.spv");
         defer vkDestroyShaderModule(device, frag, null);
 
-        stages : [2]VkPipelineShaderStageCreateInfo;
-        stages[0] = .{stage = .VERTEX_BIT,   module = vtx, pName = "main"};
-        stages[1] = .{stage = .FRAGMENT_BIT, module = frag, pName = "main"};
+        stages := VkPipelineShaderStageCreateInfo.[
+            .{stage = .VERTEX_BIT,   module = vtx, pName = "main"},
+            .{stage = .FRAGMENT_BIT, module = frag, pName = "main"}
+        ];
 
-        bindings : [1]VkDescriptorSetLayoutBinding;
-        bindings[0] = .{
-            binding = 0,
-            descriptorType = .UNIFORM_BUFFER,
-            descriptorCount = 1,
-            stageFlags = .VERTEX_BIT,
-            pImmutableSamplers = null,
-        };
-        layout_info := VkDescriptorSetLayoutCreateInfo.{
-            bindingCount = bindings.count,
-            pBindings = bindings.data,
-        };        
-        
-        Vk_Check(vkCreateDescriptorSetLayout(device, *layout_info, null, *pipeline.descriptor_set_layouts[0]));
+        pipeline.descriptor_set_layouts[0] = create_descriptor_set_layout(device, .[
+            .{
+                binding = 0,
+                descriptorType = .UNIFORM_BUFFER,
+                descriptorCount = 1,
+                stageFlags = .VERTEX_BIT,
+                pImmutableSamplers = null
+            }
+        ]);
 
-        bindings[0] = .{
-            binding = 0,
-            descriptorType = .COMBINED_IMAGE_SAMPLER,
-            descriptorCount = 1,
-            stageFlags = .FRAGMENT_BIT,
-            pImmutableSamplers = null,
-        };
-        Vk_Check(vkCreateDescriptorSetLayout(device, *layout_info, null, *pipeline.descriptor_set_layouts[1]));
+         pipeline.descriptor_set_layouts[1] = create_descriptor_set_layout(device, .[
+            .{
+                binding = 0,
+                descriptorType = .COMBINED_IMAGE_SAMPLER,
+                descriptorCount = 1,
+                stageFlags = .FRAGMENT_BIT,
+                pImmutableSamplers = null
+            }
+        ]);
 
         for *pipeline.uniform_data {
             it.* = create_buffer(size_of(CameraData), .UNIFORM_BUFFER_BIT, .UPLOAD, map = true);
@@ -295,21 +295,19 @@ create_ui_pipeline :: (device: VkDevice, render_pass: VkRenderPass) -> Pipeline(
 
         for *pipeline.descriptor_sets {
             Vk_Check(vkAllocateDescriptorSets(device, *alloc_info, it.data));
-
-            descriptor_writes : [1]VkWriteDescriptorSet;
             buffer_info := VkDescriptorBufferInfo .{
                 buffer = pipeline.uniform_data[it_index].buffer,
                 offset = 0,
                 range = size_of(CameraData),
             };
-            descriptor_writes[0] = .{
+            descriptor_writes := VkWriteDescriptorSet.[.{
                 dstSet = it.*[0],
                 dstBinding = 0,
                 dstArrayElement = 0,
                 descriptorType = .UNIFORM_BUFFER,
                 descriptorCount = 1,
                 pBufferInfo = *buffer_info,
-            };
+            }];
             vkUpdateDescriptorSets(global_renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
         }
     }
@@ -335,21 +333,19 @@ draw_ui_pipeline :: (dd: *Draw_Data, command_buffer: VkCommandBuffer) {
 
         // @Hardcoded: Create a Material struct, that allocates a descriptor set on a specific pipline and gets bound when needed
         // @Todo: Only write the frame constant data here
-        descriptor_writes : [1]VkWriteDescriptorSet;
-
         image_info := VkDescriptorImageInfo.{
             sampler = sampler, // @Hardcoded
             imageView = global_engine.default_font.texture.view, // @Hardcoded
             imageLayout = .SHADER_READ_ONLY_OPTIMAL,
         };
-        descriptor_writes[0] = .{
+        descriptor_writes := VkWriteDescriptorSet.[.{
             dstSet = pipeline.descriptor_sets[image_index][1],
             dstBinding = 0,
             dstArrayElement = 0,
             descriptorType = .COMBINED_IMAGE_SAMPLER,
             descriptorCount = 1,
             pImageInfo = *image_info,
-        };
+        }];
         vkUpdateDescriptorSets(global_renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
     }
 
@@ -383,17 +379,17 @@ create_shadowmap_pipeline :: (device: VkDevice, render_pass: VkRenderPass, size:
         vtx := create_shader_module(device, "shaders/shadowmap.vert.spv");
         defer vkDestroyShaderModule(device, vtx, null);
 
-        stages : [1]VkPipelineShaderStageCreateInfo;
-        stages[0] = .{stage = .VERTEX_BIT, module = vtx, pName = "main"};
+        stages := VkPipelineShaderStageCreateInfo.[
+            .{stage = .VERTEX_BIT, module = vtx, pName = "main"}
+        ];
 
-        bindings : [1]VkDescriptorSetLayoutBinding;
-        bindings[0] = .{
+        bindings := VkDescriptorSetLayoutBinding.[.{
             binding = 0,
             descriptorType = .UNIFORM_BUFFER,
             descriptorCount = 1,
             stageFlags = .VERTEX_BIT,
             pImmutableSamplers = null,
-        };
+        }];
         layout_info := VkDescriptorSetLayoutCreateInfo.{
             bindingCount = bindings.count,
             pBindings = bindings.data,
@@ -443,20 +439,20 @@ create_shadowmap_pipeline :: (device: VkDevice, render_pass: VkRenderPass, size:
 
     for *pipeline.descriptor_sets {
         Vk_Check(vkAllocateDescriptorSets(device, *alloc_info, it.data));
-        descriptor_writes : [1]VkWriteDescriptorSet;
+        
         buffer_info := VkDescriptorBufferInfo .{
             buffer = pipeline.uniform_data[it_index].buffer,
             offset = 0,
             range = size_of(CameraData),
         };
-        descriptor_writes[0] = .{
+        descriptor_writes := VkWriteDescriptorSet.[.{
             dstSet = it.*[0],
             dstBinding = 0,
             dstArrayElement = 0,
             descriptorType = .UNIFORM_BUFFER,
             descriptorCount = 1,
             pBufferInfo = *buffer_info,
-        };
+        }];
         vkUpdateDescriptorSets(global_renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
     }
 
@@ -473,7 +469,6 @@ draw_shadowmap_pipeline :: (dd: *Draw_Data, command_buffer: VkCommandBuffer) {
             light = transpose(global_renderer.light),
         };
         memcpy(global_renderer.shadowmap_pipeline.uniform_data[context.vk.image_index].mapped, *camera_data, size_of(type_of(camera_data)));
-       
     }
 
     if dd.vertices.count == 0 return;
