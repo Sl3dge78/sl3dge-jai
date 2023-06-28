@@ -26,8 +26,8 @@ create_standard_renderpass :: (device: VkDevice) -> VkRenderPass {
     format := global_renderer.surface_format.format;
     depth_format := global_renderer.depth_format;
 
-    attachments : [2] VkAttachmentDescription;
-    attachments[0] = .{
+    attachments := VkAttachmentDescription.[
+    .{
         format = format,
         samples = ._1_BIT,
         loadOp = .CLEAR,
@@ -36,8 +36,8 @@ create_standard_renderpass :: (device: VkDevice) -> VkRenderPass {
         stencilStoreOp = .DONT_CARE,
         initialLayout = .UNDEFINED,
         finalLayout = .PRESENT_SRC_KHR,
-    };
-    attachments[1] = .{
+    },
+    .{
         format = depth_format,
         samples = ._1_BIT,
         loadOp = .CLEAR,
@@ -46,7 +46,7 @@ create_standard_renderpass :: (device: VkDevice) -> VkRenderPass {
         stencilStoreOp = .DONT_CARE,
         initialLayout = .UNDEFINED,
         finalLayout = .DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-    };
+    }];
 
     create_info := VkRenderPassCreateInfo.{
         attachmentCount = attachments.count,
@@ -84,8 +84,8 @@ create_shadowmap_renderpass :: (device: VkDevice) -> VkRenderPass {
     format := global_renderer.surface_format.format;
     depth_format := global_renderer.depth_format;
 
-    attachments : [1] VkAttachmentDescription;
-    attachments[0] = .{
+    attachments := VkAttachmentDescription.[
+    .{
         format = depth_format,
         samples = ._1_BIT,
         loadOp = .CLEAR,
@@ -94,10 +94,10 @@ create_shadowmap_renderpass :: (device: VkDevice) -> VkRenderPass {
         stencilStoreOp = .DONT_CARE,
         initialLayout = .UNDEFINED,
         finalLayout = .DEPTH_STENCIL_READ_ONLY_OPTIMAL,
-    };
+    }];
 
-    dependencies: [2]VkSubpassDependency;
-    dependencies[0] = .{
+    dependencies := VkSubpassDependency.[
+    .{
         srcSubpass = VK_SUBPASS_EXTERNAL,
         dstSubpass = 0,
         srcStageMask = .FRAGMENT_SHADER_BIT, 
@@ -105,8 +105,8 @@ create_shadowmap_renderpass :: (device: VkDevice) -> VkRenderPass {
         srcAccessMask = .SHADER_READ_BIT,
         dstAccessMask = .DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
         dependencyFlags = .BY_REGION_BIT,
-    };
-    dependencies[1] = .{
+    },
+    .{
         srcSubpass = 0,
         dstSubpass = VK_SUBPASS_EXTERNAL,
         srcStageMask = .LATE_FRAGMENT_TESTS_BIT, 
@@ -114,7 +114,7 @@ create_shadowmap_renderpass :: (device: VkDevice) -> VkRenderPass {
         srcAccessMask = .DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
         dstAccessMask = .SHADER_READ_BIT,
         dependencyFlags = .BY_REGION_BIT,
-    };
+    }];
 
     create_info := VkRenderPassCreateInfo.{
         attachmentCount = attachments.count,
@@ -334,4 +334,14 @@ pipeline_create_info :: (layout: VkPipelineLayout, renderpass: VkRenderPass) -> 
         renderPass = renderpass
     };
     return create_info;
+}
+
+create_descriptor_set_layout :: (device: VkDevice, bindings: []VkDescriptorSetLayoutBinding) -> VkDescriptorSetLayout {
+    result : VkDescriptorSetLayout;
+    layout_info := VkDescriptorSetLayoutCreateInfo.{
+        bindingCount = xx bindings.count,
+        pBindings = bindings.data,
+    };
+    Vk_Check(vkCreateDescriptorSetLayout(device, *layout_info, null, *result));
+    return result;
 }

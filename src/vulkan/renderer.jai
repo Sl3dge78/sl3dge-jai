@@ -326,15 +326,16 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
 
     // Descriptor pools
     {
-        pool_sizes : [2]VkDescriptorPoolSize;
-        pool_sizes[0] = VkDescriptorPoolSize.{
-            type = .UNIFORM_BUFFER,
-            descriptorCount = 32,
-        };
-        pool_sizes[1] = VkDescriptorPoolSize.{
-            type = .COMBINED_IMAGE_SAMPLER,
-            descriptorCount = 32, 
-        };
+        pool_sizes := VkDescriptorPoolSize.[
+            .{
+                type = .UNIFORM_BUFFER,
+                descriptorCount = 32,
+            },
+            .{
+                type = .COMBINED_IMAGE_SAMPLER,
+                descriptorCount = 32, 
+            }
+        ];
 
         pool_info := VkDescriptorPoolCreateInfo.{
             poolSizeCount = pool_sizes.count,
@@ -389,9 +390,10 @@ renderer_resize :: (w: s32, h: s32) {
 }
 
 create_framebuffers :: () {
-    attachments : [2]VkImageView;
-    attachments[0] = global_renderer.swapchain_image_views[0];
-    attachments[1] = global_renderer.depth_texture.view;
+    attachments := VkImageView.[
+        global_renderer.swapchain_image_views[0],
+        global_renderer.depth_texture.view
+    ];
 
     framebuffer_ci := VkFramebufferCreateInfo.{
         renderPass = global_renderer.render_pass,
@@ -471,11 +473,11 @@ end_frame :: () {
     upload_draw_data(*color_draw_data);
     upload_draw_data(*ui_draw_data);
 
-    // clear_color := Vector4.{0, 0, 0, 0};
     clear_color := Vector4.{0.529, 0.808, 0.922, 0};
-    clear_values :[2] VkClearValue;
-    clear_values[0] = .{color = .{_float32 = clear_color.component}};
-    clear_values[1] = .{depthStencil = .{1, 0}};
+    clear_values := VkClearValue.[
+        .{color = .{_float32 = clear_color.component}},
+        .{depthStencil = .{1, 0}}
+    ];
     vkBeginCommandBuffer(command_buffer, *VkCommandBufferBeginInfo.{flags = .ONE_TIME_SUBMIT_BIT});
 
     vkCmdBeginRenderPass(command_buffer, *VkRenderPassBeginInfo.{
