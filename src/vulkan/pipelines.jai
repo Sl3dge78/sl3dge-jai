@@ -169,7 +169,7 @@ draw_color_pipeline :: (dd: *Draw_Data, command_buffer: VkCommandBuffer) {
         // Diffuse
         image_info := VkDescriptorImageInfo.{
             sampler = global_renderer.sampler, // @Hardcoded
-            imageView = resources.block_texture.view, // @Hardcoded
+            imageView = global_renderer.default_texture.view, // @Hardcoded
             imageLayout = .SHADER_READ_ONLY_OPTIMAL,
         };
         // Shadowmap

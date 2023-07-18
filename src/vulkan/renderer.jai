@@ -55,6 +55,8 @@ Renderer :: struct {
     view: Matrix4;
     light: Matrix4;
     light_dir: Vector3;
+
+    default_texture: Texture;
 }
 
 Frame_Data :: struct {
@@ -345,7 +347,10 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
         Vk_Check(vkCreateDescriptorPool(renderer.device, *pool_info, null, *renderer.descriptor_pool));
     }
 
+    // Default texture  & sampler
     renderer.sampler = create_sampler(renderer.device);
+    data := u8.[255, 255, 255, 255];
+    renderer.default_texture = create_texture_from_data(data.data, 1, 1, 4, u8);
 
     renderer.render_pass = create_standard_renderpass(renderer.device);
     renderer.color_pipeline = create_color_pipeline(renderer.device, renderer.render_pass);
@@ -435,6 +440,7 @@ renderer_deinit :: () {
     destroy_texture(*shadowmap_texture);
 
     vkDestroySampler(device, sampler, null);
+    destroy_texture(*default_texture);
 
     for swapchain_image_views {
         vkDestroyImageView(device, it, null);
