@@ -1,7 +1,12 @@
 Mesh :: struct {
     vertices : []Vertex;
-    
     indices : []int;
+
+    deinit :: (mesh : *Mesh) {
+        free(mesh.vertices.data);
+        free(mesh.indices.data);
+        mesh.* = .{};
+    }
 }
 
 load_gltf :: (path: string) -> Mesh {
