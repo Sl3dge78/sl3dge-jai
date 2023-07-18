@@ -38,3 +38,7 @@ operator + :: (a: Vector3i, b: Vector3i) -> Vector3i {
 operator - :: (a: Vector3i, b: Vector3i) -> Vector3i {
     return .{a.x - b.x, a.y - b.y, a.z - b.z};
 }
+
+angle_between :: (a: Vector2, b: Vector2) -> float {
+    return atan2(a.x * b.y - a.y * b.x, a.x * b.x + a.y * b.y);
+}

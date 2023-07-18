@@ -576,6 +576,10 @@ set_projection_matrix :: (proj: Matrix4) {
     global_renderer.projection = proj;
 }
 
+set_projection_matrix :: (fov: float) {
+    set_projection_matrix(make_projection_matrix(radians(fov), cast(float)global_renderer.swapchain_extent.width/cast(float)global_renderer.swapchain_extent.height, 0.1, 1000));
+}
+
 change_light_direction :: (dir: Vector3) {
     size:: 20;
     proj := orthographic_projection_matrix(size, -size, -size, size, -size, size, true);
