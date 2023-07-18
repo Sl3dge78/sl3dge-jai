@@ -33,6 +33,8 @@ File_Watcher :: #import "File_Watcher";
 #load "src/console.jai";
 #load "src/resources.jai";
 
+#import,dir "modules/gltf_parser";
+
 #load "src/math/math.jai";
 #load "src/math/constants.jai";
 #load "src/math/geometry.jai";
