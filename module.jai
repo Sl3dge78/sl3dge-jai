@@ -9,7 +9,7 @@
 File_Watcher :: #import "File_Watcher";
 #import "SDL";
 #import "stb_image";
-#import "stb_truetype";
+#import,dir "modules/stb_truetype";
 
 #load "src/engine.jai";
 #load "src/input.jai";
@@ -19,7 +19,7 @@ File_Watcher :: #import "File_Watcher";
     #load "src/opengl/render_texture.jai";
     #load "src/opengl/shaders.jai";
 } else #if RENDERER == .VULKAN {
-    #import,dir "../Vulkan";
+    #import,dir "modules/Vulkan";
     #load "src/vulkan/initialization.jai";
     #load "src/vulkan/immediate.jai";
     #load "src/vulkan/renderer.jai";
