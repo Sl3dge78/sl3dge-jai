@@ -32,6 +32,7 @@ File_Watcher :: #import "File_Watcher";
 #load "src/camera.jai";
 #load "src/console.jai";
 #load "src/resources.jai";
+#load "src/mesh.jai";
 
 #import,dir "modules/gltf_parser";
 

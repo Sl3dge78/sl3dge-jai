@@ -10,7 +10,3 @@ push_model :: (scene: *Scene, model: *Model $static := true) {
         array_add(*scene.this_frame_models, model);
     }
 }
-
-Model :: struct {
-    vertices: []Vertex;
-}

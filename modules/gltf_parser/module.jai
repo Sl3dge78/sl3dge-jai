@@ -759,8 +759,6 @@ read_buffer_from_accessor :: (gltf_data: *GLTF_Data, accessor: GLTF_Accessor, li
 }
 
 
-
-
 /*
  *
  * All glTF types are here!
@@ -1289,8 +1287,6 @@ GLTF_Light_Spot :: struct {
   outer_cone_angle := PI / 4;
 }
 
-#scope_file;
-
 get_buffer_data :: (gltf_data: *GLTF_Data, accessor: GLTF_Accessor, $type: Type) -> [..]type {
   list : [..]type;
 
@@ -1304,6 +1300,7 @@ get_buffer_data :: (gltf_data: *GLTF_Data, accessor: GLTF_Accessor, $type: Type)
   stride          := accessor.stride / component_size;
 
   offset := (buffer_view.byte_offset + accessor.byte_offset) / component_size;
+  array_reserve(*list, component_count);
 
   for data_index: 0..accessor.count - 1 {
     buffer_data := cast(*type) buffer.data.data;
@@ -1317,6 +1314,7 @@ get_buffer_data :: (gltf_data: *GLTF_Data, accessor: GLTF_Accessor, $type: Type)
   return list;
 }
 
+#scope_file;
 
 fill_parents :: (data: *GLTF_Data, node: *GLTF_Node, parent_index: int) {
   for node.children {
@@ -1549,5 +1547,4 @@ make_pool_allocator :: (data: *void) -> Allocator {
 #import "Flat_Pool";
 #import "Pool";
 #import,dir "../jason";
-#import,dir "../unicode_utils";
 #import "Math";
