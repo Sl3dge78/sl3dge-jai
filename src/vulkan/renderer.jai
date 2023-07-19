@@ -43,6 +43,8 @@ Renderer :: struct {
     color_pipeline: Pipeline(2);
     color_draw_data: Draw_Data;
 
+    skinned_pipeline: Pipeline(2);
+
     ui_pipeline: Pipeline(2);
     ui_draw_data: Draw_Data;
 
@@ -355,6 +357,7 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
     renderer.render_pass = create_standard_renderpass(renderer.device);
     renderer.color_pipeline = create_color_pipeline(renderer.device, renderer.render_pass);
     renderer.ui_pipeline = create_ui_pipeline(renderer.device, renderer.render_pass);
+    renderer.skinned_pipeline = create_skinned_pipeline(renderer.device, renderer.render_pass);
 
     {   // Shadowmap
         SHADOWMAP_SIZE :: 2048;
@@ -432,6 +435,7 @@ renderer_deinit :: () {
     vkDestroyRenderPass(device, render_pass, null);
     destroy_pipeline(*color_pipeline, device);
     destroy_pipeline(*ui_pipeline, device);
+    destroy_pipeline(*skinned_pipeline, device);
 
     // Shadowmap render pass
     vkDestroyRenderPass(device, shadowmap_render_pass, null);
