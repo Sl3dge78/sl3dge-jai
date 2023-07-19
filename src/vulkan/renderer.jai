@@ -151,7 +151,7 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
         SDL_Vulkan_GetInstanceExtensions(window, *nb, extensions.data);
         extensions.count += nb;
 
-        array_add(*extensions, temp_c_string("VK_EXT_debug_utils"));
+        array_add(*extensions, VK_EXT_DEBUG_UTILS_EXTENSION_NAME.data);
         array_add(*extensions, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME.data);
 
         log("Extensions:");

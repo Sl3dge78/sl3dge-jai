@@ -18,16 +18,6 @@ stbtt__buf :: struct {
     cursor: s32;
     size:   s32;
 }
-#run {
-    instance: stbtt__buf;
-    assert(((cast(*void)(*instance.data)) - cast(*void)(*instance)) == 0, "stbtt__buf.data has unexpected offset % instead of 0", ((cast(*void)(*instance.data)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt__buf.data)) == 8, "stbtt__buf.data has unexpected size % instead of 8", size_of(type_of(stbtt__buf.data)));
-    assert(((cast(*void)(*instance.cursor)) - cast(*void)(*instance)) == 8, "stbtt__buf.cursor has unexpected offset % instead of 8", ((cast(*void)(*instance.cursor)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt__buf.cursor)) == 4, "stbtt__buf.cursor has unexpected size % instead of 4", size_of(type_of(stbtt__buf.cursor)));
-    assert(((cast(*void)(*instance.size)) - cast(*void)(*instance)) == 12, "stbtt__buf.size has unexpected offset % instead of 12", ((cast(*void)(*instance.size)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt__buf.size)) == 4, "stbtt__buf.size has unexpected size % instead of 4", size_of(type_of(stbtt__buf.size)));
-    assert(size_of(stbtt__buf) == 16, "stbtt__buf has size % instead of 16", size_of(stbtt__buf));
-}
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -43,24 +33,6 @@ stbtt_bakedchar :: struct {
     xoff:     float;
     yoff:     float;
     xadvance: float;
-}
-#run {
-    instance: stbtt_bakedchar;
-    assert(((cast(*void)(*instance.x0)) - cast(*void)(*instance)) == 0, "stbtt_bakedchar.x0 has unexpected offset % instead of 0", ((cast(*void)(*instance.x0)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_bakedchar.x0)) == 2, "stbtt_bakedchar.x0 has unexpected size % instead of 2", size_of(type_of(stbtt_bakedchar.x0)));
-    assert(((cast(*void)(*instance.y0)) - cast(*void)(*instance)) == 2, "stbtt_bakedchar.y0 has unexpected offset % instead of 2", ((cast(*void)(*instance.y0)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_bakedchar.y0)) == 2, "stbtt_bakedchar.y0 has unexpected size % instead of 2", size_of(type_of(stbtt_bakedchar.y0)));
-    assert(((cast(*void)(*instance.x1)) - cast(*void)(*instance)) == 4, "stbtt_bakedchar.x1 has unexpected offset % instead of 4", ((cast(*void)(*instance.x1)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_bakedchar.x1)) == 2, "stbtt_bakedchar.x1 has unexpected size % instead of 2", size_of(type_of(stbtt_bakedchar.x1)));
-    assert(((cast(*void)(*instance.y1)) - cast(*void)(*instance)) == 6, "stbtt_bakedchar.y1 has unexpected offset % instead of 6", ((cast(*void)(*instance.y1)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_bakedchar.y1)) == 2, "stbtt_bakedchar.y1 has unexpected size % instead of 2", size_of(type_of(stbtt_bakedchar.y1)));
-    assert(((cast(*void)(*instance.xoff)) - cast(*void)(*instance)) == 8, "stbtt_bakedchar.xoff has unexpected offset % instead of 8", ((cast(*void)(*instance.xoff)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_bakedchar.xoff)) == 4, "stbtt_bakedchar.xoff has unexpected size % instead of 4", size_of(type_of(stbtt_bakedchar.xoff)));
-    assert(((cast(*void)(*instance.yoff)) - cast(*void)(*instance)) == 12, "stbtt_bakedchar.yoff has unexpected offset % instead of 12", ((cast(*void)(*instance.yoff)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_bakedchar.yoff)) == 4, "stbtt_bakedchar.yoff has unexpected size % instead of 4", size_of(type_of(stbtt_bakedchar.yoff)));
-    assert(((cast(*void)(*instance.xadvance)) - cast(*void)(*instance)) == 16, "stbtt_bakedchar.xadvance has unexpected offset % instead of 16", ((cast(*void)(*instance.xadvance)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_bakedchar.xadvance)) == 4, "stbtt_bakedchar.xadvance has unexpected size % instead of 4", size_of(type_of(stbtt_bakedchar.xadvance)));
-    assert(size_of(stbtt_bakedchar) == 20, "stbtt_bakedchar has size % instead of 20", size_of(stbtt_bakedchar));
 }
 
 stbtt_BakeFontBitmap :: (data: *u8, offset: s32, pixel_height: float, pixels: *u8, pw: s32, ph: s32, first_char: s32, num_chars: s32, chardata: *stbtt_bakedchar) -> s32 #foreign stbtruetype;
@@ -78,26 +50,6 @@ stbtt_aligned_quad :: struct {
     y1: float; // bottom-right
     s1: float; // bottom-right
     t1: float; // bottom-right
-}
-#run {
-    instance: stbtt_aligned_quad;
-    assert(((cast(*void)(*instance.x0)) - cast(*void)(*instance)) == 0, "stbtt_aligned_quad.x0 has unexpected offset % instead of 0", ((cast(*void)(*instance.x0)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_aligned_quad.x0)) == 4, "stbtt_aligned_quad.x0 has unexpected size % instead of 4", size_of(type_of(stbtt_aligned_quad.x0)));
-    assert(((cast(*void)(*instance.y0)) - cast(*void)(*instance)) == 4, "stbtt_aligned_quad.y0 has unexpected offset % instead of 4", ((cast(*void)(*instance.y0)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_aligned_quad.y0)) == 4, "stbtt_aligned_quad.y0 has unexpected size % instead of 4", size_of(type_of(stbtt_aligned_quad.y0)));
-    assert(((cast(*void)(*instance.s0)) - cast(*void)(*instance)) == 8, "stbtt_aligned_quad.s0 has unexpected offset % instead of 8", ((cast(*void)(*instance.s0)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_aligned_quad.s0)) == 4, "stbtt_aligned_quad.s0 has unexpected size % instead of 4", size_of(type_of(stbtt_aligned_quad.s0)));
-    assert(((cast(*void)(*instance.t0)) - cast(*void)(*instance)) == 12, "stbtt_aligned_quad.t0 has unexpected offset % instead of 12", ((cast(*void)(*instance.t0)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_aligned_quad.t0)) == 4, "stbtt_aligned_quad.t0 has unexpected size % instead of 4", size_of(type_of(stbtt_aligned_quad.t0)));
-    assert(((cast(*void)(*instance.x1)) - cast(*void)(*instance)) == 16, "stbtt_aligned_quad.x1 has unexpected offset % instead of 16", ((cast(*void)(*instance.x1)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_aligned_quad.x1)) == 4, "stbtt_aligned_quad.x1 has unexpected size % instead of 4", size_of(type_of(stbtt_aligned_quad.x1)));
-    assert(((cast(*void)(*instance.y1)) - cast(*void)(*instance)) == 20, "stbtt_aligned_quad.y1 has unexpected offset % instead of 20", ((cast(*void)(*instance.y1)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_aligned_quad.y1)) == 4, "stbtt_aligned_quad.y1 has unexpected size % instead of 4", size_of(type_of(stbtt_aligned_quad.y1)));
-    assert(((cast(*void)(*instance.s1)) - cast(*void)(*instance)) == 24, "stbtt_aligned_quad.s1 has unexpected offset % instead of 24", ((cast(*void)(*instance.s1)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_aligned_quad.s1)) == 4, "stbtt_aligned_quad.s1 has unexpected size % instead of 4", size_of(type_of(stbtt_aligned_quad.s1)));
-    assert(((cast(*void)(*instance.t1)) - cast(*void)(*instance)) == 28, "stbtt_aligned_quad.t1 has unexpected offset % instead of 28", ((cast(*void)(*instance.t1)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_aligned_quad.t1)) == 4, "stbtt_aligned_quad.t1 has unexpected size % instead of 4", size_of(type_of(stbtt_aligned_quad.t1)));
-    assert(size_of(stbtt_aligned_quad) == 32, "stbtt_aligned_quad has size % instead of 32", size_of(stbtt_aligned_quad));
 }
 
 stbtt_GetBakedQuad :: (chardata: *stbtt_bakedchar, pw: s32, ph: s32, char_index: s32, xpos: *float, ypos: *float, q: *stbtt_aligned_quad, opengl_fillrule: s32) -> void #foreign stbtruetype;
@@ -129,28 +81,6 @@ stbtt_packedchar :: struct {
     xadvance: float;
     xoff2:    float;
     yoff2:    float;
-}
-#run {
-    instance: stbtt_packedchar;
-    assert(((cast(*void)(*instance.x0)) - cast(*void)(*instance)) == 0, "stbtt_packedchar.x0 has unexpected offset % instead of 0", ((cast(*void)(*instance.x0)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_packedchar.x0)) == 2, "stbtt_packedchar.x0 has unexpected size % instead of 2", size_of(type_of(stbtt_packedchar.x0)));
-    assert(((cast(*void)(*instance.y0)) - cast(*void)(*instance)) == 2, "stbtt_packedchar.y0 has unexpected offset % instead of 2", ((cast(*void)(*instance.y0)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_packedchar.y0)) == 2, "stbtt_packedchar.y0 has unexpected size % instead of 2", size_of(type_of(stbtt_packedchar.y0)));
-    assert(((cast(*void)(*instance.x1)) - cast(*void)(*instance)) == 4, "stbtt_packedchar.x1 has unexpected offset % instead of 4", ((cast(*void)(*instance.x1)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_packedchar.x1)) == 2, "stbtt_packedchar.x1 has unexpected size % instead of 2", size_of(type_of(stbtt_packedchar.x1)));
-    assert(((cast(*void)(*instance.y1)) - cast(*void)(*instance)) == 6, "stbtt_packedchar.y1 has unexpected offset % instead of 6", ((cast(*void)(*instance.y1)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_packedchar.y1)) == 2, "stbtt_packedchar.y1 has unexpected size % instead of 2", size_of(type_of(stbtt_packedchar.y1)));
-    assert(((cast(*void)(*instance.xoff)) - cast(*void)(*instance)) == 8, "stbtt_packedchar.xoff has unexpected offset % instead of 8", ((cast(*void)(*instance.xoff)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_packedchar.xoff)) == 4, "stbtt_packedchar.xoff has unexpected size % instead of 4", size_of(type_of(stbtt_packedchar.xoff)));
-    assert(((cast(*void)(*instance.yoff)) - cast(*void)(*instance)) == 12, "stbtt_packedchar.yoff has unexpected offset % instead of 12", ((cast(*void)(*instance.yoff)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_packedchar.yoff)) == 4, "stbtt_packedchar.yoff has unexpected size % instead of 4", size_of(type_of(stbtt_packedchar.yoff)));
-    assert(((cast(*void)(*instance.xadvance)) - cast(*void)(*instance)) == 16, "stbtt_packedchar.xadvance has unexpected offset % instead of 16", ((cast(*void)(*instance.xadvance)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_packedchar.xadvance)) == 4, "stbtt_packedchar.xadvance has unexpected size % instead of 4", size_of(type_of(stbtt_packedchar.xadvance)));
-    assert(((cast(*void)(*instance.xoff2)) - cast(*void)(*instance)) == 20, "stbtt_packedchar.xoff2 has unexpected offset % instead of 20", ((cast(*void)(*instance.xoff2)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_packedchar.xoff2)) == 4, "stbtt_packedchar.xoff2 has unexpected size % instead of 4", size_of(type_of(stbtt_packedchar.xoff2)));
-    assert(((cast(*void)(*instance.yoff2)) - cast(*void)(*instance)) == 24, "stbtt_packedchar.yoff2 has unexpected offset % instead of 24", ((cast(*void)(*instance.yoff2)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_packedchar.yoff2)) == 4, "stbtt_packedchar.yoff2 has unexpected size % instead of 4", size_of(type_of(stbtt_packedchar.yoff2)));
-    assert(size_of(stbtt_packedchar) == 28, "stbtt_packedchar has size % instead of 28", size_of(stbtt_packedchar));
 }
 
 stbrp_rect :: struct {}
@@ -190,24 +120,6 @@ stbtt_pack_range :: struct {
     chardata_for_range:               *stbtt_packedchar; // output
     h_oversample:                     u8; // don't set these, they're used internally
     v_oversample:                     u8; // don't set these, they're used internally
-}
-#run {
-    instance: stbtt_pack_range;
-    assert(((cast(*void)(*instance.font_size)) - cast(*void)(*instance)) == 0, "stbtt_pack_range.font_size has unexpected offset % instead of 0", ((cast(*void)(*instance.font_size)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_pack_range.font_size)) == 4, "stbtt_pack_range.font_size has unexpected size % instead of 4", size_of(type_of(stbtt_pack_range.font_size)));
-    assert(((cast(*void)(*instance.first_unicode_codepoint_in_range)) - cast(*void)(*instance)) == 4, "stbtt_pack_range.first_unicode_codepoint_in_range has unexpected offset % instead of 4", ((cast(*void)(*instance.first_unicode_codepoint_in_range)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_pack_range.first_unicode_codepoint_in_range)) == 4, "stbtt_pack_range.first_unicode_codepoint_in_range has unexpected size % instead of 4", size_of(type_of(stbtt_pack_range.first_unicode_codepoint_in_range)));
-    assert(((cast(*void)(*instance.array_of_unicode_codepoints)) - cast(*void)(*instance)) == 8, "stbtt_pack_range.array_of_unicode_codepoints has unexpected offset % instead of 8", ((cast(*void)(*instance.array_of_unicode_codepoints)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_pack_range.array_of_unicode_codepoints)) == 8, "stbtt_pack_range.array_of_unicode_codepoints has unexpected size % instead of 8", size_of(type_of(stbtt_pack_range.array_of_unicode_codepoints)));
-    assert(((cast(*void)(*instance.num_chars)) - cast(*void)(*instance)) == 16, "stbtt_pack_range.num_chars has unexpected offset % instead of 16", ((cast(*void)(*instance.num_chars)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_pack_range.num_chars)) == 4, "stbtt_pack_range.num_chars has unexpected size % instead of 4", size_of(type_of(stbtt_pack_range.num_chars)));
-    assert(((cast(*void)(*instance.chardata_for_range)) - cast(*void)(*instance)) == 24, "stbtt_pack_range.chardata_for_range has unexpected offset % instead of 24", ((cast(*void)(*instance.chardata_for_range)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_pack_range.chardata_for_range)) == 8, "stbtt_pack_range.chardata_for_range has unexpected size % instead of 8", size_of(type_of(stbtt_pack_range.chardata_for_range)));
-    assert(((cast(*void)(*instance.h_oversample)) - cast(*void)(*instance)) == 32, "stbtt_pack_range.h_oversample has unexpected offset % instead of 32", ((cast(*void)(*instance.h_oversample)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_pack_range.h_oversample)) == 1, "stbtt_pack_range.h_oversample has unexpected size % instead of 1", size_of(type_of(stbtt_pack_range.h_oversample)));
-    assert(((cast(*void)(*instance.v_oversample)) - cast(*void)(*instance)) == 33, "stbtt_pack_range.v_oversample has unexpected offset % instead of 33", ((cast(*void)(*instance.v_oversample)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_pack_range.v_oversample)) == 1, "stbtt_pack_range.v_oversample has unexpected size % instead of 1", size_of(type_of(stbtt_pack_range.v_oversample)));
-    assert(size_of(stbtt_pack_range) == 40, "stbtt_pack_range has size % instead of 40", size_of(stbtt_pack_range));
 }
 
 stbtt_PackFontRanges :: (spc: *stbtt_pack_context, fontdata: *u8, font_index: s32, ranges: *stbtt_pack_range, num_ranges: s32) -> s32 #foreign stbtruetype;
@@ -259,32 +171,6 @@ stbtt_pack_context :: struct {
     pixels:                 *u8;
     nodes:                  *void;
 }
-#run {
-    instance: stbtt_pack_context;
-    assert(((cast(*void)(*instance.user_allocator_context)) - cast(*void)(*instance)) == 0, "stbtt_pack_context.user_allocator_context has unexpected offset % instead of 0", ((cast(*void)(*instance.user_allocator_context)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_pack_context.user_allocator_context)) == 8, "stbtt_pack_context.user_allocator_context has unexpected size % instead of 8", size_of(type_of(stbtt_pack_context.user_allocator_context)));
-    assert(((cast(*void)(*instance.pack_info)) - cast(*void)(*instance)) == 8, "stbtt_pack_context.pack_info has unexpected offset % instead of 8", ((cast(*void)(*instance.pack_info)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_pack_context.pack_info)) == 8, "stbtt_pack_context.pack_info has unexpected size % instead of 8", size_of(type_of(stbtt_pack_context.pack_info)));
-    assert(((cast(*void)(*instance.width)) - cast(*void)(*instance)) == 16, "stbtt_pack_context.width has unexpected offset % instead of 16", ((cast(*void)(*instance.width)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_pack_context.width)) == 4, "stbtt_pack_context.width has unexpected size % instead of 4", size_of(type_of(stbtt_pack_context.width)));
-    assert(((cast(*void)(*instance.height)) - cast(*void)(*instance)) == 20, "stbtt_pack_context.height has unexpected offset % instead of 20", ((cast(*void)(*instance.height)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_pack_context.height)) == 4, "stbtt_pack_context.height has unexpected size % instead of 4", size_of(type_of(stbtt_pack_context.height)));
-    assert(((cast(*void)(*instance.stride_in_bytes)) - cast(*void)(*instance)) == 24, "stbtt_pack_context.stride_in_bytes has unexpected offset % instead of 24", ((cast(*void)(*instance.stride_in_bytes)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_pack_context.stride_in_bytes)) == 4, "stbtt_pack_context.stride_in_bytes has unexpected size % instead of 4", size_of(type_of(stbtt_pack_context.stride_in_bytes)));
-    assert(((cast(*void)(*instance.padding)) - cast(*void)(*instance)) == 28, "stbtt_pack_context.padding has unexpected offset % instead of 28", ((cast(*void)(*instance.padding)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_pack_context.padding)) == 4, "stbtt_pack_context.padding has unexpected size % instead of 4", size_of(type_of(stbtt_pack_context.padding)));
-    assert(((cast(*void)(*instance.skip_missing)) - cast(*void)(*instance)) == 32, "stbtt_pack_context.skip_missing has unexpected offset % instead of 32", ((cast(*void)(*instance.skip_missing)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_pack_context.skip_missing)) == 4, "stbtt_pack_context.skip_missing has unexpected size % instead of 4", size_of(type_of(stbtt_pack_context.skip_missing)));
-    assert(((cast(*void)(*instance.h_oversample)) - cast(*void)(*instance)) == 36, "stbtt_pack_context.h_oversample has unexpected offset % instead of 36", ((cast(*void)(*instance.h_oversample)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_pack_context.h_oversample)) == 4, "stbtt_pack_context.h_oversample has unexpected size % instead of 4", size_of(type_of(stbtt_pack_context.h_oversample)));
-    assert(((cast(*void)(*instance.v_oversample)) - cast(*void)(*instance)) == 40, "stbtt_pack_context.v_oversample has unexpected offset % instead of 40", ((cast(*void)(*instance.v_oversample)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_pack_context.v_oversample)) == 4, "stbtt_pack_context.v_oversample has unexpected size % instead of 4", size_of(type_of(stbtt_pack_context.v_oversample)));
-    assert(((cast(*void)(*instance.pixels)) - cast(*void)(*instance)) == 48, "stbtt_pack_context.pixels has unexpected offset % instead of 48", ((cast(*void)(*instance.pixels)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_pack_context.pixels)) == 8, "stbtt_pack_context.pixels has unexpected size % instead of 8", size_of(type_of(stbtt_pack_context.pixels)));
-    assert(((cast(*void)(*instance.nodes)) - cast(*void)(*instance)) == 56, "stbtt_pack_context.nodes has unexpected offset % instead of 56", ((cast(*void)(*instance.nodes)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_pack_context.nodes)) == 8, "stbtt_pack_context.nodes has unexpected size % instead of 8", size_of(type_of(stbtt_pack_context.nodes)));
-    assert(size_of(stbtt_pack_context) == 64, "stbtt_pack_context has size % instead of 64", size_of(stbtt_pack_context));
-}
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -326,50 +212,6 @@ stbtt_fontinfo :: struct {
     subrs:            stbtt__buf; // private charstring subroutines index
     fontdicts:        stbtt__buf; // array of font dicts
     fdselect:         stbtt__buf; // map from glyph to fontdict
-}
-#run {
-    instance: stbtt_fontinfo;
-    assert(((cast(*void)(*instance.userdata)) - cast(*void)(*instance)) == 0, "stbtt_fontinfo.userdata has unexpected offset % instead of 0", ((cast(*void)(*instance.userdata)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_fontinfo.userdata)) == 8, "stbtt_fontinfo.userdata has unexpected size % instead of 8", size_of(type_of(stbtt_fontinfo.userdata)));
-    assert(((cast(*void)(*instance.data)) - cast(*void)(*instance)) == 8, "stbtt_fontinfo.data has unexpected offset % instead of 8", ((cast(*void)(*instance.data)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_fontinfo.data)) == 8, "stbtt_fontinfo.data has unexpected size % instead of 8", size_of(type_of(stbtt_fontinfo.data)));
-    assert(((cast(*void)(*instance.fontstart)) - cast(*void)(*instance)) == 16, "stbtt_fontinfo.fontstart has unexpected offset % instead of 16", ((cast(*void)(*instance.fontstart)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_fontinfo.fontstart)) == 4, "stbtt_fontinfo.fontstart has unexpected size % instead of 4", size_of(type_of(stbtt_fontinfo.fontstart)));
-    assert(((cast(*void)(*instance.numGlyphs)) - cast(*void)(*instance)) == 20, "stbtt_fontinfo.numGlyphs has unexpected offset % instead of 20", ((cast(*void)(*instance.numGlyphs)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_fontinfo.numGlyphs)) == 4, "stbtt_fontinfo.numGlyphs has unexpected size % instead of 4", size_of(type_of(stbtt_fontinfo.numGlyphs)));
-    assert(((cast(*void)(*instance.loca)) - cast(*void)(*instance)) == 24, "stbtt_fontinfo.loca has unexpected offset % instead of 24", ((cast(*void)(*instance.loca)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_fontinfo.loca)) == 4, "stbtt_fontinfo.loca has unexpected size % instead of 4", size_of(type_of(stbtt_fontinfo.loca)));
-    assert(((cast(*void)(*instance.head)) - cast(*void)(*instance)) == 28, "stbtt_fontinfo.head has unexpected offset % instead of 28", ((cast(*void)(*instance.head)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_fontinfo.head)) == 4, "stbtt_fontinfo.head has unexpected size % instead of 4", size_of(type_of(stbtt_fontinfo.head)));
-    assert(((cast(*void)(*instance.glyf)) - cast(*void)(*instance)) == 32, "stbtt_fontinfo.glyf has unexpected offset % instead of 32", ((cast(*void)(*instance.glyf)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_fontinfo.glyf)) == 4, "stbtt_fontinfo.glyf has unexpected size % instead of 4", size_of(type_of(stbtt_fontinfo.glyf)));
-    assert(((cast(*void)(*instance.hhea)) - cast(*void)(*instance)) == 36, "stbtt_fontinfo.hhea has unexpected offset % instead of 36", ((cast(*void)(*instance.hhea)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_fontinfo.hhea)) == 4, "stbtt_fontinfo.hhea has unexpected size % instead of 4", size_of(type_of(stbtt_fontinfo.hhea)));
-    assert(((cast(*void)(*instance.hmtx)) - cast(*void)(*instance)) == 40, "stbtt_fontinfo.hmtx has unexpected offset % instead of 40", ((cast(*void)(*instance.hmtx)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_fontinfo.hmtx)) == 4, "stbtt_fontinfo.hmtx has unexpected size % instead of 4", size_of(type_of(stbtt_fontinfo.hmtx)));
-    assert(((cast(*void)(*instance.kern)) - cast(*void)(*instance)) == 44, "stbtt_fontinfo.kern has unexpected offset % instead of 44", ((cast(*void)(*instance.kern)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_fontinfo.kern)) == 4, "stbtt_fontinfo.kern has unexpected size % instead of 4", size_of(type_of(stbtt_fontinfo.kern)));
-    assert(((cast(*void)(*instance.gpos)) - cast(*void)(*instance)) == 48, "stbtt_fontinfo.gpos has unexpected offset % instead of 48", ((cast(*void)(*instance.gpos)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_fontinfo.gpos)) == 4, "stbtt_fontinfo.gpos has unexpected size % instead of 4", size_of(type_of(stbtt_fontinfo.gpos)));
-    assert(((cast(*void)(*instance.svg)) - cast(*void)(*instance)) == 52, "stbtt_fontinfo.svg has unexpected offset % instead of 52", ((cast(*void)(*instance.svg)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_fontinfo.svg)) == 4, "stbtt_fontinfo.svg has unexpected size % instead of 4", size_of(type_of(stbtt_fontinfo.svg)));
-    assert(((cast(*void)(*instance.index_map)) - cast(*void)(*instance)) == 56, "stbtt_fontinfo.index_map has unexpected offset % instead of 56", ((cast(*void)(*instance.index_map)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_fontinfo.index_map)) == 4, "stbtt_fontinfo.index_map has unexpected size % instead of 4", size_of(type_of(stbtt_fontinfo.index_map)));
-    assert(((cast(*void)(*instance.indexToLocFormat)) - cast(*void)(*instance)) == 60, "stbtt_fontinfo.indexToLocFormat has unexpected offset % instead of 60", ((cast(*void)(*instance.indexToLocFormat)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_fontinfo.indexToLocFormat)) == 4, "stbtt_fontinfo.indexToLocFormat has unexpected size % instead of 4", size_of(type_of(stbtt_fontinfo.indexToLocFormat)));
-    assert(((cast(*void)(*instance.cff)) - cast(*void)(*instance)) == 64, "stbtt_fontinfo.cff has unexpected offset % instead of 64", ((cast(*void)(*instance.cff)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_fontinfo.cff)) == 16, "stbtt_fontinfo.cff has unexpected size % instead of 16", size_of(type_of(stbtt_fontinfo.cff)));
-    assert(((cast(*void)(*instance.charstrings)) - cast(*void)(*instance)) == 80, "stbtt_fontinfo.charstrings has unexpected offset % instead of 80", ((cast(*void)(*instance.charstrings)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_fontinfo.charstrings)) == 16, "stbtt_fontinfo.charstrings has unexpected size % instead of 16", size_of(type_of(stbtt_fontinfo.charstrings)));
-    assert(((cast(*void)(*instance.gsubrs)) - cast(*void)(*instance)) == 96, "stbtt_fontinfo.gsubrs has unexpected offset % instead of 96", ((cast(*void)(*instance.gsubrs)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_fontinfo.gsubrs)) == 16, "stbtt_fontinfo.gsubrs has unexpected size % instead of 16", size_of(type_of(stbtt_fontinfo.gsubrs)));
-    assert(((cast(*void)(*instance.subrs)) - cast(*void)(*instance)) == 112, "stbtt_fontinfo.subrs has unexpected offset % instead of 112", ((cast(*void)(*instance.subrs)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_fontinfo.subrs)) == 16, "stbtt_fontinfo.subrs has unexpected size % instead of 16", size_of(type_of(stbtt_fontinfo.subrs)));
-    assert(((cast(*void)(*instance.fontdicts)) - cast(*void)(*instance)) == 128, "stbtt_fontinfo.fontdicts has unexpected offset % instead of 128", ((cast(*void)(*instance.fontdicts)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_fontinfo.fontdicts)) == 16, "stbtt_fontinfo.fontdicts has unexpected size % instead of 16", size_of(type_of(stbtt_fontinfo.fontdicts)));
-    assert(((cast(*void)(*instance.fdselect)) - cast(*void)(*instance)) == 144, "stbtt_fontinfo.fdselect has unexpected offset % instead of 144", ((cast(*void)(*instance.fdselect)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_fontinfo.fdselect)) == 16, "stbtt_fontinfo.fdselect has unexpected size % instead of 16", size_of(type_of(stbtt_fontinfo.fdselect)));
-    assert(size_of(stbtt_fontinfo) == 160, "stbtt_fontinfo has size % instead of 160", size_of(stbtt_fontinfo));
 }
 
 stbtt_InitFont :: (info: *stbtt_fontinfo, data: *u8, offset: s32) -> s32 #foreign stbtruetype;
@@ -434,16 +276,6 @@ stbtt_kerningentry :: struct {
     glyph2:  s32;
     advance: s32;
 }
-#run {
-    instance: stbtt_kerningentry;
-    assert(((cast(*void)(*instance.glyph1)) - cast(*void)(*instance)) == 0, "stbtt_kerningentry.glyph1 has unexpected offset % instead of 0", ((cast(*void)(*instance.glyph1)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_kerningentry.glyph1)) == 4, "stbtt_kerningentry.glyph1 has unexpected size % instead of 4", size_of(type_of(stbtt_kerningentry.glyph1)));
-    assert(((cast(*void)(*instance.glyph2)) - cast(*void)(*instance)) == 4, "stbtt_kerningentry.glyph2 has unexpected offset % instead of 4", ((cast(*void)(*instance.glyph2)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_kerningentry.glyph2)) == 4, "stbtt_kerningentry.glyph2 has unexpected size % instead of 4", size_of(type_of(stbtt_kerningentry.glyph2)));
-    assert(((cast(*void)(*instance.advance)) - cast(*void)(*instance)) == 8, "stbtt_kerningentry.advance has unexpected offset % instead of 8", ((cast(*void)(*instance.advance)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_kerningentry.advance)) == 4, "stbtt_kerningentry.advance has unexpected size % instead of 4", size_of(type_of(stbtt_kerningentry.advance)));
-    assert(size_of(stbtt_kerningentry) == 12, "stbtt_kerningentry has size % instead of 12", size_of(stbtt_kerningentry));
-}
 
 stbtt_GetKerningTableLength :: (info: *stbtt_fontinfo) -> s32 #foreign stbtruetype;
 stbtt_GetKerningTable :: (info: *stbtt_fontinfo, table: *stbtt_kerningentry, table_length: s32) -> s32 #foreign stbtruetype;
@@ -469,26 +301,6 @@ stbtt_vertex :: struct {
     cy1:     s16;
     type:    u8;
     padding: u8;
-}
-#run {
-    instance: stbtt_vertex;
-    assert(((cast(*void)(*instance.x)) - cast(*void)(*instance)) == 0, "stbtt_vertex.x has unexpected offset % instead of 0", ((cast(*void)(*instance.x)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_vertex.x)) == 2, "stbtt_vertex.x has unexpected size % instead of 2", size_of(type_of(stbtt_vertex.x)));
-    assert(((cast(*void)(*instance.y)) - cast(*void)(*instance)) == 2, "stbtt_vertex.y has unexpected offset % instead of 2", ((cast(*void)(*instance.y)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_vertex.y)) == 2, "stbtt_vertex.y has unexpected size % instead of 2", size_of(type_of(stbtt_vertex.y)));
-    assert(((cast(*void)(*instance.cx)) - cast(*void)(*instance)) == 4, "stbtt_vertex.cx has unexpected offset % instead of 4", ((cast(*void)(*instance.cx)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_vertex.cx)) == 2, "stbtt_vertex.cx has unexpected size % instead of 2", size_of(type_of(stbtt_vertex.cx)));
-    assert(((cast(*void)(*instance.cy)) - cast(*void)(*instance)) == 6, "stbtt_vertex.cy has unexpected offset % instead of 6", ((cast(*void)(*instance.cy)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_vertex.cy)) == 2, "stbtt_vertex.cy has unexpected size % instead of 2", size_of(type_of(stbtt_vertex.cy)));
-    assert(((cast(*void)(*instance.cx1)) - cast(*void)(*instance)) == 8, "stbtt_vertex.cx1 has unexpected offset % instead of 8", ((cast(*void)(*instance.cx1)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_vertex.cx1)) == 2, "stbtt_vertex.cx1 has unexpected size % instead of 2", size_of(type_of(stbtt_vertex.cx1)));
-    assert(((cast(*void)(*instance.cy1)) - cast(*void)(*instance)) == 10, "stbtt_vertex.cy1 has unexpected offset % instead of 10", ((cast(*void)(*instance.cy1)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_vertex.cy1)) == 2, "stbtt_vertex.cy1 has unexpected size % instead of 2", size_of(type_of(stbtt_vertex.cy1)));
-    assert(((cast(*void)(*instance.type)) - cast(*void)(*instance)) == 12, "stbtt_vertex.type has unexpected offset % instead of 12", ((cast(*void)(*instance.type)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_vertex.type)) == 1, "stbtt_vertex.type has unexpected size % instead of 1", size_of(type_of(stbtt_vertex.type)));
-    assert(((cast(*void)(*instance.padding)) - cast(*void)(*instance)) == 13, "stbtt_vertex.padding has unexpected offset % instead of 13", ((cast(*void)(*instance.padding)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt_vertex.padding)) == 1, "stbtt_vertex.padding has unexpected size % instead of 1", size_of(type_of(stbtt_vertex.padding)));
-    assert(size_of(stbtt_vertex) == 14, "stbtt_vertex has size % instead of 14", size_of(stbtt_vertex));
 }
 
 stbtt_IsGlyphEmpty :: (info: *stbtt_fontinfo, glyph_index: s32) -> s32 #foreign stbtruetype;
@@ -572,18 +384,6 @@ stbtt__bitmap :: struct {
     h:      s32;
     stride: s32;
     pixels: *u8;
-}
-#run {
-    instance: stbtt__bitmap;
-    assert(((cast(*void)(*instance.w)) - cast(*void)(*instance)) == 0, "stbtt__bitmap.w has unexpected offset % instead of 0", ((cast(*void)(*instance.w)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt__bitmap.w)) == 4, "stbtt__bitmap.w has unexpected size % instead of 4", size_of(type_of(stbtt__bitmap.w)));
-    assert(((cast(*void)(*instance.h)) - cast(*void)(*instance)) == 4, "stbtt__bitmap.h has unexpected offset % instead of 4", ((cast(*void)(*instance.h)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt__bitmap.h)) == 4, "stbtt__bitmap.h has unexpected size % instead of 4", size_of(type_of(stbtt__bitmap.h)));
-    assert(((cast(*void)(*instance.stride)) - cast(*void)(*instance)) == 8, "stbtt__bitmap.stride has unexpected offset % instead of 8", ((cast(*void)(*instance.stride)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt__bitmap.stride)) == 4, "stbtt__bitmap.stride has unexpected size % instead of 4", size_of(type_of(stbtt__bitmap.stride)));
-    assert(((cast(*void)(*instance.pixels)) - cast(*void)(*instance)) == 16, "stbtt__bitmap.pixels has unexpected offset % instead of 16", ((cast(*void)(*instance.pixels)) - cast(*void)(*instance)));
-    assert(size_of(type_of(stbtt__bitmap.pixels)) == 8, "stbtt__bitmap.pixels has unexpected size % instead of 8", size_of(type_of(stbtt__bitmap.pixels)));
-    assert(size_of(stbtt__bitmap) == 24, "stbtt__bitmap has size % instead of 24", size_of(stbtt__bitmap));
 }
 
 // rasterize a shape with quadratic beziers into a bitmap
@@ -755,3 +555,216 @@ STBTT_MAC_LANG :: enum s32 {
 #import "Basic"; // For assert
 
 stbtruetype :: #library,no_dll "./stbtruetype";
+
+#run {
+    {
+        instance: stbtt__buf;
+        assert(((cast(*void)(*instance.data)) - cast(*void)(*instance)) == 0, "stbtt__buf.data has unexpected offset % instead of 0", ((cast(*void)(*instance.data)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt__buf.data)) == 8, "stbtt__buf.data has unexpected size % instead of 8", size_of(type_of(stbtt__buf.data)));
+        assert(((cast(*void)(*instance.cursor)) - cast(*void)(*instance)) == 8, "stbtt__buf.cursor has unexpected offset % instead of 8", ((cast(*void)(*instance.cursor)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt__buf.cursor)) == 4, "stbtt__buf.cursor has unexpected size % instead of 4", size_of(type_of(stbtt__buf.cursor)));
+        assert(((cast(*void)(*instance.size)) - cast(*void)(*instance)) == 12, "stbtt__buf.size has unexpected offset % instead of 12", ((cast(*void)(*instance.size)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt__buf.size)) == 4, "stbtt__buf.size has unexpected size % instead of 4", size_of(type_of(stbtt__buf.size)));
+        assert(size_of(stbtt__buf) == 16, "stbtt__buf has size % instead of 16", size_of(stbtt__buf));
+    }
+
+    {
+        instance: stbtt_bakedchar;
+        assert(((cast(*void)(*instance.x0)) - cast(*void)(*instance)) == 0, "stbtt_bakedchar.x0 has unexpected offset % instead of 0", ((cast(*void)(*instance.x0)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_bakedchar.x0)) == 2, "stbtt_bakedchar.x0 has unexpected size % instead of 2", size_of(type_of(stbtt_bakedchar.x0)));
+        assert(((cast(*void)(*instance.y0)) - cast(*void)(*instance)) == 2, "stbtt_bakedchar.y0 has unexpected offset % instead of 2", ((cast(*void)(*instance.y0)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_bakedchar.y0)) == 2, "stbtt_bakedchar.y0 has unexpected size % instead of 2", size_of(type_of(stbtt_bakedchar.y0)));
+        assert(((cast(*void)(*instance.x1)) - cast(*void)(*instance)) == 4, "stbtt_bakedchar.x1 has unexpected offset % instead of 4", ((cast(*void)(*instance.x1)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_bakedchar.x1)) == 2, "stbtt_bakedchar.x1 has unexpected size % instead of 2", size_of(type_of(stbtt_bakedchar.x1)));
+        assert(((cast(*void)(*instance.y1)) - cast(*void)(*instance)) == 6, "stbtt_bakedchar.y1 has unexpected offset % instead of 6", ((cast(*void)(*instance.y1)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_bakedchar.y1)) == 2, "stbtt_bakedchar.y1 has unexpected size % instead of 2", size_of(type_of(stbtt_bakedchar.y1)));
+        assert(((cast(*void)(*instance.xoff)) - cast(*void)(*instance)) == 8, "stbtt_bakedchar.xoff has unexpected offset % instead of 8", ((cast(*void)(*instance.xoff)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_bakedchar.xoff)) == 4, "stbtt_bakedchar.xoff has unexpected size % instead of 4", size_of(type_of(stbtt_bakedchar.xoff)));
+        assert(((cast(*void)(*instance.yoff)) - cast(*void)(*instance)) == 12, "stbtt_bakedchar.yoff has unexpected offset % instead of 12", ((cast(*void)(*instance.yoff)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_bakedchar.yoff)) == 4, "stbtt_bakedchar.yoff has unexpected size % instead of 4", size_of(type_of(stbtt_bakedchar.yoff)));
+        assert(((cast(*void)(*instance.xadvance)) - cast(*void)(*instance)) == 16, "stbtt_bakedchar.xadvance has unexpected offset % instead of 16", ((cast(*void)(*instance.xadvance)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_bakedchar.xadvance)) == 4, "stbtt_bakedchar.xadvance has unexpected size % instead of 4", size_of(type_of(stbtt_bakedchar.xadvance)));
+        assert(size_of(stbtt_bakedchar) == 20, "stbtt_bakedchar has size % instead of 20", size_of(stbtt_bakedchar));
+    }
+
+    {
+        instance: stbtt_aligned_quad;
+        assert(((cast(*void)(*instance.x0)) - cast(*void)(*instance)) == 0, "stbtt_aligned_quad.x0 has unexpected offset % instead of 0", ((cast(*void)(*instance.x0)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_aligned_quad.x0)) == 4, "stbtt_aligned_quad.x0 has unexpected size % instead of 4", size_of(type_of(stbtt_aligned_quad.x0)));
+        assert(((cast(*void)(*instance.y0)) - cast(*void)(*instance)) == 4, "stbtt_aligned_quad.y0 has unexpected offset % instead of 4", ((cast(*void)(*instance.y0)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_aligned_quad.y0)) == 4, "stbtt_aligned_quad.y0 has unexpected size % instead of 4", size_of(type_of(stbtt_aligned_quad.y0)));
+        assert(((cast(*void)(*instance.s0)) - cast(*void)(*instance)) == 8, "stbtt_aligned_quad.s0 has unexpected offset % instead of 8", ((cast(*void)(*instance.s0)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_aligned_quad.s0)) == 4, "stbtt_aligned_quad.s0 has unexpected size % instead of 4", size_of(type_of(stbtt_aligned_quad.s0)));
+        assert(((cast(*void)(*instance.t0)) - cast(*void)(*instance)) == 12, "stbtt_aligned_quad.t0 has unexpected offset % instead of 12", ((cast(*void)(*instance.t0)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_aligned_quad.t0)) == 4, "stbtt_aligned_quad.t0 has unexpected size % instead of 4", size_of(type_of(stbtt_aligned_quad.t0)));
+        assert(((cast(*void)(*instance.x1)) - cast(*void)(*instance)) == 16, "stbtt_aligned_quad.x1 has unexpected offset % instead of 16", ((cast(*void)(*instance.x1)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_aligned_quad.x1)) == 4, "stbtt_aligned_quad.x1 has unexpected size % instead of 4", size_of(type_of(stbtt_aligned_quad.x1)));
+        assert(((cast(*void)(*instance.y1)) - cast(*void)(*instance)) == 20, "stbtt_aligned_quad.y1 has unexpected offset % instead of 20", ((cast(*void)(*instance.y1)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_aligned_quad.y1)) == 4, "stbtt_aligned_quad.y1 has unexpected size % instead of 4", size_of(type_of(stbtt_aligned_quad.y1)));
+        assert(((cast(*void)(*instance.s1)) - cast(*void)(*instance)) == 24, "stbtt_aligned_quad.s1 has unexpected offset % instead of 24", ((cast(*void)(*instance.s1)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_aligned_quad.s1)) == 4, "stbtt_aligned_quad.s1 has unexpected size % instead of 4", size_of(type_of(stbtt_aligned_quad.s1)));
+        assert(((cast(*void)(*instance.t1)) - cast(*void)(*instance)) == 28, "stbtt_aligned_quad.t1 has unexpected offset % instead of 28", ((cast(*void)(*instance.t1)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_aligned_quad.t1)) == 4, "stbtt_aligned_quad.t1 has unexpected size % instead of 4", size_of(type_of(stbtt_aligned_quad.t1)));
+        assert(size_of(stbtt_aligned_quad) == 32, "stbtt_aligned_quad has size % instead of 32", size_of(stbtt_aligned_quad));
+    }
+
+    {
+        instance: stbtt_packedchar;
+        assert(((cast(*void)(*instance.x0)) - cast(*void)(*instance)) == 0, "stbtt_packedchar.x0 has unexpected offset % instead of 0", ((cast(*void)(*instance.x0)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_packedchar.x0)) == 2, "stbtt_packedchar.x0 has unexpected size % instead of 2", size_of(type_of(stbtt_packedchar.x0)));
+        assert(((cast(*void)(*instance.y0)) - cast(*void)(*instance)) == 2, "stbtt_packedchar.y0 has unexpected offset % instead of 2", ((cast(*void)(*instance.y0)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_packedchar.y0)) == 2, "stbtt_packedchar.y0 has unexpected size % instead of 2", size_of(type_of(stbtt_packedchar.y0)));
+        assert(((cast(*void)(*instance.x1)) - cast(*void)(*instance)) == 4, "stbtt_packedchar.x1 has unexpected offset % instead of 4", ((cast(*void)(*instance.x1)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_packedchar.x1)) == 2, "stbtt_packedchar.x1 has unexpected size % instead of 2", size_of(type_of(stbtt_packedchar.x1)));
+        assert(((cast(*void)(*instance.y1)) - cast(*void)(*instance)) == 6, "stbtt_packedchar.y1 has unexpected offset % instead of 6", ((cast(*void)(*instance.y1)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_packedchar.y1)) == 2, "stbtt_packedchar.y1 has unexpected size % instead of 2", size_of(type_of(stbtt_packedchar.y1)));
+        assert(((cast(*void)(*instance.xoff)) - cast(*void)(*instance)) == 8, "stbtt_packedchar.xoff has unexpected offset % instead of 8", ((cast(*void)(*instance.xoff)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_packedchar.xoff)) == 4, "stbtt_packedchar.xoff has unexpected size % instead of 4", size_of(type_of(stbtt_packedchar.xoff)));
+        assert(((cast(*void)(*instance.yoff)) - cast(*void)(*instance)) == 12, "stbtt_packedchar.yoff has unexpected offset % instead of 12", ((cast(*void)(*instance.yoff)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_packedchar.yoff)) == 4, "stbtt_packedchar.yoff has unexpected size % instead of 4", size_of(type_of(stbtt_packedchar.yoff)));
+        assert(((cast(*void)(*instance.xadvance)) - cast(*void)(*instance)) == 16, "stbtt_packedchar.xadvance has unexpected offset % instead of 16", ((cast(*void)(*instance.xadvance)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_packedchar.xadvance)) == 4, "stbtt_packedchar.xadvance has unexpected size % instead of 4", size_of(type_of(stbtt_packedchar.xadvance)));
+        assert(((cast(*void)(*instance.xoff2)) - cast(*void)(*instance)) == 20, "stbtt_packedchar.xoff2 has unexpected offset % instead of 20", ((cast(*void)(*instance.xoff2)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_packedchar.xoff2)) == 4, "stbtt_packedchar.xoff2 has unexpected size % instead of 4", size_of(type_of(stbtt_packedchar.xoff2)));
+        assert(((cast(*void)(*instance.yoff2)) - cast(*void)(*instance)) == 24, "stbtt_packedchar.yoff2 has unexpected offset % instead of 24", ((cast(*void)(*instance.yoff2)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_packedchar.yoff2)) == 4, "stbtt_packedchar.yoff2 has unexpected size % instead of 4", size_of(type_of(stbtt_packedchar.yoff2)));
+        assert(size_of(stbtt_packedchar) == 28, "stbtt_packedchar has size % instead of 28", size_of(stbtt_packedchar));
+    }
+
+    {
+        instance: stbtt_pack_range;
+        assert(((cast(*void)(*instance.font_size)) - cast(*void)(*instance)) == 0, "stbtt_pack_range.font_size has unexpected offset % instead of 0", ((cast(*void)(*instance.font_size)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_pack_range.font_size)) == 4, "stbtt_pack_range.font_size has unexpected size % instead of 4", size_of(type_of(stbtt_pack_range.font_size)));
+        assert(((cast(*void)(*instance.first_unicode_codepoint_in_range)) - cast(*void)(*instance)) == 4, "stbtt_pack_range.first_unicode_codepoint_in_range has unexpected offset % instead of 4", ((cast(*void)(*instance.first_unicode_codepoint_in_range)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_pack_range.first_unicode_codepoint_in_range)) == 4, "stbtt_pack_range.first_unicode_codepoint_in_range has unexpected size % instead of 4", size_of(type_of(stbtt_pack_range.first_unicode_codepoint_in_range)));
+        assert(((cast(*void)(*instance.array_of_unicode_codepoints)) - cast(*void)(*instance)) == 8, "stbtt_pack_range.array_of_unicode_codepoints has unexpected offset % instead of 8", ((cast(*void)(*instance.array_of_unicode_codepoints)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_pack_range.array_of_unicode_codepoints)) == 8, "stbtt_pack_range.array_of_unicode_codepoints has unexpected size % instead of 8", size_of(type_of(stbtt_pack_range.array_of_unicode_codepoints)));
+        assert(((cast(*void)(*instance.num_chars)) - cast(*void)(*instance)) == 16, "stbtt_pack_range.num_chars has unexpected offset % instead of 16", ((cast(*void)(*instance.num_chars)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_pack_range.num_chars)) == 4, "stbtt_pack_range.num_chars has unexpected size % instead of 4", size_of(type_of(stbtt_pack_range.num_chars)));
+        assert(((cast(*void)(*instance.chardata_for_range)) - cast(*void)(*instance)) == 24, "stbtt_pack_range.chardata_for_range has unexpected offset % instead of 24", ((cast(*void)(*instance.chardata_for_range)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_pack_range.chardata_for_range)) == 8, "stbtt_pack_range.chardata_for_range has unexpected size % instead of 8", size_of(type_of(stbtt_pack_range.chardata_for_range)));
+        assert(((cast(*void)(*instance.h_oversample)) - cast(*void)(*instance)) == 32, "stbtt_pack_range.h_oversample has unexpected offset % instead of 32", ((cast(*void)(*instance.h_oversample)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_pack_range.h_oversample)) == 1, "stbtt_pack_range.h_oversample has unexpected size % instead of 1", size_of(type_of(stbtt_pack_range.h_oversample)));
+        assert(((cast(*void)(*instance.v_oversample)) - cast(*void)(*instance)) == 33, "stbtt_pack_range.v_oversample has unexpected offset % instead of 33", ((cast(*void)(*instance.v_oversample)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_pack_range.v_oversample)) == 1, "stbtt_pack_range.v_oversample has unexpected size % instead of 1", size_of(type_of(stbtt_pack_range.v_oversample)));
+        assert(size_of(stbtt_pack_range) == 40, "stbtt_pack_range has size % instead of 40", size_of(stbtt_pack_range));
+    }
+
+    {
+        instance: stbtt_pack_context;
+        assert(((cast(*void)(*instance.user_allocator_context)) - cast(*void)(*instance)) == 0, "stbtt_pack_context.user_allocator_context has unexpected offset % instead of 0", ((cast(*void)(*instance.user_allocator_context)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_pack_context.user_allocator_context)) == 8, "stbtt_pack_context.user_allocator_context has unexpected size % instead of 8", size_of(type_of(stbtt_pack_context.user_allocator_context)));
+        assert(((cast(*void)(*instance.pack_info)) - cast(*void)(*instance)) == 8, "stbtt_pack_context.pack_info has unexpected offset % instead of 8", ((cast(*void)(*instance.pack_info)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_pack_context.pack_info)) == 8, "stbtt_pack_context.pack_info has unexpected size % instead of 8", size_of(type_of(stbtt_pack_context.pack_info)));
+        assert(((cast(*void)(*instance.width)) - cast(*void)(*instance)) == 16, "stbtt_pack_context.width has unexpected offset % instead of 16", ((cast(*void)(*instance.width)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_pack_context.width)) == 4, "stbtt_pack_context.width has unexpected size % instead of 4", size_of(type_of(stbtt_pack_context.width)));
+        assert(((cast(*void)(*instance.height)) - cast(*void)(*instance)) == 20, "stbtt_pack_context.height has unexpected offset % instead of 20", ((cast(*void)(*instance.height)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_pack_context.height)) == 4, "stbtt_pack_context.height has unexpected size % instead of 4", size_of(type_of(stbtt_pack_context.height)));
+        assert(((cast(*void)(*instance.stride_in_bytes)) - cast(*void)(*instance)) == 24, "stbtt_pack_context.stride_in_bytes has unexpected offset % instead of 24", ((cast(*void)(*instance.stride_in_bytes)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_pack_context.stride_in_bytes)) == 4, "stbtt_pack_context.stride_in_bytes has unexpected size % instead of 4", size_of(type_of(stbtt_pack_context.stride_in_bytes)));
+        assert(((cast(*void)(*instance.padding)) - cast(*void)(*instance)) == 28, "stbtt_pack_context.padding has unexpected offset % instead of 28", ((cast(*void)(*instance.padding)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_pack_context.padding)) == 4, "stbtt_pack_context.padding has unexpected size % instead of 4", size_of(type_of(stbtt_pack_context.padding)));
+        assert(((cast(*void)(*instance.skip_missing)) - cast(*void)(*instance)) == 32, "stbtt_pack_context.skip_missing has unexpected offset % instead of 32", ((cast(*void)(*instance.skip_missing)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_pack_context.skip_missing)) == 4, "stbtt_pack_context.skip_missing has unexpected size % instead of 4", size_of(type_of(stbtt_pack_context.skip_missing)));
+        assert(((cast(*void)(*instance.h_oversample)) - cast(*void)(*instance)) == 36, "stbtt_pack_context.h_oversample has unexpected offset % instead of 36", ((cast(*void)(*instance.h_oversample)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_pack_context.h_oversample)) == 4, "stbtt_pack_context.h_oversample has unexpected size % instead of 4", size_of(type_of(stbtt_pack_context.h_oversample)));
+        assert(((cast(*void)(*instance.v_oversample)) - cast(*void)(*instance)) == 40, "stbtt_pack_context.v_oversample has unexpected offset % instead of 40", ((cast(*void)(*instance.v_oversample)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_pack_context.v_oversample)) == 4, "stbtt_pack_context.v_oversample has unexpected size % instead of 4", size_of(type_of(stbtt_pack_context.v_oversample)));
+        assert(((cast(*void)(*instance.pixels)) - cast(*void)(*instance)) == 48, "stbtt_pack_context.pixels has unexpected offset % instead of 48", ((cast(*void)(*instance.pixels)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_pack_context.pixels)) == 8, "stbtt_pack_context.pixels has unexpected size % instead of 8", size_of(type_of(stbtt_pack_context.pixels)));
+        assert(((cast(*void)(*instance.nodes)) - cast(*void)(*instance)) == 56, "stbtt_pack_context.nodes has unexpected offset % instead of 56", ((cast(*void)(*instance.nodes)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_pack_context.nodes)) == 8, "stbtt_pack_context.nodes has unexpected size % instead of 8", size_of(type_of(stbtt_pack_context.nodes)));
+        assert(size_of(stbtt_pack_context) == 64, "stbtt_pack_context has size % instead of 64", size_of(stbtt_pack_context));
+    }
+
+    {
+        instance: stbtt_fontinfo;
+        assert(((cast(*void)(*instance.userdata)) - cast(*void)(*instance)) == 0, "stbtt_fontinfo.userdata has unexpected offset % instead of 0", ((cast(*void)(*instance.userdata)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_fontinfo.userdata)) == 8, "stbtt_fontinfo.userdata has unexpected size % instead of 8", size_of(type_of(stbtt_fontinfo.userdata)));
+        assert(((cast(*void)(*instance.data)) - cast(*void)(*instance)) == 8, "stbtt_fontinfo.data has unexpected offset % instead of 8", ((cast(*void)(*instance.data)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_fontinfo.data)) == 8, "stbtt_fontinfo.data has unexpected size % instead of 8", size_of(type_of(stbtt_fontinfo.data)));
+        assert(((cast(*void)(*instance.fontstart)) - cast(*void)(*instance)) == 16, "stbtt_fontinfo.fontstart has unexpected offset % instead of 16", ((cast(*void)(*instance.fontstart)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_fontinfo.fontstart)) == 4, "stbtt_fontinfo.fontstart has unexpected size % instead of 4", size_of(type_of(stbtt_fontinfo.fontstart)));
+        assert(((cast(*void)(*instance.numGlyphs)) - cast(*void)(*instance)) == 20, "stbtt_fontinfo.numGlyphs has unexpected offset % instead of 20", ((cast(*void)(*instance.numGlyphs)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_fontinfo.numGlyphs)) == 4, "stbtt_fontinfo.numGlyphs has unexpected size % instead of 4", size_of(type_of(stbtt_fontinfo.numGlyphs)));
+        assert(((cast(*void)(*instance.loca)) - cast(*void)(*instance)) == 24, "stbtt_fontinfo.loca has unexpected offset % instead of 24", ((cast(*void)(*instance.loca)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_fontinfo.loca)) == 4, "stbtt_fontinfo.loca has unexpected size % instead of 4", size_of(type_of(stbtt_fontinfo.loca)));
+        assert(((cast(*void)(*instance.head)) - cast(*void)(*instance)) == 28, "stbtt_fontinfo.head has unexpected offset % instead of 28", ((cast(*void)(*instance.head)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_fontinfo.head)) == 4, "stbtt_fontinfo.head has unexpected size % instead of 4", size_of(type_of(stbtt_fontinfo.head)));
+        assert(((cast(*void)(*instance.glyf)) - cast(*void)(*instance)) == 32, "stbtt_fontinfo.glyf has unexpected offset % instead of 32", ((cast(*void)(*instance.glyf)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_fontinfo.glyf)) == 4, "stbtt_fontinfo.glyf has unexpected size % instead of 4", size_of(type_of(stbtt_fontinfo.glyf)));
+        assert(((cast(*void)(*instance.hhea)) - cast(*void)(*instance)) == 36, "stbtt_fontinfo.hhea has unexpected offset % instead of 36", ((cast(*void)(*instance.hhea)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_fontinfo.hhea)) == 4, "stbtt_fontinfo.hhea has unexpected size % instead of 4", size_of(type_of(stbtt_fontinfo.hhea)));
+        assert(((cast(*void)(*instance.hmtx)) - cast(*void)(*instance)) == 40, "stbtt_fontinfo.hmtx has unexpected offset % instead of 40", ((cast(*void)(*instance.hmtx)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_fontinfo.hmtx)) == 4, "stbtt_fontinfo.hmtx has unexpected size % instead of 4", size_of(type_of(stbtt_fontinfo.hmtx)));
+        assert(((cast(*void)(*instance.kern)) - cast(*void)(*instance)) == 44, "stbtt_fontinfo.kern has unexpected offset % instead of 44", ((cast(*void)(*instance.kern)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_fontinfo.kern)) == 4, "stbtt_fontinfo.kern has unexpected size % instead of 4", size_of(type_of(stbtt_fontinfo.kern)));
+        assert(((cast(*void)(*instance.gpos)) - cast(*void)(*instance)) == 48, "stbtt_fontinfo.gpos has unexpected offset % instead of 48", ((cast(*void)(*instance.gpos)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_fontinfo.gpos)) == 4, "stbtt_fontinfo.gpos has unexpected size % instead of 4", size_of(type_of(stbtt_fontinfo.gpos)));
+        assert(((cast(*void)(*instance.svg)) - cast(*void)(*instance)) == 52, "stbtt_fontinfo.svg has unexpected offset % instead of 52", ((cast(*void)(*instance.svg)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_fontinfo.svg)) == 4, "stbtt_fontinfo.svg has unexpected size % instead of 4", size_of(type_of(stbtt_fontinfo.svg)));
+        assert(((cast(*void)(*instance.index_map)) - cast(*void)(*instance)) == 56, "stbtt_fontinfo.index_map has unexpected offset % instead of 56", ((cast(*void)(*instance.index_map)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_fontinfo.index_map)) == 4, "stbtt_fontinfo.index_map has unexpected size % instead of 4", size_of(type_of(stbtt_fontinfo.index_map)));
+        assert(((cast(*void)(*instance.indexToLocFormat)) - cast(*void)(*instance)) == 60, "stbtt_fontinfo.indexToLocFormat has unexpected offset % instead of 60", ((cast(*void)(*instance.indexToLocFormat)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_fontinfo.indexToLocFormat)) == 4, "stbtt_fontinfo.indexToLocFormat has unexpected size % instead of 4", size_of(type_of(stbtt_fontinfo.indexToLocFormat)));
+        assert(((cast(*void)(*instance.cff)) - cast(*void)(*instance)) == 64, "stbtt_fontinfo.cff has unexpected offset % instead of 64", ((cast(*void)(*instance.cff)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_fontinfo.cff)) == 16, "stbtt_fontinfo.cff has unexpected size % instead of 16", size_of(type_of(stbtt_fontinfo.cff)));
+        assert(((cast(*void)(*instance.charstrings)) - cast(*void)(*instance)) == 80, "stbtt_fontinfo.charstrings has unexpected offset % instead of 80", ((cast(*void)(*instance.charstrings)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_fontinfo.charstrings)) == 16, "stbtt_fontinfo.charstrings has unexpected size % instead of 16", size_of(type_of(stbtt_fontinfo.charstrings)));
+        assert(((cast(*void)(*instance.gsubrs)) - cast(*void)(*instance)) == 96, "stbtt_fontinfo.gsubrs has unexpected offset % instead of 96", ((cast(*void)(*instance.gsubrs)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_fontinfo.gsubrs)) == 16, "stbtt_fontinfo.gsubrs has unexpected size % instead of 16", size_of(type_of(stbtt_fontinfo.gsubrs)));
+        assert(((cast(*void)(*instance.subrs)) - cast(*void)(*instance)) == 112, "stbtt_fontinfo.subrs has unexpected offset % instead of 112", ((cast(*void)(*instance.subrs)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_fontinfo.subrs)) == 16, "stbtt_fontinfo.subrs has unexpected size % instead of 16", size_of(type_of(stbtt_fontinfo.subrs)));
+        assert(((cast(*void)(*instance.fontdicts)) - cast(*void)(*instance)) == 128, "stbtt_fontinfo.fontdicts has unexpected offset % instead of 128", ((cast(*void)(*instance.fontdicts)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_fontinfo.fontdicts)) == 16, "stbtt_fontinfo.fontdicts has unexpected size % instead of 16", size_of(type_of(stbtt_fontinfo.fontdicts)));
+        assert(((cast(*void)(*instance.fdselect)) - cast(*void)(*instance)) == 144, "stbtt_fontinfo.fdselect has unexpected offset % instead of 144", ((cast(*void)(*instance.fdselect)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_fontinfo.fdselect)) == 16, "stbtt_fontinfo.fdselect has unexpected size % instead of 16", size_of(type_of(stbtt_fontinfo.fdselect)));
+        assert(size_of(stbtt_fontinfo) == 160, "stbtt_fontinfo has size % instead of 160", size_of(stbtt_fontinfo));
+    }
+
+    {
+        instance: stbtt_kerningentry;
+        assert(((cast(*void)(*instance.glyph1)) - cast(*void)(*instance)) == 0, "stbtt_kerningentry.glyph1 has unexpected offset % instead of 0", ((cast(*void)(*instance.glyph1)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_kerningentry.glyph1)) == 4, "stbtt_kerningentry.glyph1 has unexpected size % instead of 4", size_of(type_of(stbtt_kerningentry.glyph1)));
+        assert(((cast(*void)(*instance.glyph2)) - cast(*void)(*instance)) == 4, "stbtt_kerningentry.glyph2 has unexpected offset % instead of 4", ((cast(*void)(*instance.glyph2)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_kerningentry.glyph2)) == 4, "stbtt_kerningentry.glyph2 has unexpected size % instead of 4", size_of(type_of(stbtt_kerningentry.glyph2)));
+        assert(((cast(*void)(*instance.advance)) - cast(*void)(*instance)) == 8, "stbtt_kerningentry.advance has unexpected offset % instead of 8", ((cast(*void)(*instance.advance)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_kerningentry.advance)) == 4, "stbtt_kerningentry.advance has unexpected size % instead of 4", size_of(type_of(stbtt_kerningentry.advance)));
+        assert(size_of(stbtt_kerningentry) == 12, "stbtt_kerningentry has size % instead of 12", size_of(stbtt_kerningentry));
+    }
+
+    {
+        instance: stbtt_vertex;
+        assert(((cast(*void)(*instance.x)) - cast(*void)(*instance)) == 0, "stbtt_vertex.x has unexpected offset % instead of 0", ((cast(*void)(*instance.x)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_vertex.x)) == 2, "stbtt_vertex.x has unexpected size % instead of 2", size_of(type_of(stbtt_vertex.x)));
+        assert(((cast(*void)(*instance.y)) - cast(*void)(*instance)) == 2, "stbtt_vertex.y has unexpected offset % instead of 2", ((cast(*void)(*instance.y)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_vertex.y)) == 2, "stbtt_vertex.y has unexpected size % instead of 2", size_of(type_of(stbtt_vertex.y)));
+        assert(((cast(*void)(*instance.cx)) - cast(*void)(*instance)) == 4, "stbtt_vertex.cx has unexpected offset % instead of 4", ((cast(*void)(*instance.cx)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_vertex.cx)) == 2, "stbtt_vertex.cx has unexpected size % instead of 2", size_of(type_of(stbtt_vertex.cx)));
+        assert(((cast(*void)(*instance.cy)) - cast(*void)(*instance)) == 6, "stbtt_vertex.cy has unexpected offset % instead of 6", ((cast(*void)(*instance.cy)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_vertex.cy)) == 2, "stbtt_vertex.cy has unexpected size % instead of 2", size_of(type_of(stbtt_vertex.cy)));
+        assert(((cast(*void)(*instance.cx1)) - cast(*void)(*instance)) == 8, "stbtt_vertex.cx1 has unexpected offset % instead of 8", ((cast(*void)(*instance.cx1)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_vertex.cx1)) == 2, "stbtt_vertex.cx1 has unexpected size % instead of 2", size_of(type_of(stbtt_vertex.cx1)));
+        assert(((cast(*void)(*instance.cy1)) - cast(*void)(*instance)) == 10, "stbtt_vertex.cy1 has unexpected offset % instead of 10", ((cast(*void)(*instance.cy1)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_vertex.cy1)) == 2, "stbtt_vertex.cy1 has unexpected size % instead of 2", size_of(type_of(stbtt_vertex.cy1)));
+        assert(((cast(*void)(*instance.type)) - cast(*void)(*instance)) == 12, "stbtt_vertex.type has unexpected offset % instead of 12", ((cast(*void)(*instance.type)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_vertex.type)) == 1, "stbtt_vertex.type has unexpected size % instead of 1", size_of(type_of(stbtt_vertex.type)));
+        assert(((cast(*void)(*instance.padding)) - cast(*void)(*instance)) == 13, "stbtt_vertex.padding has unexpected offset % instead of 13", ((cast(*void)(*instance.padding)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt_vertex.padding)) == 1, "stbtt_vertex.padding has unexpected size % instead of 1", size_of(type_of(stbtt_vertex.padding)));
+        assert(size_of(stbtt_vertex) == 14, "stbtt_vertex has size % instead of 14", size_of(stbtt_vertex));
+    }
+
+    {
+        instance: stbtt__bitmap;
+        assert(((cast(*void)(*instance.w)) - cast(*void)(*instance)) == 0, "stbtt__bitmap.w has unexpected offset % instead of 0", ((cast(*void)(*instance.w)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt__bitmap.w)) == 4, "stbtt__bitmap.w has unexpected size % instead of 4", size_of(type_of(stbtt__bitmap.w)));
+        assert(((cast(*void)(*instance.h)) - cast(*void)(*instance)) == 4, "stbtt__bitmap.h has unexpected offset % instead of 4", ((cast(*void)(*instance.h)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt__bitmap.h)) == 4, "stbtt__bitmap.h has unexpected size % instead of 4", size_of(type_of(stbtt__bitmap.h)));
+        assert(((cast(*void)(*instance.stride)) - cast(*void)(*instance)) == 8, "stbtt__bitmap.stride has unexpected offset % instead of 8", ((cast(*void)(*instance.stride)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt__bitmap.stride)) == 4, "stbtt__bitmap.stride has unexpected size % instead of 4", size_of(type_of(stbtt__bitmap.stride)));
+        assert(((cast(*void)(*instance.pixels)) - cast(*void)(*instance)) == 16, "stbtt__bitmap.pixels has unexpected offset % instead of 16", ((cast(*void)(*instance.pixels)) - cast(*void)(*instance)));
+        assert(size_of(type_of(stbtt__bitmap.pixels)) == 8, "stbtt__bitmap.pixels has unexpected size % instead of 8", size_of(type_of(stbtt__bitmap.pixels)));
+        assert(size_of(stbtt__bitmap) == 24, "stbtt__bitmap has size % instead of 24", size_of(stbtt__bitmap));
+    }
+}
+
