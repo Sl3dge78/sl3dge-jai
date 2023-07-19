@@ -97,9 +97,10 @@ load_skinned_gltf :: (path: string) -> Skinned_Mesh {
     result.vertices = NewArray(accessor.count, Skinned_Vertex);
 
     // Vertices
-    read_accessor_into_array(result.vertices.data, 0, size_of(Vertex), gltf_data, position_accessor);
+    read_accessor_into_array(result.vertices.data, 0, size_of(Skinned_Vertex), gltf_data, position_accessor);
 
     // Indices
+    assert(indices_accessor != -1);
     idx_accessor := gltf_data.accessors[indices_accessor];
     result.indices = NewArray(idx_accessor.count, int);
     read_accessor_into_array(result.indices.data, 0, size_of(int), gltf_data, indices_accessor);
@@ -108,15 +109,15 @@ load_skinned_gltf :: (path: string) -> Skinned_Mesh {
     offset: *Skinned_Vertex = null;
     
     if normal_accessor != -1 {
-        read_accessor_into_array(result.vertices.data, xx *offset.normal, size_of(Vertex), gltf_data, normal_accessor);
+        read_accessor_into_array(result.vertices.data, xx *offset.normal, size_of(Skinned_Vertex), gltf_data, normal_accessor);
     }
 
     if joints_accessor != -1 {
-        read_accessor_into_array(result.vertices.data, xx *offset.joints_0, size_of(Vertex), gltf_data, normal_accessor);
+        read_accessor_into_array(result.vertices.data, xx *offset.joints, size_of(Skinned_Vertex), gltf_data, normal_accessor);
     }
 
     if weights_accessor != -1 {
-        read_accessor_into_array(result.vertices.data, xx *offset.weights, size_of(Vertex), gltf_data, normal_accessor);
+        read_accessor_into_array(result.vertices.data, xx *offset.weights, size_of(Skinned_Vertex), gltf_data, normal_accessor);
     }
     
     assert(gltf_data.skins.count == 1, "No or multiple skins found in gltf, this isn't supported"); // @TODO
@@ -180,5 +181,6 @@ immediate_mesh :: (mesh: Skinned_Mesh) {
     for 0..mesh.indices.count - 1 {
         v[it].position = mesh.vertices[mesh.indices[it]].position;
         v[it].normal = mesh.vertices[mesh.indices[it]].normal;
+        v[it].color = mesh.vertices[mesh.indices[it]].color;
     }
 }

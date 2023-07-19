@@ -22,7 +22,7 @@ Skinned_Vertex :: struct {
     normal: Vector3;
     uv: Vector2;
     color: Vector4 = .{1, 1, 1, 1};
-    joints_0: u8; joint_1: u8; joint_2: u8; joint_3: u8;
+    joints: [4]u8;
     weights: Vector4;
 }
 
@@ -33,7 +33,7 @@ skinned_vertex_input_attribute :: #run () -> []VkVertexInputAttributeDescription
         .{location = 1, binding = 0, format = .R32G32B32_SFLOAT, offset = xx *offset.normal},
         .{location = 2, binding = 0, format = .R32G32_SFLOAT, offset = xx *offset.uv},
         .{location = 3, binding = 0, format = .R32G32B32A32_SFLOAT, offset = xx *offset.color},
-        .{location = 4, binding = 0, format = .R8G8B8A8_UINT, offset = xx *offset.joints_0},
+        .{location = 4, binding = 0, format = .R8G8B8A8_UINT, offset = xx *offset.joints},
         .{location = 5, binding = 0, format = .R32G32B32A32_SFLOAT, offset = xx *offset.weights},
     ];
     
