@@ -146,19 +146,18 @@ create_color_pipeline :: (device: VkDevice, render_pass: VkRenderPass) -> Pipeli
     return pipeline;
 }
 
-draw_color_pipeline :: (dd: *Draw_Data, command_buffer: VkCommandBuffer) {
-    using global_renderer;
+draw_color_pipeline :: (scene: *Scene, command_buffer: VkCommandBuffer) {
     image_index := context.vk.image_index;
-    pipeline := *color_pipeline;
+    pipeline := *global_renderer.color_pipeline;
 
-    if dd.vertices.count == 0 return;
+    if scene.color_draw_data.vertices.count == 0 && scene.static_models.count == 0 return;
 
     {   // Update uniform data        
         camera_data := CameraData.{
-            proj = transpose(projection),
-            view = transpose(view),
-            view_proj = transpose(projection * view),
-            light = transpose(light),
+            proj = transpose(global_renderer.projection),
+            view = transpose(global_renderer.view),
+            view_proj = transpose(global_renderer.projection * global_renderer.view),
+            light = transpose(global_renderer.light),
             light_dir = global_renderer.light_dir,
         };
         memcpy(pipeline.uniform_data[context.vk.image_index].mapped, *camera_data, size_of(type_of(camera_data)));
@@ -203,20 +202,29 @@ draw_color_pipeline :: (dd: *Draw_Data, command_buffer: VkCommandBuffer) {
 
     {   // Bind pipeline, dynamic state, global descriptors and a default push constant
         vkCmdBindPipeline(command_buffer, .GRAPHICS, pipeline.pipeline);
-        vkCmdSetViewport(command_buffer, 0, 1, *VkViewport.{0, xx swapchain_extent.height, xx swapchain_extent.width, -(cast(float)swapchain_extent.height), 0, 1});
-        vkCmdSetScissor(command_buffer, 0, 1, *VkRect2D.{.{0, 0}, swapchain_extent});
+        vkCmdSetViewport(command_buffer, 0, 1, *VkViewport.{0, xx global_renderer.swapchain_extent.height, xx global_renderer.swapchain_extent.width, -(cast(float)global_renderer.swapchain_extent.height), 0, 1});
+        vkCmdSetScissor(command_buffer, 0, 1, *VkRect2D.{.{0, 0}, global_renderer.swapchain_extent});
         vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.pipeline_layout, 0, 1, *pipeline.descriptor_sets[image_index][0], 0, null);
         vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.pipeline_layout, 1, 1, *pipeline.descriptor_sets[image_index][1], 0, null);
     }
 
     offset : u64 = 0;
-    vkCmdBindVertexBuffers(command_buffer, 0, 1, *dd.vertex_buffer.buffer, *offset);
+    vkCmdBindVertexBuffers(command_buffer, 0, 1, *scene.color_draw_data.vertex_buffer.buffer, *offset);
 
     // Issue draw calls & end command buffer
-    for dd.draw_cmds {
+    for scene.color_draw_data.draw_cmds {
         pc := PushConstantData.{transpose(it.xform), transpose(inverse(it.xform))};
         vkCmdPushConstants(command_buffer, pipeline.pipeline_layout, .VERTEX_BIT, 0, size_of(PushConstantData), *pc);
         vkCmdDraw(command_buffer, it.count, 1, it.id, 0);
+    }
+
+    for scene.static_models {
+        log("Drawing mesh");
+        vkCmdBindVertexBuffers(command_buffer, 0, 1, *it.mesh.vertex_buffer.buffer, *it.mesh.vertex_offset);
+        vkCmdBindIndexBuffer(command_buffer, it.mesh.index_buffer.buffer, it.mesh.index_offset, .UINT32);
+        pc := PushConstantData.{transpose(it.transform), transpose(inverse(it.transform))};
+        vkCmdPushConstants(command_buffer, pipeline.pipeline_layout, .VERTEX_BIT, 0, size_of(PushConstantData), *pc);
+        vkCmdDrawIndexed(command_buffer, xx it.mesh.index_count, 1, 0, 0, 0);
     }
 }
 
@@ -587,10 +595,9 @@ create_shadowmap_pipeline :: (device: VkDevice, render_pass: VkRenderPass, size:
     return pipeline;
 }
 
-draw_shadowmap_pipeline :: (dd: *Draw_Data, command_buffer: VkCommandBuffer) {
-    using global_renderer;
+draw_shadowmap_pipeline :: (scene: *Scene, command_buffer: VkCommandBuffer) {
     image_index := context.vk.image_index;
-    pipeline := *shadowmap_pipeline;
+    pipeline := *global_renderer.shadowmap_pipeline;
 
     { // Update uniform data
         camera_data := CameraData.{
@@ -599,7 +606,7 @@ draw_shadowmap_pipeline :: (dd: *Draw_Data, command_buffer: VkCommandBuffer) {
         memcpy(global_renderer.shadowmap_pipeline.uniform_data[context.vk.image_index].mapped, *camera_data, size_of(type_of(camera_data)));
     }
 
-    if dd.vertices.count == 0 return;
+    if scene.color_draw_data.vertices.count == 0 && scene.static_models.count == 0 return;
 
     {   // Bind pipeline, dynamic state, global descriptors and a default push constant
         vkCmdBindPipeline(command_buffer, .GRAPHICS, pipeline.pipeline);
@@ -607,14 +614,22 @@ draw_shadowmap_pipeline :: (dd: *Draw_Data, command_buffer: VkCommandBuffer) {
     }
 
     offset : u64 = 0;
-    vkCmdBindVertexBuffers(command_buffer, 0, 1, *dd.vertex_buffer.buffer, *offset);
+    vkCmdBindVertexBuffers(command_buffer, 0, 1, *scene.color_draw_data.vertex_buffer.buffer, *offset);
 
     // Issue draw calls & end command buffer
-    for dd.draw_cmds {
+    for scene.color_draw_data.draw_cmds {
         // pc := PushConstantData.{transpose(it.xform), transpose(inverse(it.xform))};
         pc := PushConstantData.{transpose(it.xform), transpose(inverse(it.xform))};
         vkCmdPushConstants(command_buffer, pipeline.pipeline_layout, .VERTEX_BIT, 0, size_of(PushConstantData), *pc);
         vkCmdDraw(command_buffer, it.count, 1, it.id, 0);
+    }
+
+    for scene.static_models {
+        vkCmdBindVertexBuffers(command_buffer, 0, 1, *it.mesh.vertex_buffer.buffer, *it.mesh.vertex_offset);
+        vkCmdBindIndexBuffer(command_buffer, it.mesh.index_buffer.buffer, it.mesh.index_offset, .UINT32);
+        pc := PushConstantData.{transpose(it.transform), transpose(inverse(it.transform))};
+        vkCmdPushConstants(command_buffer, pipeline.pipeline_layout, .VERTEX_BIT, 0, size_of(PushConstantData), *pc);
+        vkCmdDrawIndexed(command_buffer, xx it.mesh.index_count, 1, 0, 0, 0);
     }
 }
 

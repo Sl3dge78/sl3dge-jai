@@ -40,9 +40,9 @@ destroy_buffer :: (buffer: *Buffer) {
     buffer.* = .{};
 }
 
-copy_data :: (buffer: Buffer, data: *void, size: u64) {
+copy_data :: (buffer: Buffer, data: *void, size: u64, offset: VkDeviceSize = 0) {
     ptr: *void;
-    vkMapMemory(global_renderer.device, buffer.memory, 0, size, 0, *ptr);
+    vkMapMemory(global_renderer.device, buffer.memory, offset, size, 0, *ptr);
     defer vkUnmapMemory(global_renderer.device, buffer.memory);
 
     memcpy(ptr, data, xx size);

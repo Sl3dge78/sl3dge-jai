@@ -1,24 +1,28 @@
 Mesh :: struct {
-    vertices : []Vertex;
-    indices : []int;
+    vertex_buffer: *Buffer;
+    vertex_offset: u64;
+    vertex_count: u64;
 
-    deinit :: (mesh : *Mesh) {
-        free(mesh.vertices.data);
-        free(mesh.indices.data);
+    index_buffer: *Buffer;
+    index_offset: u64;
+    index_count: u64;
+}
+
+Static_Mesh :: struct {
+    using #as mesh: Mesh;
+
+    deinit :: (mesh : *Static_Mesh) {
         mesh.* = .{};
     }
 }
 
 Skinned_Mesh :: struct {
-    vertices : []Skinned_Vertex;
-    indices: []int;
+    using #as mesh: Mesh;
 
     joints: []Joint;
     inverse_bind_matrices: []Matrix4;
 
     deinit :: (mesh : *Skinned_Mesh) {
-        free(mesh.vertices.data);
-        free(mesh.indices.data);
         free(mesh.inverse_bind_matrices.data);
         for mesh.joints {
             free(it.children.data);
@@ -35,15 +39,14 @@ Joint :: struct {
     matrix: Matrix4;
 }
 
-load_gltf :: (path: string) -> Mesh {
-    result: Mesh;
+load_gltf :: (path: string) -> Static_Mesh {
+    result: Static_Mesh;
 
     gltf_data := gltf_parse_file(path);
     defer gltf_free(*gltf_data);
 
     gltf_load_buffers(*gltf_data);
 
-    vertices : [..] Vertex;
     assert(gltf_data.meshes.count == 1, "No mesh found in gltf!"); // @TODO: handle multiple meshes
     mesh := gltf_data.meshes[0];
 
@@ -55,21 +58,23 @@ load_gltf :: (path: string) -> Mesh {
 
     accessor := gltf_data.accessors[position_accessor];
     assert(accessor.component_type == .FLOAT);
-    result.vertices = NewArray(accessor.count, Vertex);
+    vertices := NewArray(accessor.count, Vertex, allocator = temp);
 
     // Vertices
-    read_accessor_into_array(result.vertices.data, 0, size_of(Vertex), gltf_data, position_accessor);
+    read_accessor_into_array(vertices.data, 0, size_of(Vertex), gltf_data, position_accessor);
 
     // Normals
     if normal_accessor != -1 {
         offset: *Vertex = null;
-        read_accessor_into_array(result.vertices.data, xx *offset.normal, size_of(Vertex), gltf_data, normal_accessor);
+        read_accessor_into_array(vertices.data, xx *offset.normal, size_of(Vertex), gltf_data, normal_accessor);
     }
     
     // Indices
     idx_accessor := gltf_data.accessors[indices_accessor];
-    result.indices = NewArray(idx_accessor.count, int);
-    read_accessor_into_array(result.indices.data, 0, size_of(int), gltf_data, indices_accessor);
+    indices := NewArray(idx_accessor.count, u32, allocator = temp);
+    read_accessor_into_array(indices.data, 0, size_of(u32), gltf_data, indices_accessor);
+
+    result.mesh = Buffer_Pool.load_mesh(*global_renderer.buffer_pool, vertices, indices);
 
     return result;
 }
@@ -168,7 +173,7 @@ read_accessor_into_array :: (dst: *void, dst_offset: u64, dst_stride: u64, gltf_
         dst_data += dst_stride;
     }
 }
-
+/*
 immediate_mesh :: (mesh: Mesh) {
     v := prepare_vertices(xx mesh.indices.count);
     for 0..mesh.indices.count - 1 {
@@ -184,3 +189,4 @@ immediate_mesh :: (mesh: Skinned_Mesh) {
         v[it].color = mesh.vertices[mesh.indices[it]].color;
     }
 }
+*/

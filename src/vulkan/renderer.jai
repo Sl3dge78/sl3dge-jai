@@ -41,12 +41,8 @@ Renderer :: struct {
     render_pass: VkRenderPass;
 
     color_pipeline: Pipeline(2);
-    color_draw_data: Draw_Data;
-
     skinned_pipeline: Pipeline(2);
-
     ui_pipeline: Pipeline(2);
-    ui_draw_data: Draw_Data;
 
     shadowmap_render_pass: VkRenderPass;
     shadowmap_pipeline: Pipeline(1);
@@ -59,6 +55,56 @@ Renderer :: struct {
     light_dir: Vector3;
 
     default_texture: Texture;
+
+    // Scene rendering
+    buffer_pool: Buffer_Pool;
+    scene: *Scene;
+}
+
+Buffer_Pool :: struct {
+    BUFFER_SIZE :: 32 * 1024 * 1024;
+
+    buffers: [..] Buffer;
+    current_position_in_buffer: VkDeviceSize;
+
+    maybe_grow :: (using buffer_pool: *Buffer_Pool, size: VkDeviceSize) {
+        if buffers.count == 0 || size > (BUFFER_SIZE - current_position_in_buffer) {
+            array_add(*buffers, create_buffer(BUFFER_SIZE, .VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT | .STORAGE_BUFFER_BIT | .TRANSFER_SRC_BIT, .UPLOAD));
+            current_position_in_buffer = 0;
+        }
+    }
+
+    load_mesh :: (using buffer_pool: *Buffer_Pool, vertices: []$T, indices: []u32) -> Mesh {
+        mesh: Mesh;
+        {   // Vtx
+            size : VkDeviceSize = xx (vertices.count * size_of(T));
+            Buffer_Pool.maybe_grow(buffer_pool, xx size);
+            mesh.vertex_buffer = *buffers[buffers.count - 1];
+            mesh.vertex_count = xx vertices.count;
+            mesh.vertex_offset = current_position_in_buffer;
+            copy_data(mesh.vertex_buffer, vertices.data, size, mesh.vertex_offset);
+            current_position_in_buffer += size;
+        }
+        {   // Idx
+            size : VkDeviceSize = xx (indices.count * size_of(u32));
+            Buffer_Pool.maybe_grow(buffer_pool, xx size);
+            mesh.index_buffer = *buffers[buffers.count - 1];
+            mesh.index_count = xx indices.count;
+            mesh.index_offset = current_position_in_buffer;
+            copy_data(mesh.index_buffer, indices.data, size, current_position_in_buffer);
+            current_position_in_buffer += size;
+        }
+        return mesh;
+    }
+
+    reset_pool :: (using buffer_pool: *Buffer_Pool) {
+        for *buffers {
+            destroy_buffer(it);
+        }
+        array_reset(*buffers);
+        current_position_in_buffer = 0;
+    }
+
 }
 
 Frame_Data :: struct {
@@ -424,8 +470,10 @@ renderer_deinit :: () {
     using global_renderer;
     vkDeviceWaitIdle(device);
 
-    destroy_draw_data(*color_draw_data);
-    destroy_draw_data(*ui_draw_data);
+    Buffer_Pool.reset_pool(*buffer_pool);
+
+    destroy_draw_data(*scene.color_draw_data);
+    destroy_draw_data(*scene.ui_draw_data);
 
     destroy_texture(*depth_texture);
 
@@ -480,8 +528,8 @@ end_frame :: () {
     Vk_Check(vkAcquireNextImageKHR(device, swapchain, U64_MAX, image_available_semaphore, VK_NULL_HANDLE, *image_index));
 
     // Commit draw data
-    upload_draw_data(*color_draw_data);
-    upload_draw_data(*ui_draw_data);
+    upload_draw_data(*scene.color_draw_data);
+    upload_draw_data(*scene.ui_draw_data);
 
     clear_color := Vector4.{0.529, 0.808, 0.922, 0};
     clear_values := VkClearValue.[
@@ -497,7 +545,7 @@ end_frame :: () {
         pClearValues = *clear_values[1],
         renderArea = .{ offset = .{0, 0}, extent = .{shadowmap_texture.w, shadowmap_texture.h}},
     }, .INLINE);
-    draw_shadowmap_pipeline(*color_draw_data, command_buffer);
+    draw_shadowmap_pipeline(scene, command_buffer);
 
     vkCmdEndRenderPass(command_buffer);
 
@@ -512,8 +560,8 @@ end_frame :: () {
         },
     }, .INLINE);
 
-    draw_color_pipeline(*color_draw_data, command_buffer);
-    draw_ui_pipeline(*ui_draw_data, command_buffer);
+    draw_color_pipeline(scene, command_buffer);
+    draw_ui_pipeline(*scene.ui_draw_data, command_buffer);
 
     vkCmdEndRenderPass(command_buffer);
     Vk_Check(vkEndCommandBuffer(command_buffer));
@@ -543,13 +591,13 @@ end_frame :: () {
         Vk_Check(result);
     }
 
-    color_draw_data.vertices.count = 0;
-    color_draw_data.draw_cmds.count = 0;
-    color_draw_data.transform = Matrix4_Identity;
+    scene.color_draw_data.vertices.count = 0;
+    scene.color_draw_data.draw_cmds.count = 0;
+    scene.color_draw_data.transform = Matrix4_Identity;
 
-    ui_draw_data.vertices.count = 0;
-    ui_draw_data.draw_cmds.count = 0;
-    ui_draw_data.transform = Matrix4_Identity;
+    scene.ui_draw_data.vertices.count = 0;
+    scene.ui_draw_data.draw_cmds.count = 0;
+    scene.ui_draw_data.transform = Matrix4_Identity;
 
     // Update the context's frame data
     frame_index = (frame_index + 1) % FRAME_COUNT;
@@ -561,11 +609,11 @@ end_frame :: () {
 }
 
 begin_3d :: () {
-    context.vk.current_draw_data = *global_renderer.color_draw_data;
+    context.vk.current_draw_data = *global_renderer.scene.color_draw_data;
 }
 
 begin_2d :: () {
-    context.vk.current_draw_data = *global_renderer.ui_draw_data;
+    context.vk.current_draw_data = *global_renderer.scene.ui_draw_data;
 }
 
 set_transform_matrix :: (mat: Matrix4) {
@@ -582,6 +630,10 @@ set_projection_matrix :: (proj: Matrix4) {
 
 set_projection_matrix :: (fov: float) {
     set_projection_matrix(make_projection_matrix(radians(fov), cast(float)global_renderer.swapchain_extent.width/cast(float)global_renderer.swapchain_extent.height, 0.1, 1000));
+}
+
+set_scene :: (scene: *Scene) {
+    global_renderer.scene = scene;
 }
 
 change_light_direction :: (dir: Vector3) {
