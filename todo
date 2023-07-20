@@ -1,7 +1,18 @@
+// -- WIP
+- [ ] Vertex Skinning
+    - [ ] Scene Management 
+        - [ ] Load meshes in buffers
+        - [ ] Scene
+            - [ ] Each mesh has a transform
+            - [ ] Go through each type of object, bind the pipeline and render
+        - [ ] 2 pipelines per mesh type (shadow + color)
+
+// -- DONE
 - [X] Update the renderer : 
     - Register the scene objects once and do multiple passes (eg: shadow map, color)
-
 - [X] Figure out why the normals don't work!!!
+
+// -- LATER
 - [ ] Better materials
 - [ ] Unify descriptor sets
     - [ ] Global buffer
@@ -14,3 +25,27 @@
     -> Normals where inverted on the model
 
 - [ ] Handle timings in the engine
+
+
+// -------
+// Vertex Format
+
+Mesh {
+    nb_vertices: u64;
+
+    index_buffer: *Buffer;
+    index_offset: VkDeviceSize;
+
+    // binding 0 : position, normal, uv, color
+    buffer: *Buffer;
+    offset: VkDeviceSize;
+    
+}
+
+Skinned_Mesh {
+    #as mesh: Mesh;
+
+    // binding 1 : joints, weights
+    buffer: *Buffer;
+    offset: VkDeviceSize;
+}
