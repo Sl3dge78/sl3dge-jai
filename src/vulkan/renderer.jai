@@ -21,6 +21,11 @@ Renderer :: struct {
     depth_format: VkFormat = .D32_SFLOAT_S8_UINT;
     
     descriptor_pool: VkDescriptorPool;
+
+    global_set_layout: VkDescriptorSetLayout; // Camera buffer
+    shadowmap_layout: VkDescriptorSetLayout;  // Texture
+    single_texture_layout: VkDescriptorSetLayout; // Texture
+
     command_pool : VkCommandPool;
 
     FRAME_COUNT :: 2;
@@ -398,17 +403,38 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
         Vk_Check(vkCreateDescriptorPool(renderer.device, *pool_info, null, *renderer.descriptor_pool));
     }
 
+    { // Descriptor Set Layouts 
+       
+        renderer.global_set_layout = create_descriptor_set_layout(renderer.device, .[.{
+            binding = 0, 
+            descriptorType = .UNIFORM_BUFFER,
+            descriptorCount = 1,
+            stageFlags = .VERTEX_BIT | .FRAGMENT_BIT,
+            pImmutableSamplers = null,
+        }]);
+        renderer.shadowmap_layout = create_descriptor_set_layout(renderer.device, .[.{
+            binding = 1,
+            descriptorType = .COMBINED_IMAGE_SAMPLER,
+            descriptorCount = 1,
+            stageFlags = .FRAGMENT_BIT,
+            pImmutableSamplers = null,
+        }]);
+        renderer.single_texture_layout = create_descriptor_set_layout(renderer.device, .[.{
+            binding = 2,
+            descriptorType = .COMBINED_IMAGE_SAMPLER,
+            descriptorCount = 1,
+            stageFlags = .FRAGMENT_BIT,
+            pImmutableSamplers = null,
+        }]);
+    }
+
+
     // Default texture  & sampler
     renderer.sampler = create_sampler(renderer.device);
     data := u8.[255, 255, 255, 255];
     renderer.default_texture = create_texture_from_data(data.data, 1, 1, 4, u8);
 
-    renderer.render_pass = create_standard_renderpass(renderer.device);
-    renderer.color_pipeline = create_color_pipeline(renderer.device, renderer.render_pass);
-    renderer.ui_pipeline = create_ui_pipeline(renderer.device, renderer.render_pass);
-    renderer.skinned_pipeline = create_skinned_pipeline(renderer.device, renderer.render_pass);
-
-    {   // Shadowmap
+     {   // Shadowmap
         SHADOWMAP_SIZE :: 2048;
         renderer.shadowmap_render_pass = create_shadowmap_renderpass(renderer.device);
         renderer.shadowmap_pipeline = create_shadowmap_pipeline(renderer.device, renderer.shadowmap_render_pass, SHADOWMAP_SIZE);
@@ -424,6 +450,11 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
         };
         Vk_Check(vkCreateFramebuffer(renderer.device, *fb_ci, null, *renderer.shadowmap_framebuffer));
     }
+
+    renderer.render_pass = create_standard_renderpass(renderer.device);
+    renderer.color_pipeline = create_color_pipeline(renderer.device, renderer.render_pass);
+    renderer.ui_pipeline = create_ui_pipeline(renderer.device, renderer.render_pass);
+    renderer.skinned_pipeline = create_skinned_pipeline(renderer.device, renderer.render_pass);
 
     // Swapchain
     create_or_update_swapchain();
@@ -481,6 +512,9 @@ renderer_deinit :: () {
     destroy_texture(*depth_texture);
 
     vkDestroyDescriptorPool(device, descriptor_pool, null);
+    vkDestroyDescriptorSetLayout(device, global_set_layout, null);
+    vkDestroyDescriptorSetLayout(device, shadowmap_layout, null);
+    vkDestroyDescriptorSetLayout(device, single_texture_layout, null);
 
     // Standard render pass
     vkDestroyRenderPass(device, render_pass, null);

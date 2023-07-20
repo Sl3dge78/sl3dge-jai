@@ -2,8 +2,10 @@
 - [ ] Vertex Skinning
     - [ ] Scene Management 
         - [ ] Load meshes in buffers
+            - [X] Static Meshes
+            - [ ] Skinned Meshes
         - [ ] Scene
-            - [ ] Each mesh has a transform
+            - [X] Each mesh has a transform
             - [ ] Go through each type of object, bind the pipeline and render
         - [ ] 2 pipelines per mesh type (shadow + color)
 
@@ -14,9 +16,9 @@
 
 // -- LATER
 - [ ] Better materials
-- [ ] Unify descriptor sets
-    - [ ] Global buffer
-    - [ ] Diffuse/Normal/... texture (local)
+- [X] Unify descriptor sets
+    - [X] Global buffer
+    - [X] Diffuse/Normal/... texture (local)
 
 // --------
 // Things to iron out

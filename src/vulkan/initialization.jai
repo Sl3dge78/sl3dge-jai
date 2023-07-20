@@ -258,6 +258,15 @@ rasterization_state_ci :: () -> VkPipelineRasterizationStateCreateInfo {
     };
 }
 
+vertex_input_state_ci :: (bindings : []VkVertexInputBindingDescription, attributes : []VkVertexInputAttributeDescription) -> VkPipelineVertexInputStateCreateInfo {
+    return.{
+        vertexBindingDescriptionCount = xx bindings.count,
+        pVertexBindingDescriptions = bindings.data,
+        vertexAttributeDescriptionCount = xx attributes.count,
+        pVertexAttributeDescriptions = attributes.data
+    };
+}
+
 pipeline_create_info :: (layout: VkPipelineLayout, renderpass: VkRenderPass) -> VkGraphicsPipelineCreateInfo #expand {
 
     `dynamic_state := VkDynamicState.[.VIEWPORT, .SCISSOR];

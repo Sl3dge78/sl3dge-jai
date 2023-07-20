@@ -18,23 +18,20 @@ vertex_input_attribute :: #run () -> []VkVertexInputAttributeDescription {
 }();
 
 Skinned_Vertex :: struct {
-    position: Vector3;
-    normal: Vector3;
-    uv: Vector2;
-    color: Vector4 = .{1, 1, 1, 1};
     joints: [4]u8;
     weights: Vector4;
 }
 
 skinned_vertex_input_attribute :: #run () -> []VkVertexInputAttributeDescription {
-    offset: *Skinned_Vertex = null;
+    skinned: *Skinned_Vertex = null;
+    vertex: *Vertex = null;
     vtx_attr := VkVertexInputAttributeDescription.[
-        .{location = 0, binding = 0, format = .R32G32B32_SFLOAT, offset = xx *offset.position},
-        .{location = 1, binding = 0, format = .R32G32B32_SFLOAT, offset = xx *offset.normal},
-        .{location = 2, binding = 0, format = .R32G32_SFLOAT, offset = xx *offset.uv},
-        .{location = 3, binding = 0, format = .R32G32B32A32_SFLOAT, offset = xx *offset.color},
-        .{location = 4, binding = 0, format = .R8G8B8A8_UINT, offset = xx *offset.joints},
-        .{location = 5, binding = 0, format = .R32G32B32A32_SFLOAT, offset = xx *offset.weights},
+        .{location = 0, binding = 0, format = .R32G32B32_SFLOAT, offset = xx *vertex.position},
+        .{location = 1, binding = 0, format = .R32G32B32_SFLOAT, offset = xx *vertex.normal},
+        .{location = 2, binding = 0, format = .R32G32_SFLOAT, offset = xx *vertex.uv},
+        .{location = 3, binding = 0, format = .R32G32B32A32_SFLOAT, offset = xx *vertex.color},
+        .{location = 4, binding = 1, format = .R8G8B8A8_UINT, offset = xx *skinned.joints},
+        .{location = 5, binding = 1, format = .R32G32B32A32_SFLOAT, offset = xx *skinned.weights},
     ];
     
     return vtx_attr;
