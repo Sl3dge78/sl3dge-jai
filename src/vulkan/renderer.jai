@@ -39,16 +39,16 @@ Renderer :: struct {
     compatible_mem_types: [MemoryType.COUNT]u32;
 
     render_pass: VkRenderPass;
-
-    color_pipeline: Pipeline(2);
-    skinned_pipeline: Pipeline(2);
-    ui_pipeline: Pipeline(2);
+    color_pipeline: Pipeline;
+    skinned_pipeline: Pipeline;
+    ui_pipeline: Pipeline;
 
     shadowmap_render_pass: VkRenderPass;
-    shadowmap_pipeline: Pipeline(1);
+    shadowmap_pipeline: Pipeline;
     shadowmap_texture: Texture;
     shadowmap_framebuffer: VkFramebuffer;
 
+    projection_2d: Matrix4;
     projection: Matrix4;
     view: Matrix4;
     light: Matrix4;
@@ -114,6 +114,7 @@ Frame_Data :: struct {
     image_available_semaphore: VkSemaphore;
     render_finished_semaphore: VkSemaphore;
     image_index: u32;
+    camera_buffer: Buffer;
 }
 
 Draw_Data :: struct {
@@ -146,7 +147,7 @@ Draw_Cmd :: struct {
 
 global_renderer: Renderer;
 
-CameraData :: struct {
+Camera_Data :: struct {
     view: Matrix4;
     proj: Matrix4;
     view_proj: Matrix4;
@@ -370,6 +371,8 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
                 flags = .SIGNALED_BIT,
             };
             vkCreateFence(renderer.device, *fence_ci, null, *it.frame_fence);
+
+            it.camera_buffer = create_buffer(size_of(Camera_Data), .UNIFORM_BUFFER_BIT, .UPLOAD);
         }
         log("Rendering context created");
     }
@@ -504,6 +507,7 @@ renderer_deinit :: () {
         vkDestroyFence(device, it.frame_fence, null);
         vkDestroySemaphore(device, it.render_finished_semaphore, null);
         vkDestroySemaphore(device, it.image_available_semaphore, null);
+        destroy_buffer(*it.camera_buffer);    
     }
     vkDestroyCommandPool(device, command_pool, null);
     for framebuffers {
@@ -531,13 +535,22 @@ end_frame :: () {
     upload_draw_data(*scene.color_draw_data);
     upload_draw_data(*scene.ui_draw_data);
 
+    // proj := orthographic_projection_matrix(0, xx global_renderer.swapchain_extent.width, 0, xx global_renderer.swapchain_extent.height, -1, 1);
+    camera_data := Camera_Data.{
+        proj = transpose(projection),
+        view = transpose(view),
+        view_proj = transpose(projection * view),
+        light = transpose(light),
+        light_dir = light_dir
+    };
+    copy_data(context.vk.camera_buffer, *camera_data, size_of(type_of(camera_data)));
+
     clear_color := Vector4.{0.529, 0.808, 0.922, 0};
     clear_values := VkClearValue.[
         .{color = .{_float32 = clear_color.component}},
         .{depthStencil = .{1, 0}}
     ];
     vkBeginCommandBuffer(command_buffer, *VkCommandBufferBeginInfo.{flags = .ONE_TIME_SUBMIT_BIT});
-
     vkCmdBeginRenderPass(command_buffer, *VkRenderPassBeginInfo.{
         renderPass = shadowmap_render_pass,
         framebuffer = shadowmap_framebuffer,
@@ -546,7 +559,6 @@ end_frame :: () {
         renderArea = .{ offset = .{0, 0}, extent = .{shadowmap_texture.w, shadowmap_texture.h}},
     }, .INLINE);
     draw_shadowmap_pipeline(scene, command_buffer);
-
     vkCmdEndRenderPass(command_buffer);
 
     vkCmdBeginRenderPass(command_buffer, *VkRenderPassBeginInfo.{
