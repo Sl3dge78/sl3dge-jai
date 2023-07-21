@@ -4,6 +4,11 @@ Scene :: struct {
 
     color_draw_data: Draw_Data;
     ui_draw_data: Draw_Data;
+
+    destroy :: (using self: *Scene) {
+        array_reset(*static_models);
+        array_reset(*skinned_meshes);
+    }
 }
 
 Instanced :: struct(T: Type) {
@@ -11,14 +16,17 @@ Instanced :: struct(T: Type) {
     mesh: *T;
 }
 
-instantiate :: (scene: *Scene, mesh: *$T, matrix := Matrix4_Identity) -> Instanced(T) {
-    inst := Instanced(T).{ matrix, mesh}; 
+instantiate :: (scene: *Scene, mesh: *$T, matrix := Matrix4_Identity) -> *Instanced(T) {
+    inst : *Instanced(T); 
     #if T == Static_Mesh {
-        array_add(*scene.static_models, inst);
+        inst = array_add(*scene.static_models);
     } else #if T == Skinned_Mesh {
-        array_add(*scene.skinned_meshes, inst);
+        inst = array_add(*scene.skinned_meshes);
     } else {
         #assert false, "Unsupported mesh type";
     }
+
+    inst.transform = matrix;
+    inst.mesh = mesh;
     return inst;
 }
