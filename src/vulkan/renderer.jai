@@ -128,32 +128,6 @@ Frame_Data :: struct {
     camera_buffer: Buffer;
 }
 
-Draw_Data :: struct {
-    vertex_buffer: Buffer;
-    vertices: [..]Vertex;
-    draw_cmds : [..]Draw_Cmd;
-    transform: Matrix4;
-}
-
-destroy_draw_data :: (dd: *Draw_Data) {
-    array_reset(*dd.draw_cmds);
-    array_reset(*dd.vertices);
-    destroy_buffer(*dd.vertex_buffer);
-}
-
-upload_draw_data :: (dd: *Draw_Data) {
-    if dd.vertices.count == 0 then return; 
-    size : u64 = xx (dd.vertices.count * size_of(Vertex));
-    create_or_update_buffer(*dd.vertex_buffer, size, .VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT | .UNIFORM_BUFFER_BIT | .STORAGE_BUFFER_BIT | .TRANSFER_SRC_BIT, .UPLOAD);
-    copy_data(dd.vertex_buffer, dd.vertices.data, size);
-}
-
-Draw_Cmd :: struct {
-    id: u32;
-    count: u32;
-    xform: Matrix4;
-}
-
 #add_context vk: Frame_Data;
 
 global_renderer: Renderer;
@@ -594,9 +568,6 @@ renderer_deinit :: () {
 
     Buffer_Pool.reset_pool(*buffer_pool);
 
-    destroy_draw_data(*scene.color_draw_data);
-    destroy_draw_data(*scene.ui_draw_data);
-
     destroy_texture(*depth_texture);
 
     vkDestroyDescriptorPool(device, descriptor_pool, null);
@@ -643,7 +614,6 @@ renderer_deinit :: () {
     vkDestroyInstance(instance, null);
 }
 
-
 end_frame :: () {
     using global_renderer;
     using context.vk;
@@ -654,8 +624,7 @@ end_frame :: () {
     Vk_Check(vkAcquireNextImageKHR(device, swapchain, U64_MAX, image_available_semaphore, VK_NULL_HANDLE, *image_index));
 
     // Commit draw data
-    upload_draw_data(*scene.color_draw_data);
-    upload_draw_data(*scene.ui_draw_data);
+    Scene.prepare_for_rendering(scene);
 
     // proj := orthographic_projection_matrix(0, xx global_renderer.swapchain_extent.width, 0, xx global_renderer.swapchain_extent.height, -1, 1);
     camera_data := Camera_Data.{
@@ -680,7 +649,8 @@ end_frame :: () {
         pClearValues = *clear_values[1],
         renderArea = .{ offset = .{0, 0}, extent = .{shadowmap_texture.w, shadowmap_texture.h}},
     }, .INLINE);
-    draw_shadowmap_pipeline(scene, command_buffer);
+        bind_shadowmap_pipeline(command_buffer);
+        record_3d_commands(scene, command_buffer, global_renderer.shadowmap_pipeline);
     vkCmdEndRenderPass(command_buffer);
 
     vkCmdBeginRenderPass(command_buffer, *VkRenderPassBeginInfo.{
@@ -693,9 +663,11 @@ end_frame :: () {
             extent = swapchain_extent,
         },
     }, .INLINE);
+        bind_color_pipeline(command_buffer);
+        record_3d_commands(scene, command_buffer, global_renderer.color_pipeline);
 
-    draw_color_pipeline(scene, command_buffer);
-    draw_ui_pipeline(*scene.ui_draw_data, command_buffer);
+        bind_ui_pipeline(command_buffer);
+        record_2d_commands(scene, command_buffer, global_renderer.ui_pipeline);
 
     vkCmdEndRenderPass(command_buffer);
     Vk_Check(vkEndCommandBuffer(command_buffer));
