@@ -1,16 +1,11 @@
 Pipeline :: struct {
     pipeline_layout: VkPipelineLayout;
     pipeline: VkPipeline;
-    descriptor_sets: [Renderer.FRAME_COUNT][] VkDescriptorSet;
 }
 
 destroy_pipeline :: (using pass: *Pipeline, device: VkDevice) {
     vkDestroyPipelineLayout(device, pipeline_layout, null);
     vkDestroyPipeline(device, pipeline, null);
-    for *descriptor_sets {
-        array_reset(it);
-    }
-
 }
 
 // --------
@@ -20,7 +15,6 @@ create_color_pipeline :: (device: VkDevice, render_pass: VkRenderPass) -> Pipeli
     pipeline : Pipeline;
 
     // Pipeline
-    
     vtx := create_shader_module(device, "shaders/color.vert.spv");
     defer vkDestroyShaderModule(device, vtx, null);
 
@@ -55,53 +49,6 @@ create_color_pipeline :: (device: VkDevice, render_pass: VkRenderPass) -> Pipeli
     create_info := pipeline_create_info(pipeline.pipeline_layout, render_pass);
     vkCreateGraphicsPipelines(device, null, 1, *create_info, null, *pipeline.pipeline);
     log("Standard pipeline created.");
-    
-
-    // DescriptorSet
-    alloc_info := VkDescriptorSetAllocateInfo.{
-        descriptorPool = global_renderer.descriptor_pool,
-        descriptorSetCount = xx layouts.count,
-        pSetLayouts = layouts.data,
-    };
-
-    for *pipeline.descriptor_sets {
-        it.* = NewArray(alloc_info.descriptorSetCount, VkDescriptorSet);
-        Vk_Check(vkAllocateDescriptorSets(device, *alloc_info, it.data));
-
-        // @Hardcoded: Create a Material struct, that allocates a descriptor set on a specific pipline and gets bound when needed
-        // @Todo: Only write the frame constant data here
-        
-        buffer_info := VkDescriptorBufferInfo .{
-            buffer = global_renderer.frame_data[it_index].camera_buffer.buffer,
-            offset = 0,
-            range = size_of(Camera_Data),
-        };
-
-        // Shadowmap
-        image_info := VkDescriptorImageInfo.{
-            sampler = global_renderer.sampler, // @Hardcoded
-            imageView = global_renderer.shadowmap_texture.view, // @Hardcoded
-            imageLayout = .DEPTH_STENCIL_READ_ONLY_OPTIMAL,
-        };
-        descriptor_writes := VkWriteDescriptorSet.[
-            .{
-                dstSet = it.*[0],
-                dstBinding = 0,
-                dstArrayElement = 0,
-                descriptorType = .UNIFORM_BUFFER,
-                descriptorCount = 1,
-                pBufferInfo = *buffer_info,
-            },
-            .{
-                dstSet = it.*[1],
-                dstBinding = 1,
-                dstArrayElement = 0,
-                descriptorType = .COMBINED_IMAGE_SAMPLER,
-                descriptorCount = 1,
-                pImageInfo = *image_info,
-            }];
-        vkUpdateDescriptorSets(global_renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
-    }
 
     return pipeline;
 }
@@ -112,39 +59,13 @@ draw_color_pipeline :: (scene: *Scene, command_buffer: VkCommandBuffer) {
 
     if scene.color_draw_data.vertices.count == 0 && scene.static_models.count == 0 return;
 
-    {   
-        // @Hardcoded: Create a Material struct, that allocates a descriptor set on a specific pipline and gets bound when needed
-        // @Todo: Only write the frame constant data here
-        
-        // Diffuse
-        image_info := VkDescriptorImageInfo.{
-            sampler = global_renderer.sampler, // @Hardcoded
-            imageView = global_renderer.default_texture.view, // @Hardcoded
-            imageLayout = .SHADER_READ_ONLY_OPTIMAL,
-        };
-        
-
-        descriptor_writes := VkWriteDescriptorSet.[
-            .{
-                dstSet = pipeline.descriptor_sets[context.vk.image_index][2],
-                dstBinding = 2,
-                dstArrayElement = 0,
-                descriptorType = .COMBINED_IMAGE_SAMPLER,
-                descriptorCount = 1,
-                pImageInfo = *image_info,
-            },
-            
-        ];
-
-        vkUpdateDescriptorSets(global_renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
-    }
-
     {   // Bind pipeline, dynamic state, global descriptors and a default push constant
         vkCmdBindPipeline(command_buffer, .GRAPHICS, pipeline.pipeline);
         vkCmdSetViewport(command_buffer, 0, 1, *VkViewport.{0, xx global_renderer.swapchain_extent.height, xx global_renderer.swapchain_extent.width, -(cast(float)global_renderer.swapchain_extent.height), 0, 1});
         vkCmdSetScissor(command_buffer, 0, 1, *VkRect2D.{.{0, 0}, global_renderer.swapchain_extent});
-        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.pipeline_layout, 0, xx pipeline.descriptor_sets[image_index].count, pipeline.descriptor_sets[image_index].data, 0, null);
-        // vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.pipeline_layout, 1, 1, *pipeline.descriptor_sets[image_index][1], 0, null);
+        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.pipeline_layout, 1, 1, *global_renderer.shadowmap_descriptor_set, 0, null);
+        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.pipeline_layout, 2, 1, *global_renderer.default_texture_descriptor, 0, null);
+        
     }
 
     offset : u64 = 0;
@@ -208,46 +129,6 @@ create_skinned_pipeline :: (device: VkDevice, render_pass: VkRenderPass) -> Pipe
 
     vkCreateGraphicsPipelines(device, null, 1, *create_info, null, *pipeline.pipeline);
     log("Skinned pipeline created.");
-
-
-    // DescriptorSet
-
-    alloc_info := VkDescriptorSetAllocateInfo.{
-        descriptorPool = global_renderer.descriptor_pool,
-        descriptorSetCount = xx layouts.count,
-        pSetLayouts = layouts.data,
-    };
-
-    for *pipeline.descriptor_sets {
-        it.* = NewArray(alloc_info.descriptorSetCount, VkDescriptorSet);
-        Vk_Check(vkAllocateDescriptorSets(device, *alloc_info, it.data));
-
-        // @Hardcoded: Create a Material struct, that allocates a descriptor set on a specific pipline and gets bound when needed
-        // @Todo: Only write the frame constant data here
-        
-        buffer_info := VkDescriptorBufferInfo .{
-            buffer = global_renderer.frame_data[it_index].camera_buffer.buffer,
-            offset = 0,
-            range = VK_WHOLE_SIZE,
-        };
-        buffer_info2 := VkDescriptorBufferInfo .{
-            buffer = global_renderer.frame_data[it_index].camera_buffer.buffer,
-            offset = size_of(Camera_Data) - size_of(Vector3),
-            range = size_of(Vector3),
-        };
-        descriptor_writes := VkWriteDescriptorSet.[
-            .{
-                dstSet = it.*[0],
-                dstBinding = 0,
-                dstArrayElement = 0,
-                descriptorType = .UNIFORM_BUFFER,
-                descriptorCount = 1,
-                pBufferInfo = *buffer_info,
-            },
-        ];
-
-        vkUpdateDescriptorSets(global_renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
-    }
     
     return pipeline;
 }
@@ -269,7 +150,6 @@ create_ui_pipeline :: (device: VkDevice, render_pass: VkRenderPass) -> Pipeline 
         .{stage = .VERTEX_BIT,   module = vtx, pName = "main"},
         .{stage = .FRAGMENT_BIT, module = frag, pName = "main"}
     ];
-
 
     layouts := VkDescriptorSetLayout.[
         global_renderer.single_texture_layout,
@@ -302,22 +182,6 @@ create_ui_pipeline :: (device: VkDevice, render_pass: VkRenderPass) -> Pipeline 
     };
     vkCreateGraphicsPipelines(device, null, 1, *create_info, null, *pipeline.pipeline);
     log("Pipeline created.");
-    
-
-    // DescriptorSet
-    
-    // @TODO: Move that in a Material struct
-    alloc_info := VkDescriptorSetAllocateInfo.{
-        descriptorPool = global_renderer.descriptor_pool,
-        descriptorSetCount = xx layouts.count,
-        pSetLayouts = layouts.data,
-    };
-
-    for *pipeline.descriptor_sets {
-        it.* = NewArray(alloc_info.descriptorSetCount, VkDescriptorSet);
-        Vk_Check(vkAllocateDescriptorSets(device, *alloc_info, it.data));
-    }
-    
 
     return pipeline;
 }
@@ -328,34 +192,13 @@ draw_ui_pipeline :: (dd: *Draw_Data, command_buffer: VkCommandBuffer) {
     image_index := context.vk.image_index;
     pipeline := ui_pipeline;
 
-    {   // Update uniform data 
-        
-
-        // @Hardcoded: Create a Material struct, that allocates a descriptor set on a specific pipline and gets bound when needed
-        // @Todo: Only write the frame constant data here
-        image_info := VkDescriptorImageInfo.{
-            sampler = sampler, // @Hardcoded
-            imageView = global_engine.default_font.texture.view, // @Hardcoded
-            imageLayout = .SHADER_READ_ONLY_OPTIMAL,
-        };
-        descriptor_writes := VkWriteDescriptorSet.[.{
-            dstSet = pipeline.descriptor_sets[image_index][0],
-            dstBinding = 2,
-            dstArrayElement = 0,
-            descriptorType = .COMBINED_IMAGE_SAMPLER,
-            descriptorCount = 1,
-            pImageInfo = *image_info,
-        }];
-        vkUpdateDescriptorSets(global_renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
-    }
-
     if dd.vertices.count == 0 return;
 
     {   // Bind pipeline, dynamic state, global descriptors and a default push constant
         vkCmdBindPipeline(command_buffer, .GRAPHICS, pipeline.pipeline);
         vkCmdSetViewport(command_buffer, 0, 1, *VkViewport.{0, 0, xx swapchain_extent.width,  (cast(float)swapchain_extent.height), 0, 1});
         vkCmdSetScissor(command_buffer, 0, 1, *VkRect2D.{.{0, 0}, swapchain_extent});
-        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.pipeline_layout, 0, 1, *pipeline.descriptor_sets[image_index][0], 0, null);
+        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.pipeline_layout, 0, 1, *global_engine.default_font.descriptor, 0, null);
     }
 
     pc := float.[2.0 / cast(float)global_renderer.swapchain_extent.width, 2.0 / cast(float)global_renderer.swapchain_extent.height, -1, -1];
@@ -416,35 +259,8 @@ create_shadowmap_pipeline :: (device: VkDevice, render_pass: VkRenderPass, size:
     create_info.pRasterizationState = *rasterization_state;
     create_info.pViewportState = *viewport_state;
     vkCreateGraphicsPipelines(device, null, 1, *create_info, null, *pipeline.pipeline);
-    log("Standard pipeline created.");
+    log("Shadowmap pipeline created.");
     
-
-    alloc_info := VkDescriptorSetAllocateInfo.{
-        descriptorPool = global_renderer.descriptor_pool,
-        descriptorSetCount = xx layouts.count,
-        pSetLayouts = layouts.data,
-    };
-
-    for *pipeline.descriptor_sets {
-        it.* = NewArray(alloc_info.descriptorSetCount, VkDescriptorSet);
-        Vk_Check(vkAllocateDescriptorSets(device, *alloc_info, it.data));
-        
-        buffer_info := VkDescriptorBufferInfo .{
-            buffer = global_renderer.frame_data[it_index].camera_buffer.buffer,
-            offset = 0,
-            range = size_of(Camera_Data),
-        };
-        descriptor_writes := VkWriteDescriptorSet.[.{
-            dstSet = it.*[0],
-            dstBinding = 0,
-            dstArrayElement = 0,
-            descriptorType = .UNIFORM_BUFFER,
-            descriptorCount = 1,
-            pBufferInfo = *buffer_info,
-        }];
-        vkUpdateDescriptorSets(global_renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
-    }
-
     return pipeline;
 }
 
@@ -456,7 +272,7 @@ draw_shadowmap_pipeline :: (scene: *Scene, command_buffer: VkCommandBuffer) {
 
     {   // Bind pipeline, dynamic state, global descriptors and a default push constant
         vkCmdBindPipeline(command_buffer, .GRAPHICS, pipeline.pipeline);
-        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.pipeline_layout, 0, 1, *pipeline.descriptor_sets[image_index][0], 0, null);
+        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.pipeline_layout, 0, 1, *global_renderer.global_descriptor[image_index], 0, null);
     }
 
     offset : u64 = 0;

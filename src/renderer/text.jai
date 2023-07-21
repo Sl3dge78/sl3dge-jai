@@ -4,6 +4,7 @@ Font :: struct {
     texture: Texture;
     line_height : float;
     width : float;
+    descriptor: VkDescriptorSet;
 }
 
 create_font_from_file :: (path: string, size: float) -> Font, bool {
@@ -32,6 +33,30 @@ create_font_from_data :: (font_data: string, size: float) -> Font, bool {
     stbtt_PackEnd(*pack_context);
 
     self.texture = create_texture_from_data(bitmap.data, 512, 512, 1, u8);
+
+    // This has nothing to do here
+    // TODO : Proper material generation
+    alloc_info := VkDescriptorSetAllocateInfo.{
+        descriptorPool = global_renderer.descriptor_pool,
+        descriptorSetCount = xx 1,
+        pSetLayouts = *global_renderer.single_texture_layout,
+    };
+    Vk_Check(vkAllocateDescriptorSets(global_renderer.device, *alloc_info, *self.descriptor));
+
+    image_info := VkDescriptorImageInfo.{
+        sampler = global_renderer.sampler, // @Hardcoded
+        imageView = self.texture.view, // @Hardcoded
+        imageLayout = .SHADER_READ_ONLY_OPTIMAL,
+    };
+    descriptor_writes := VkWriteDescriptorSet.[.{
+        dstSet = self.descriptor,
+        dstBinding = 0,
+        dstArrayElement = 0,
+        descriptorType = .COMBINED_IMAGE_SAMPLER,
+        descriptorCount = 1,
+        pImageInfo = *image_info,
+    }];
+    vkUpdateDescriptorSets(global_renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
     
     // Get additional font info
     info : stbtt_fontinfo = ---;
