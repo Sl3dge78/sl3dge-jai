@@ -15,7 +15,7 @@ create_color_pipeline :: (device: VkDevice, render_pass: VkRenderPass) -> Pipeli
     pipeline : Pipeline;
 
     // Pipeline
-    vtx := create_shader_module(device, "shaders/color.vert.spv");
+    vtx := create_shader_module(device, "shaders/static.vert.spv");
     defer vkDestroyShaderModule(device, vtx, null);
 
     frag := create_shader_module(device, "shaders/color.frag.spv");
@@ -33,7 +33,7 @@ create_color_pipeline :: (device: VkDevice, render_pass: VkRenderPass) -> Pipeli
     };
 
     layouts := VkDescriptorSetLayout.[
-        global_renderer.global_set_layout,
+        global_renderer.camera_set_layout,
         global_renderer.shadowmap_layout,
         global_renderer.single_texture_layout,
     ];
@@ -60,6 +60,7 @@ bind_color_pipeline :: (command_buffer: VkCommandBuffer) {
     vkCmdBindPipeline(command_buffer, .GRAPHICS, pipeline.pipeline);
     vkCmdSetViewport(command_buffer, 0, 1, *VkViewport.{0, xx global_renderer.swapchain_extent.height, xx global_renderer.swapchain_extent.width, -(cast(float)global_renderer.swapchain_extent.height), 0, 1});
     vkCmdSetScissor(command_buffer, 0, 1, *VkRect2D.{.{0, 0}, global_renderer.swapchain_extent});
+    vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.pipeline_layout, 0, 1, *context.vk.camera_descriptor, 0, null);
     vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.pipeline_layout, 1, 1, *global_renderer.shadowmap_descriptor_set, 0, null);
     vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.pipeline_layout, 2, 1, *global_renderer.default_texture_descriptor, 0, null);
 }
@@ -80,7 +81,7 @@ create_skinned_pipeline :: (device: VkDevice, render_pass: VkRenderPass) -> Pipe
     ];
 
     layouts := VkDescriptorSetLayout.[
-        global_renderer.global_set_layout,
+        global_renderer.camera_set_layout,
         global_renderer.shadowmap_layout,
         global_renderer.single_texture_layout,
     ];
@@ -181,7 +182,7 @@ create_shadowmap_pipeline :: (device: VkDevice, render_pass: VkRenderPass, size:
 
     // Pipeline 
     
-    vtx := create_shader_module(device, "shaders/shadowmap.vert.spv");
+    vtx := create_shader_module(device, "shaders/static.vert.spv");
     defer vkDestroyShaderModule(device, vtx, null);
 
     stages := VkPipelineShaderStageCreateInfo.[
@@ -195,7 +196,7 @@ create_shadowmap_pipeline :: (device: VkDevice, render_pass: VkRenderPass, size:
     };
 
     layouts := VkDescriptorSetLayout.[
-        global_renderer.global_set_layout,
+        global_renderer.camera_set_layout,
     ];
 
     layout_ci := VkPipelineLayoutCreateInfo.{ 
@@ -226,5 +227,5 @@ create_shadowmap_pipeline :: (device: VkDevice, render_pass: VkRenderPass, size:
 
 bind_shadowmap_pipeline :: (command_buffer: VkCommandBuffer) {
     vkCmdBindPipeline(command_buffer, .GRAPHICS, global_renderer.shadowmap_pipeline.pipeline);
-    vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, global_renderer.shadowmap_pipeline.pipeline_layout, 0, 1, *global_renderer.global_descriptor[context.vk.image_index], 0, null);
+    vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, global_renderer.shadowmap_pipeline.pipeline_layout, 0, 1, *context.vk.shadowmap_camera_descriptor, 0, null);
 }
