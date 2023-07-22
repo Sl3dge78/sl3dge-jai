@@ -65,24 +65,50 @@ instantiate :: (scene: *Scene, mesh: *$T, matrix := Matrix4_Identity) -> *Instan
     return inst;
 }
 
-record_3d_commands :: (scene: *Scene, command_buffer: VkCommandBuffer, pipeline: Pipeline) {
+record_3d_commands :: (scene: *Scene, command_buffer: VkCommandBuffer, $kind: Pipeline_Kind) {
+    last_material: *Material;
+
+    // Immediate meshes
     if scene.color_draw_data.vertices.count != 0 {
+        bind_material(command_buffer, global_renderer.static_mesh_material, kind);
+        last_material = *global_renderer.static_mesh_material;
+
         offset : u64 = 0;
         vkCmdBindVertexBuffers(command_buffer, 0, 1, *scene.color_draw_data.vertex_buffer.buffer, *offset);
 
         // Issue draw calls & end command buffer
         for scene.color_draw_data.draw_cmds {
             pc := PushConstantData.{transpose(it.xform), transpose(inverse(it.xform))};
-            vkCmdPushConstants(command_buffer, pipeline.pipeline_layout, .VERTEX_BIT, 0, size_of(PushConstantData), *pc);
+            vkCmdPushConstants(command_buffer, last_material.pipelines[kind].pipeline_layout, .VERTEX_BIT, 0, size_of(PushConstantData), *pc);
             vkCmdDraw(command_buffer, it.count, 1, it.id, 0);
         }
+    }
+
+    // Static scene meshes
+    if scene.static_models.count > 0 && last_material != *global_renderer.static_mesh_material {
+        bind_material(command_buffer, global_renderer.static_mesh_material, kind);
+        last_material = *global_renderer.static_mesh_material;
     }
 
     for scene.static_models {
         vkCmdBindVertexBuffers(command_buffer, 0, 1, *it.mesh.vertex_buffer.buffer, *it.mesh.vertex_offset);
         vkCmdBindIndexBuffer(command_buffer, it.mesh.index_buffer.buffer, it.mesh.index_offset, .UINT32);
         pc := PushConstantData.{transpose(it.transform), transpose(inverse(it.transform))};
-        vkCmdPushConstants(command_buffer, pipeline.pipeline_layout, .VERTEX_BIT, 0, size_of(PushConstantData), *pc);
+        vkCmdPushConstants(command_buffer, last_material.pipelines[kind].pipeline_layout, .VERTEX_BIT, 0, size_of(PushConstantData), *pc);
+        vkCmdDrawIndexed(command_buffer, xx it.mesh.index_count, 1, 0, 0, 0);
+    }
+
+    // Skinned
+    if scene.skinned_meshes.count > 0 { 
+        bind_material(command_buffer, global_renderer.skinned_mesh_material, kind);
+        last_material = *global_renderer.skinned_mesh_material;
+    }
+
+    for scene.skinned_meshes {
+        vkCmdBindVertexBuffers(command_buffer, 0, 1, *it.mesh.vertex_buffer.buffer, *it.mesh.vertex_offset);
+        vkCmdBindIndexBuffer(command_buffer, it.mesh.index_buffer.buffer, it.mesh.index_offset, .UINT32);
+        pc := PushConstantData.{transpose(it.transform), transpose(inverse(it.transform))};
+        vkCmdPushConstants(command_buffer, last_material.pipelines[kind].pipeline_layout, .VERTEX_BIT, 0, size_of(PushConstantData), *pc);
         vkCmdDrawIndexed(command_buffer, xx it.mesh.index_count, 1, 0, 0, 0);
     }
 }

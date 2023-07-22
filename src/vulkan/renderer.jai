@@ -46,13 +46,15 @@ Renderer :: struct {
     }
     compatible_mem_types: [MemoryType.COUNT]u32;
 
+    static_mesh_material: Material;
+    skinned_mesh_material: Material;
+
     render_pass: VkRenderPass;
-    color_pipeline: Pipeline;
-    skinned_pipeline: Pipeline;
+    
     ui_pipeline: Pipeline;
 
+    SHADOWMAP_SIZE :: 2048;
     shadowmap_render_pass: VkRenderPass;
-    shadowmap_pipeline: Pipeline;
     shadowmap_texture: Texture;
     shadowmap_framebuffer: VkFramebuffer;
 
@@ -487,10 +489,8 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
     }
 
     {   // Shadowmap
-        SHADOWMAP_SIZE :: 2048;
         renderer.shadowmap_render_pass = create_shadowmap_renderpass(renderer.device);
-        renderer.shadowmap_pipeline = create_shadowmap_pipeline(renderer.device, renderer.shadowmap_render_pass, SHADOWMAP_SIZE);
-        renderer.shadowmap_texture = create_texture(SHADOWMAP_SIZE, SHADOWMAP_SIZE, global_renderer.depth_format, .DEPTH_STENCIL_ATTACHMENT_BIT | .SAMPLED_BIT, .DEPTH_BIT);
+        renderer.shadowmap_texture = create_texture(Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE, global_renderer.depth_format, .DEPTH_STENCIL_ATTACHMENT_BIT | .SAMPLED_BIT, .DEPTH_BIT);
 
         alloc_info := VkDescriptorSetAllocateInfo.{
             descriptorPool = global_renderer.descriptor_pool,
@@ -528,9 +528,10 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
     }
 
     renderer.render_pass = create_standard_renderpass(renderer.device);
-    renderer.color_pipeline = create_color_pipeline(renderer.device, renderer.render_pass);
+    renderer.static_mesh_material = create_static_mesh_material(renderer.device, renderer.shadowmap_render_pass, renderer.render_pass);
+    renderer.skinned_mesh_material = create_skinned_mesh_material(renderer.device, renderer.shadowmap_render_pass, renderer.render_pass);
+
     renderer.ui_pipeline = create_ui_pipeline(renderer.device, renderer.render_pass);
-    renderer.skinned_pipeline = create_skinned_pipeline(renderer.device, renderer.render_pass);
 
     // Swapchain
     create_or_update_swapchain();
@@ -590,15 +591,17 @@ renderer_deinit :: () {
     vkDestroyDescriptorSetLayout(device, shadowmap_layout, null);
     vkDestroyDescriptorSetLayout(device, single_texture_layout, null);
 
+    Material.destroy(device, *static_mesh_material);
+    Material.destroy(device, *skinned_mesh_material);
+
+    vkDestroyPipelineLayout(device, ui_pipeline.pipeline_layout, null);
+    vkDestroyPipeline(device, ui_pipeline.pipeline, null);
+
     // Standard render pass
     vkDestroyRenderPass(device, render_pass, null);
-    destroy_pipeline(*color_pipeline, device);
-    destroy_pipeline(*ui_pipeline, device);
-    destroy_pipeline(*skinned_pipeline, device);
 
     // Shadowmap render pass
     vkDestroyRenderPass(device, shadowmap_render_pass, null);
-    destroy_pipeline(*shadowmap_pipeline, device);
     vkDestroyFramebuffer(device, shadowmap_framebuffer, null);
     destroy_texture(*shadowmap_texture);
 
@@ -667,8 +670,7 @@ end_frame :: () {
         pClearValues = *clear_values[1],
         renderArea = .{ offset = .{0, 0}, extent = .{shadowmap_texture.w, shadowmap_texture.h}},
     }, .INLINE);
-        bind_shadowmap_pipeline(command_buffer);
-        record_3d_commands(scene, command_buffer, global_renderer.shadowmap_pipeline);
+        record_3d_commands(scene, command_buffer, .SHADOWMAP);
     vkCmdEndRenderPass(command_buffer);
 
     vkCmdBeginRenderPass(command_buffer, *VkRenderPassBeginInfo.{
@@ -681,8 +683,7 @@ end_frame :: () {
             extent = swapchain_extent,
         },
     }, .INLINE);
-        bind_color_pipeline(command_buffer);
-        record_3d_commands(scene, command_buffer, global_renderer.color_pipeline);
+        record_3d_commands(scene, command_buffer, .COLOR);
 
         bind_ui_pipeline(command_buffer);
         record_2d_commands(scene, command_buffer, global_renderer.ui_pipeline);
