@@ -1,12 +1,12 @@
 Scene :: struct {
-    static_models: [..]Instanced(Mesh);
-    skinned_meshes: [..]Instanced(Skinned_Mesh);
+    static_meshes: [..]Mesh_Instance;
+    skinned_meshes: [..]Skinned_Mesh_Instance;
 
     color_draw_data: Draw_Data;
     ui_draw_data: Draw_Data;
 
     destroy :: (using self: *Scene) {
-        array_reset(*static_models);
+        array_reset(*static_meshes);
         array_reset(*skinned_meshes);
         Draw_Data.destroy(*self.color_draw_data);
         Draw_Data.destroy(*self.ui_draw_data);
@@ -45,24 +45,69 @@ Draw_Cmd :: struct {
     xform: Matrix4;
 }
 
-Instanced :: struct(T: Type) {
+Mesh_Instance :: struct {
     transform: Matrix4;
-    mesh: *T;
+    mesh: *Mesh;
 }
 
-instantiate :: (scene: *Scene, mesh: *$T, matrix := Matrix4_Identity) -> *Instanced(T) {
-    inst : *Instanced(T); 
-    #if T == Mesh {
-        inst = array_add(*scene.static_models);
-    } else #if T == Skinned_Mesh {
-        inst = array_add(*scene.skinned_meshes);
-    } else {
-        #assert false, "Unsupported mesh type";
-    }
+Skinned_Mesh_Instance :: struct {
+    transform: Matrix4;
+    mesh: *Skinned_Mesh;
+    skeleton: [] Joint;
+    joint_descriptor: VkDescriptorSet;
+    joint_buffer: Buffer;
+}
 
+instantiate :: (scene: *Scene, mesh: *Mesh, matrix := Matrix4_Identity) -> *Mesh_Instance {
+    inst := array_add(*scene.static_models);
     inst.transform = matrix;
     inst.mesh = mesh;
     return inst;
+}
+
+instantiate :: (scene: *Scene, mesh: *Skinned_Mesh, matrix := Matrix4_Identity) -> *Skinned_Mesh_Instance {
+    instance := array_add(*scene.skinned_meshes);
+    instance.mesh = mesh;
+    instance.transform = matrix;
+    alloc_info := VkDescriptorSetAllocateInfo.{
+        descriptorPool = global_renderer.descriptor_pool,
+        descriptorSetCount = 1,
+        pSetLayouts = *global_renderer.skinned_mesh_layout
+    };
+    Vk_Check(vkAllocateDescriptorSets(global_renderer.device, *alloc_info, *instance.joint_descriptor));
+    size := size_of(Matrix4) * mesh.joints.count;
+    instance.joint_buffer = create_buffer(xx size, .UNIFORM_BUFFER_BIT, .UPLOAD, true);
+    
+    buffer_info := VkDescriptorBufferInfo.{
+        buffer = instance.joint_buffer.buffer,
+        offset = 0,
+        range = xx size
+    };
+    writes := VkWriteDescriptorSet.[.{
+        dstSet = instance.joint_descriptor,
+        dstBinding = 0,
+        dstArrayElement = 0,
+        descriptorType = .UNIFORM_BUFFER,
+        descriptorCount = 1,
+        pBufferInfo = *buffer_info
+    }];
+    vkUpdateDescriptorSets(global_renderer.device, writes.count, writes.data, 0, null);
+
+    instance.skeleton = array_copy(mesh.joints);
+    return instance;    
+}
+
+update_skeleton :: (instance: Skinned_Mesh_Instance) {
+    // TODO: Dirty flag, do the world calculation here 
+    buffer : [] Matrix4; 
+    buffer.data = instance.joint_buffer.mapped;
+    buffer.count = instance.mesh.joints.count;
+
+    inverse_xform := inverse(instance.transform);
+    for instance.skeleton {
+        mat := inverse_xform * it.world_matrix * instance.mesh.inverse_bind_matrices[it_index];
+        buffer[it_index] = transpose(mat);
+    }
 }
 
 record_3d_commands :: (scene: *Scene, command_buffer: VkCommandBuffer, $kind: Pipeline_Kind) {
@@ -85,12 +130,12 @@ record_3d_commands :: (scene: *Scene, command_buffer: VkCommandBuffer, $kind: Pi
     }
 
     // Static scene meshes
-    if scene.static_models.count > 0 && last_material != *global_renderer.static_mesh_material {
+    if scene.static_meshes.count > 0 && last_material != *global_renderer.static_mesh_material {
         bind_material(command_buffer, global_renderer.static_mesh_material, kind);
         last_material = *global_renderer.static_mesh_material;
     }
 
-    for scene.static_models {
+    for scene.static_meshes {
         bind(it.mesh, command_buffer);
         pc := PushConstantData.{transpose(it.transform), transpose(inverse(it.transform))};
         vkCmdPushConstants(command_buffer, last_material.pipelines[kind].pipeline_layout, .VERTEX_BIT, 0, size_of(PushConstantData), *pc);
@@ -105,6 +150,9 @@ record_3d_commands :: (scene: *Scene, command_buffer: VkCommandBuffer, $kind: Pi
 
     for scene.skinned_meshes {
         bind(it.mesh, command_buffer);
+        update_skeleton(it);
+
+        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, last_material.pipelines[kind].pipeline_layout, Renderer.INSTANCE_SET, 1, *it.joint_descriptor, 0, null);
         pc := PushConstantData.{transpose(it.transform), transpose(inverse(it.transform))};
         vkCmdPushConstants(command_buffer, last_material.pipelines[kind].pipeline_layout, .VERTEX_BIT, 0, size_of(PushConstantData), *pc);
         vkCmdDrawIndexed(command_buffer, xx it.mesh.index_count, 1, 0, 0, 0);

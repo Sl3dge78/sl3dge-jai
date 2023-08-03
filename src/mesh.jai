@@ -137,7 +137,6 @@ load_skinned_gltf :: (path: string) -> Skinned_Mesh {
     for *joint: result.joints {
         node := gltf_data.nodes[skin.joints[it_index]];
         joint.world_matrix = node.world_transform;
-        
         joint.children = NewArray(node.children.count, int);
         joint.parent = find_joint_id(joint_ids, node.parent);
         for *child: joint.children { 

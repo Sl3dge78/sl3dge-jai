@@ -1,4 +1,5 @@
 
+
 Renderer :: struct {
     instance: VkInstance;
     debug_messenger: VkDebugUtilsMessengerEXT;
@@ -21,13 +22,15 @@ Renderer :: struct {
     depth_format: VkFormat = .D32_SFLOAT_S8_UINT;
     
     descriptor_pool: VkDescriptorPool;
-
+    
+    empty_set_layout: VkDescriptorSetLayout; // Camera buffer
     camera_set_layout: VkDescriptorSetLayout; // Camera buffer
 
     shadowmap_layout: VkDescriptorSetLayout;  // Texture
     shadowmap_descriptor_set: VkDescriptorSet;
 
     single_texture_layout: VkDescriptorSetLayout; // Texture
+    skinned_mesh_layout: VkDescriptorSetLayout;  // Joint matrices
 
     command_pool : VkCommandPool;
 
@@ -69,55 +72,13 @@ Renderer :: struct {
     // Scene rendering
     buffer_pool: Buffer_Pool;
     scene: *Scene;
+    
+    FRAME_CAMERADATA_SET :: 0;
+    FRAME_SHADOWMAP_SET  :: 1;
+    MATERIAL_SET :: 2;
+    INSTANCE_SET :: 3;
 }
 
-Buffer_Pool_Location :: struct {
-    buffer: *Buffer;
-    offset: u64;
-}
-
-Buffer_Pool :: struct {
-    BUFFER_SIZE :: 32 * 1024 * 1024;
-
-    buffers: [..] Buffer;
-    current_position_in_buffer: VkDeviceSize;
-
-    maybe_grow :: (using buffer_pool: *Buffer_Pool, size: VkDeviceSize) {
-        if buffers.count == 0 || size > (BUFFER_SIZE - current_position_in_buffer) {
-            array_add(*buffers, create_buffer(BUFFER_SIZE, .VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT | .STORAGE_BUFFER_BIT | .TRANSFER_SRC_BIT, .UPLOAD));
-            current_position_in_buffer = 0;
-        }
-    }
-
-    load_data :: (using buffer_pool: *Buffer_Pool, data: []$T) -> Buffer_Pool_Location {
-        loc : Buffer_Pool_Location;
-        size : VkDeviceSize = xx (data.count * size_of(T));
-        Buffer_Pool.maybe_grow(buffer_pool, xx size);
-        loc.buffer = *buffers[buffers.count - 1];
-        loc.offset = current_position_in_buffer;
-        copy_data(loc.buffer, data.data, size, loc.offset);
-        current_position_in_buffer += size;
-        return loc;
-    }
-
-    load_mesh :: (using buffer_pool: *Buffer_Pool, vertices: []$T, indices: []u32) -> Mesh {
-        mesh: Mesh;
-        mesh.vertices_loc = load_data(buffer_pool, vertices);
-        mesh.vertex_count = xx vertices.count;
-        mesh.indices_loc = load_data(buffer_pool, indices);
-        mesh.index_count = xx indices.count;
-        return mesh;
-    }
-
-    reset_pool :: (using buffer_pool: *Buffer_Pool) {
-        for *buffers {
-            destroy_buffer(it);
-        }
-        array_reset(*buffers);
-        current_position_in_buffer = 0;
-    }
-
-}
 
 Frame_Data :: struct {
     command_buffer: VkCommandBuffer;
@@ -256,6 +217,8 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
         }
     }
 
+    log("Max sets: %", renderer.physical_device_properties.limits.maxBoundDescriptorSets);
+
     // Memory
     {
         find_compatible_memory_type :: (prop: *VkPhysicalDeviceMemoryProperties, flags: VkMemoryPropertyFlags) -> u32 {
@@ -361,7 +324,7 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
     }
 
     { // Descriptor Set Layouts 
-       
+        renderer.empty_set_layout = create_descriptor_set_layout(renderer.device, .[]);
         renderer.camera_set_layout = create_descriptor_set_layout(renderer.device, .[.{
             binding = 0, 
             descriptorType = .UNIFORM_BUFFER,
@@ -381,6 +344,13 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
             descriptorType = .COMBINED_IMAGE_SAMPLER,
             descriptorCount = 1,
             stageFlags = .FRAGMENT_BIT,
+            pImmutableSamplers = null,
+        }]);
+        renderer.skinned_mesh_layout = create_descriptor_set_layout(renderer.device, .[.{
+            binding = 0,
+            descriptorType = .UNIFORM_BUFFER,
+            descriptorCount = 1,
+            stageFlags = .VERTEX_BIT,
             pImmutableSamplers = null,
         }]);
     }
@@ -592,6 +562,7 @@ renderer_deinit :: () {
     vkDestroyDescriptorSetLayout(device, camera_set_layout, null);
     vkDestroyDescriptorSetLayout(device, shadowmap_layout, null);
     vkDestroyDescriptorSetLayout(device, single_texture_layout, null);
+    vkDestroyDescriptorSetLayout(device, skinned_mesh_layout, null);
 
     Material.destroy(device, *static_mesh_material);
     Material.destroy(device, *skinned_mesh_material);

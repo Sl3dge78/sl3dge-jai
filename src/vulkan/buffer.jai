@@ -59,3 +59,4 @@ unmap_buffer :: (buffer: *Buffer) {
     vkUnmapMemory(global_renderer.device, buffer.memory);
     buffer.mapped = null;
 }
+
