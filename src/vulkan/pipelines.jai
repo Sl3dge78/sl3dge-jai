@@ -162,7 +162,7 @@ create_static_mesh_material :: (device : VkDevice, shadowmap_rp: VkRenderPass, c
 
         create_info := pipeline_create_info(result.pipelines[Pipeline_Kind.COLOR].pipeline_layout, color_rp);
         vkCreateGraphicsPipelines(device, null, 1, *create_info, null, *result.pipelines[Pipeline_Kind.COLOR].pipeline);
-        log("Shadowmap pipeline created.");
+        log("Color pipeline created.");
     }
     return result;
 }
@@ -255,7 +255,7 @@ create_skinned_mesh_material :: (device : VkDevice, shadowmap_rp: VkRenderPass, 
         create_info := pipeline_create_info(result.pipelines[Pipeline_Kind.COLOR].pipeline_layout, color_rp);
         create_info.pVertexInputState = *vertex_input_state;
         vkCreateGraphicsPipelines(device, null, 1, *create_info, null, *result.pipelines[Pipeline_Kind.COLOR].pipeline);
-        log("Shadowmap pipeline created.");
+        log("Color pipeline created.");
     }
     return result;
 }

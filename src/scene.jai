@@ -1,5 +1,5 @@
 Scene :: struct {
-    static_models: [..]Instanced(Static_Mesh);
+    static_models: [..]Instanced(Mesh);
     skinned_meshes: [..]Instanced(Skinned_Mesh);
 
     color_draw_data: Draw_Data;
@@ -52,7 +52,7 @@ Instanced :: struct(T: Type) {
 
 instantiate :: (scene: *Scene, mesh: *$T, matrix := Matrix4_Identity) -> *Instanced(T) {
     inst : *Instanced(T); 
-    #if T == Static_Mesh {
+    #if T == Mesh {
         inst = array_add(*scene.static_models);
     } else #if T == Skinned_Mesh {
         inst = array_add(*scene.skinned_meshes);
@@ -91,8 +91,7 @@ record_3d_commands :: (scene: *Scene, command_buffer: VkCommandBuffer, $kind: Pi
     }
 
     for scene.static_models {
-        vkCmdBindVertexBuffers(command_buffer, 0, 1, *it.mesh.vertex_buffer.buffer, *it.mesh.vertex_offset);
-        vkCmdBindIndexBuffer(command_buffer, it.mesh.index_buffer.buffer, it.mesh.index_offset, .UINT32);
+        bind(it.mesh, command_buffer);
         pc := PushConstantData.{transpose(it.transform), transpose(inverse(it.transform))};
         vkCmdPushConstants(command_buffer, last_material.pipelines[kind].pipeline_layout, .VERTEX_BIT, 0, size_of(PushConstantData), *pc);
         vkCmdDrawIndexed(command_buffer, xx it.mesh.index_count, 1, 0, 0, 0);
@@ -105,8 +104,7 @@ record_3d_commands :: (scene: *Scene, command_buffer: VkCommandBuffer, $kind: Pi
     }
 
     for scene.skinned_meshes {
-        vkCmdBindVertexBuffers(command_buffer, 0, 1, *it.mesh.vertex_buffer.buffer, *it.mesh.vertex_offset);
-        vkCmdBindIndexBuffer(command_buffer, it.mesh.index_buffer.buffer, it.mesh.index_offset, .UINT32);
+        bind(it.mesh, command_buffer);
         pc := PushConstantData.{transpose(it.transform), transpose(inverse(it.transform))};
         vkCmdPushConstants(command_buffer, last_material.pipelines[kind].pipeline_layout, .VERTEX_BIT, 0, size_of(PushConstantData), *pc);
         vkCmdDrawIndexed(command_buffer, xx it.mesh.index_count, 1, 0, 0, 0);

@@ -71,6 +71,11 @@ Renderer :: struct {
     scene: *Scene;
 }
 
+Buffer_Pool_Location :: struct {
+    buffer: *Buffer;
+    offset: u64;
+}
+
 Buffer_Pool :: struct {
     BUFFER_SIZE :: 32 * 1024 * 1024;
 
@@ -84,26 +89,23 @@ Buffer_Pool :: struct {
         }
     }
 
+    load_data :: (using buffer_pool: *Buffer_Pool, data: []$T) -> Buffer_Pool_Location {
+        loc : Buffer_Pool_Location;
+        size : VkDeviceSize = xx (data.count * size_of(T));
+        Buffer_Pool.maybe_grow(buffer_pool, xx size);
+        loc.buffer = *buffers[buffers.count - 1];
+        loc.offset = current_position_in_buffer;
+        copy_data(loc.buffer, data.data, size, loc.offset);
+        current_position_in_buffer += size;
+        return loc;
+    }
+
     load_mesh :: (using buffer_pool: *Buffer_Pool, vertices: []$T, indices: []u32) -> Mesh {
         mesh: Mesh;
-        {   // Vtx
-            size : VkDeviceSize = xx (vertices.count * size_of(T));
-            Buffer_Pool.maybe_grow(buffer_pool, xx size);
-            mesh.vertex_buffer = *buffers[buffers.count - 1];
-            mesh.vertex_count = xx vertices.count;
-            mesh.vertex_offset = current_position_in_buffer;
-            copy_data(mesh.vertex_buffer, vertices.data, size, mesh.vertex_offset);
-            current_position_in_buffer += size;
-        }
-        {   // Idx
-            size : VkDeviceSize = xx (indices.count * size_of(u32));
-            Buffer_Pool.maybe_grow(buffer_pool, xx size);
-            mesh.index_buffer = *buffers[buffers.count - 1];
-            mesh.index_count = xx indices.count;
-            mesh.index_offset = current_position_in_buffer;
-            copy_data(mesh.index_buffer, indices.data, size, current_position_in_buffer);
-            current_position_in_buffer += size;
-        }
+        mesh.vertices_loc = load_data(buffer_pool, vertices);
+        mesh.vertex_count = xx vertices.count;
+        mesh.indices_loc = load_data(buffer_pool, indices);
+        mesh.index_count = xx indices.count;
         return mesh;
     }
 
