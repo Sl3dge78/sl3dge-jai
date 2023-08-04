@@ -7,6 +7,9 @@ Scene :: struct {
 
     destroy :: (using self: *Scene) {
         array_reset(*static_meshes);
+        for *skinned_meshes {
+            destroy(it);
+        }
         array_reset(*skinned_meshes);
         Draw_Data.destroy(*self.color_draw_data);
         Draw_Data.destroy(*self.ui_draw_data);
@@ -97,16 +100,41 @@ instantiate :: (scene: *Scene, mesh: *Skinned_Mesh, matrix := Matrix4_Identity) 
     return instance;    
 }
 
+destroy :: (self: *Skinned_Mesh_Instance) {
+    destroy_buffer(*self.joint_buffer);
+    array_reset(*self.skeleton);
+}   
+
 update_skeleton :: (instance: Skinned_Mesh_Instance) {
     // TODO: Dirty flag, do the world calculation here 
     buffer : [] Matrix4; 
     buffer.data = instance.joint_buffer.mapped;
     buffer.count = instance.mesh.joints.count;
 
-    inverse_xform := inverse(instance.transform);
-    for instance.skeleton {
-        mat := inverse_xform * it.world_matrix * instance.mesh.inverse_bind_matrices[it_index];
+    for *instance.skeleton {
+        parent_transform : Matrix4 = ---;
+        if it.parent != -1 {
+            parent_transform = instance.skeleton[it.parent].model_space_matrix;
+        } else {
+            parent_transform = Matrix4_Identity;
+        }
+        it.model_space_matrix = parent_transform * it.local_space_matrix;
+
+        mat := it.model_space_matrix * instance.mesh.inverse_bind_matrices[it_index];
         buffer[it_index] = transpose(mat);
+    }
+}
+
+print_matrix :: (m: Matrix4) {
+    log("%\n%\n%\n%", m.v[0], m.v[1], m.v[2], m.v[3]);
+}
+
+print_skeleton :: (skeleton: []Joint) {
+    for skeleton {
+        log("Lcl:");
+        print_matrix(it.local_space_matrix);
+        log("Mdl:");
+        print_matrix(it.model_space_matrix);
     }
 }
 

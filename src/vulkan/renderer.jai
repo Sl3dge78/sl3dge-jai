@@ -559,6 +559,7 @@ renderer_deinit :: () {
     destroy_texture(*depth_texture);
 
     vkDestroyDescriptorPool(device, descriptor_pool, null);
+    vkDestroyDescriptorSetLayout(device, empty_set_layout, null);
     vkDestroyDescriptorSetLayout(device, camera_set_layout, null);
     vkDestroyDescriptorSetLayout(device, shadowmap_layout, null);
     vkDestroyDescriptorSetLayout(device, single_texture_layout, null);

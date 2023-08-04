@@ -14,12 +14,20 @@ bind :: (using self: Mesh, command_buffer: VkCommandBuffer) {
     vkCmdBindIndexBuffer(command_buffer, self.indices_loc.buffer.buffer, self.indices_loc.offset, .UINT32);
 }
 
+Joint :: struct {
+    parent: int;
+    children: []int;
+    model_space_matrix: Matrix4;
+    local_space_matrix: Matrix4;
+}
+
 Skinned_Mesh :: struct {
     using #as mesh: Mesh;
 
     skinned_loc : Buffer_Pool_Location;
 
     joints: []Joint;
+    bind_pose : []Matrix4;
     inverse_bind_matrices: []Matrix4;
 
     deinit :: (mesh : *Skinned_Mesh) {
@@ -28,6 +36,7 @@ Skinned_Mesh :: struct {
             free(it.children.data);
         }
         free(mesh.joints.data);
+        free(*mesh.bind_pose);
         mesh.* = .{};
     }
 }
@@ -38,12 +47,6 @@ bind :: (using self: Skinned_Mesh, command_buffer: VkCommandBuffer) {
     vkCmdBindIndexBuffer(command_buffer, self.indices_loc.buffer.buffer, self.indices_loc.offset, .UINT32);
 }
 
-Joint :: struct {
-    parent: int;
-    children: []int;
-    world_matrix: Matrix4;
-    matrix: Matrix4;
-}
 
 load_mesh_from_data :: (gltf_data : GLTF_Data) -> Mesh {
     assert(gltf_data.meshes.count == 1, "No mesh found in gltf!"); // @TODO: handle multiple meshes
@@ -133,10 +136,17 @@ load_skinned_gltf :: (path: string) -> Skinned_Mesh {
     }
 
     result.inverse_bind_matrices = NewArray(skin.joints.count, Matrix4);
+    result.bind_pose = NewArray(skin.joints.count, Matrix4);
     read_accessor_into_array(result.inverse_bind_matrices.data, 0, size_of(Matrix4), gltf_data, skin.inverse_bind_matrices);
+    for *result.inverse_bind_matrices {
+        it.* = transpose(it.*);
+    }
     for *joint: result.joints {
         node := gltf_data.nodes[skin.joints[it_index]];
-        joint.world_matrix = node.world_transform;
+        joint.model_space_matrix = node.world_transform;
+        joint.local_space_matrix = node.local_transform;
+        result.bind_pose[it_index] = node.local_transform;
+
         joint.children = NewArray(node.children.count, int);
         joint.parent = find_joint_id(joint_ids, node.parent);
         for *child: joint.children { 
