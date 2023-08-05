@@ -1,17 +1,24 @@
-Mesh :: struct {
-    vertices_loc : Buffer_Pool_Location;
+SubMesh :: struct {
+    vertices_loc: Buffer_Pool_Location;
     vertex_count: u64;
     indices_loc : Buffer_Pool_Location;
     index_count : u64;
+}
 
-    deinit :: (mesh : *Mesh) {
-        mesh.* = .{};
+Mesh :: struct {
+    submeshes : [..] SubMesh;
+
+    deinit :: (using mesh : *Mesh) {
+        array_reset(*submeshes);
     }
 }
 
-bind :: (using self: Mesh, command_buffer: VkCommandBuffer) {
-    vkCmdBindVertexBuffers(command_buffer, 0, 1, *self.vertices_loc.buffer.buffer, *self.vertices_loc.offset);
-    vkCmdBindIndexBuffer(command_buffer, self.indices_loc.buffer.buffer, self.indices_loc.offset, .UINT32);
+draw :: (using self: Mesh, command_buffer: VkCommandBuffer) {
+    for submeshes {
+        vkCmdBindVertexBuffers(command_buffer, 0, 1, *it.vertices_loc.buffer.buffer, *it.vertices_loc.offset);
+        vkCmdBindIndexBuffer(command_buffer, it.indices_loc.buffer.buffer, it.indices_loc.offset, .UINT32);
+        vkCmdDrawIndexed(command_buffer, xx it.index_count, 1, 0, 0, 0);
+    }
 }
 
 Joint :: struct {
@@ -24,7 +31,7 @@ Joint :: struct {
 Skinned_Mesh :: struct {
     using #as mesh: Mesh;
 
-    skinned_loc : Buffer_Pool_Location;
+    skins : [..] Buffer_Pool_Location;
 
     joints: []Joint;
     bind_pose : []Matrix4;
@@ -36,47 +43,51 @@ Skinned_Mesh :: struct {
             free(it.children.data);
         }
         free(mesh.joints.data);
-        free(*mesh.bind_pose);
+        free(mesh.bind_pose.data);
+        array_reset(*mesh.skins);
+        Mesh.deinit(*mesh.mesh);
         mesh.* = .{};
     }
 }
 
-bind :: (using self: Skinned_Mesh, command_buffer: VkCommandBuffer) {
-    vkCmdBindVertexBuffers(command_buffer, 0, 1, *self.vertices_loc.buffer.buffer, *self.vertices_loc.offset);
-    vkCmdBindVertexBuffers(command_buffer, 1, 1, *self.skinned_loc.buffer.buffer, *self.skinned_loc.offset);
-    vkCmdBindIndexBuffer(command_buffer, self.indices_loc.buffer.buffer, self.indices_loc.offset, .UINT32);
+draw :: (using self: Skinned_Mesh, command_buffer: VkCommandBuffer) {
+    for submeshes {
+        vkCmdBindVertexBuffers(command_buffer, 0, 1, *it.vertices_loc.buffer.buffer, *it.vertices_loc.offset);
+        vkCmdBindVertexBuffers(command_buffer, 1, 1, *skins[it_index].buffer.buffer, *skins[it_index].offset);
+        vkCmdBindIndexBuffer(command_buffer, it.indices_loc.buffer.buffer, it.indices_loc.offset, .UINT32);
+        vkCmdDrawIndexed(command_buffer, xx it.index_count, 1, 0, 0, 0);
+    }
 }
 
 
 load_mesh_from_data :: (gltf_data : GLTF_Data) -> Mesh {
-    assert(gltf_data.meshes.count == 1, "No mesh found in gltf!"); // @TODO: handle multiple meshes
-    mesh := gltf_data.meshes[0];
+    result : Mesh;
 
-    assert(mesh.primitives.count == 1, "No or multiple primitives found!"); // @TODO: handle multiple primitives
+    for mesh: gltf_data.meshes {
+        assert(mesh.primitives.count == 1, "No or multiple primitives found!"); // @TODO: handle multiple primitives
+        using primitive := mesh.primitives[0];
+        assert(position_accessor != -1, "No positions for vertices!");
 
-    using primitive := mesh.primitives[0];
-
-    assert(position_accessor != -1, "No positions for vertices!");
-
-    accessor := gltf_data.accessors[position_accessor];
-    assert(accessor.component_type == .FLOAT);
-    vertices := NewArray(accessor.count, Vertex, allocator = temp);
-
-    // Vertices
-    read_accessor_into_array(vertices.data, 0, size_of(Vertex), gltf_data, position_accessor);
-
-    // Normals
-    if normal_accessor != -1 {
-        offset: *Vertex = null;
-        read_accessor_into_array(vertices.data, xx *offset.normal, size_of(Vertex), gltf_data, normal_accessor);
+        // Vertices
+        accessor := gltf_data.accessors[position_accessor];
+        assert(accessor.component_type == .FLOAT);
+        vertices := NewArray(accessor.count, Vertex, allocator = temp);
+        
+        read_accessor_into_array(vertices.data, 0, size_of(Vertex), gltf_data, position_accessor);
+        
+        // Normals
+        if normal_accessor != -1 {
+            offset: *Vertex = null;
+            read_accessor_into_array(vertices.data, xx *offset.normal, size_of(Vertex), gltf_data, normal_accessor);
+        }
+        
+        // Indices
+        idx_accessor := gltf_data.accessors[indices_accessor];
+        indices := NewArray(idx_accessor.count, u32, allocator = temp);
+        read_accessor_into_array(indices.data, 0, size_of(u32), gltf_data, indices_accessor);
+        array_add(*result.submeshes, Buffer_Pool.load_mesh(*global_renderer.buffer_pool, vertices, indices));
     }
-    
-    // Indices
-    idx_accessor := gltf_data.accessors[indices_accessor];
-    indices := NewArray(idx_accessor.count, u32, allocator = temp);
-    read_accessor_into_array(indices.data, 0, size_of(u32), gltf_data, indices_accessor);
-
-    return Buffer_Pool.load_mesh(*global_renderer.buffer_pool, vertices, indices);
+    return result;
 }
 
 load_gltf :: (path: string) -> Mesh {
@@ -90,7 +101,7 @@ load_gltf :: (path: string) -> Mesh {
 
 load_skinned_gltf :: (path: string) -> Skinned_Mesh {
     result: Skinned_Mesh;
-
+    log("Loading skinned mesh: %", path);
     gltf_data := gltf_parse_file(path);
     defer gltf_free(*gltf_data);
 
@@ -98,25 +109,30 @@ load_skinned_gltf :: (path: string) -> Skinned_Mesh {
 
     result.mesh = load_mesh_from_data(gltf_data);
 
-    // Other attributes
-    skin_data := NewArray(xx result.mesh.vertex_count, u32, allocator = temp);
+    for mesh: gltf_data.meshes {
+        assert(mesh.primitives.count == 1, "No or multiple primitives found in mesh %", it_index);
+        primitive := mesh.primitives[0];
+        vtx_count := result.mesh.submeshes[it_index].vertex_count;
 
-    mesh := gltf_data.meshes[0];
-    primitive := mesh.primitives[0];
+        // Other attributes
+        vertices := NewArray(xx vtx_count, Skinned_Vertex, allocator = temp);
+        offset: *Skinned_Vertex = null;
 
-    vertices := NewArray(xx result.mesh.vertex_count, Skinned_Vertex, allocator = temp);
-    offset: *Skinned_Vertex = null;
+        if primitive.joints_accessor != -1 {
+            assert(gltf_data.accessors[primitive.joints_accessor].count == xx vtx_count, "The amount of joint data != the amount of vertices!");
 
-    if primitive.joints_accessor != -1 {
-        read_accessor_into_array(vertices.data, xx *offset.joints, size_of(Skinned_Vertex), gltf_data, primitive.joints_accessor);
+            read_accessor_into_array(vertices.data, xx *offset.joints, size_of(Skinned_Vertex), gltf_data, primitive.joints_accessor);
+        }
+
+        if primitive.weights_accessor != -1 {
+            assert(gltf_data.accessors[primitive.weights_accessor].count == xx vtx_count, "The amount of weight data != the amount of vertices!");
+
+            read_accessor_into_array(vertices.data, xx *offset.weights, size_of(Skinned_Vertex), gltf_data, primitive.weights_accessor);
+        }
+
+        skinned_loc := Buffer_Pool.load_data(*global_renderer.buffer_pool, vertices);
+        array_add(*result.skins, skinned_loc);
     }
-
-    if primitive.weights_accessor != -1 {
-        read_accessor_into_array(vertices.data, xx *offset.weights, size_of(Skinned_Vertex), gltf_data, primitive.weights_accessor);
-    }
-
-    result.skinned_loc = Buffer_Pool.load_data(*global_renderer.buffer_pool, vertices);
-    
     assert(gltf_data.skins.count == 1, "No or multiple skins found in gltf, this isn't supported"); // @TODO
     skin := gltf_data.skins[0];
 

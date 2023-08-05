@@ -296,7 +296,7 @@ pipeline_create_info :: (layout: VkPipelineLayout, renderpass: VkRenderPass) -> 
             depthClampEnable = VK_FALSE,
             rasterizerDiscardEnable = VK_FALSE,
             polygonMode = .FILL,
-            cullMode = .BACK_BIT,
+            cullMode = .NONE,
             frontFace = .COUNTER_CLOCKWISE,
             depthBiasEnable = VK_FALSE,
             depthBiasConstantFactor = 0,

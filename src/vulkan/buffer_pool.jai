@@ -27,8 +27,8 @@ Buffer_Pool :: struct {
         return loc;
     }
 
-    load_mesh :: (using buffer_pool: *Buffer_Pool, vertices: []$T, indices: []u32) -> Mesh {
-        mesh: Mesh;
+    load_mesh :: (using buffer_pool: *Buffer_Pool, vertices: []$T, indices: []u32) -> SubMesh {
+        mesh: SubMesh;
         mesh.vertices_loc = load_data(buffer_pool, vertices);
         mesh.vertex_count = xx vertices.count;
         mesh.indices_loc = load_data(buffer_pool, indices);

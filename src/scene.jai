@@ -164,10 +164,9 @@ record_3d_commands :: (scene: *Scene, command_buffer: VkCommandBuffer, $kind: Pi
     }
 
     for scene.static_meshes {
-        bind(it.mesh, command_buffer);
         pc := PushConstantData.{transpose(it.transform), transpose(inverse(it.transform))};
         vkCmdPushConstants(command_buffer, last_material.pipelines[kind].pipeline_layout, .VERTEX_BIT, 0, size_of(PushConstantData), *pc);
-        vkCmdDrawIndexed(command_buffer, xx it.mesh.index_count, 1, 0, 0, 0);
+        draw(it.mesh, command_buffer);
     }
 
     // Skinned
@@ -177,13 +176,12 @@ record_3d_commands :: (scene: *Scene, command_buffer: VkCommandBuffer, $kind: Pi
     }
 
     for scene.skinned_meshes {
-        bind(it.mesh, command_buffer);
         update_skeleton(it);
 
         vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, last_material.pipelines[kind].pipeline_layout, Renderer.INSTANCE_SET, 1, *it.joint_descriptor, 0, null);
         pc := PushConstantData.{transpose(it.transform), transpose(inverse(it.transform))};
         vkCmdPushConstants(command_buffer, last_material.pipelines[kind].pipeline_layout, .VERTEX_BIT, 0, size_of(PushConstantData), *pc);
-        vkCmdDrawIndexed(command_buffer, xx it.mesh.index_count, 1, 0, 0, 0);
+        draw(it.mesh, command_buffer);
     }
 }
 
