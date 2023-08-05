@@ -53,14 +53,6 @@ Mesh_Instance :: struct {
     mesh: *Mesh;
 }
 
-Skinned_Mesh_Instance :: struct {
-    transform: Matrix4;
-    mesh: *Skinned_Mesh;
-    skeleton: [] Joint;
-    joint_descriptor: VkDescriptorSet;
-    joint_buffer: Buffer;
-}
-
 instantiate :: (scene: *Scene, mesh: *Mesh, matrix := Matrix4_Identity) -> *Mesh_Instance {
     inst := array_add(*scene.static_models);
     inst.transform = matrix;
@@ -68,62 +60,11 @@ instantiate :: (scene: *Scene, mesh: *Mesh, matrix := Matrix4_Identity) -> *Mesh
     return inst;
 }
 
-instantiate :: (scene: *Scene, mesh: *Skinned_Mesh, matrix := Matrix4_Identity) -> *Skinned_Mesh_Instance {
-    instance := array_add(*scene.skinned_meshes);
-    instance.mesh = mesh;
-    instance.transform = matrix;
-    alloc_info := VkDescriptorSetAllocateInfo.{
-        descriptorPool = global_renderer.descriptor_pool,
-        descriptorSetCount = 1,
-        pSetLayouts = *global_renderer.skinned_mesh_layout
-    };
-    Vk_Check(vkAllocateDescriptorSets(global_renderer.device, *alloc_info, *instance.joint_descriptor));
-    size := size_of(Matrix4) * mesh.joints.count;
-    instance.joint_buffer = create_buffer(xx size, .UNIFORM_BUFFER_BIT, .UPLOAD, true);
-    
-    buffer_info := VkDescriptorBufferInfo.{
-        buffer = instance.joint_buffer.buffer,
-        offset = 0,
-        range = xx size
-    };
-    writes := VkWriteDescriptorSet.[.{
-        dstSet = instance.joint_descriptor,
-        dstBinding = 0,
-        dstArrayElement = 0,
-        descriptorType = .UNIFORM_BUFFER,
-        descriptorCount = 1,
-        pBufferInfo = *buffer_info
-    }];
-    vkUpdateDescriptorSets(global_renderer.device, writes.count, writes.data, 0, null);
-
-    instance.skeleton = array_copy(mesh.joints);
-    return instance;    
-}
 
 destroy :: (self: *Skinned_Mesh_Instance) {
     destroy_buffer(*self.joint_buffer);
     array_reset(*self.skeleton);
 }   
-
-update_skeleton :: (instance: Skinned_Mesh_Instance) {
-    // TODO: Dirty flag, do the world calculation here 
-    buffer : [] Matrix4; 
-    buffer.data = instance.joint_buffer.mapped;
-    buffer.count = instance.mesh.joints.count;
-
-    for *instance.skeleton {
-        parent_transform : Matrix4 = ---;
-        if it.parent != -1 {
-            parent_transform = instance.skeleton[it.parent].model_space_matrix;
-        } else {
-            parent_transform = Matrix4_Identity;
-        }
-        it.model_space_matrix = parent_transform * it.local_space_matrix;
-
-        mat := it.model_space_matrix * instance.mesh.inverse_bind_matrices[it_index];
-        buffer[it_index] = transpose(mat);
-    }
-}
 
 print_matrix :: (m: Matrix4) {
     log("%\n%\n%\n%", m.v[0], m.v[1], m.v[2], m.v[3]);
@@ -175,9 +116,8 @@ record_3d_commands :: (scene: *Scene, command_buffer: VkCommandBuffer, $kind: Pi
         last_material = *global_renderer.skinned_mesh_material;
     }
 
-    for scene.skinned_meshes {
-        update_skeleton(it);
-
+    for *scene.skinned_meshes {
+        upload_skeleton(it);
         vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, last_material.pipelines[kind].pipeline_layout, Renderer.INSTANCE_SET, 1, *it.joint_descriptor, 0, null);
         pc := PushConstantData.{transpose(it.transform), transpose(inverse(it.transform))};
         vkCmdPushConstants(command_buffer, last_material.pipelines[kind].pipeline_layout, .VERTEX_BIT, 0, size_of(PushConstantData), *pc);

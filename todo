@@ -15,6 +15,7 @@
 - [X] Figure out why the normals don't work!!!
 
 // -- LATER
+- [ ] Sort the skeletons by depth to avoid recursive shenanigans
 - [ ] Buffer pool for uniforms
 - [ ] Look into VK_EXT_graphics_pipeline_library
 - [ ] Better materials

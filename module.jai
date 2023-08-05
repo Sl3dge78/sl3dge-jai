@@ -34,6 +34,7 @@ File_Watcher :: #import "File_Watcher";
 #load "src/console.jai";
 #load "src/resources.jai";
 #load "src/mesh.jai";
+#load "src/skinned_mesh.jai";
 #load "src/scene.jai";
 
 #import,dir "modules/gltf_parser";
