@@ -20,43 +20,52 @@ skinned_vertex_input_attribute :: #run () -> []VkVertexInputAttributeDescription
 }();
 
 Joint :: struct {
-    // @NOTE: The model space matrices are stored directly on the gpu
-    name: string;
-    parent: int;
-    children: []int;
     local_space_matrix: Matrix4;
-    model_space_matrix: Matrix4;
+    model_space_matrix: Matrix4;       
     dirty: bool;
+}
+
+Skeleton_Pose :: []Joint;
+
+Skeleton_Definition :: struct {
+    Joint_Definition :: struct {
+        parent: int;
+        children: [] int;
+        inverse_bind_matrix: Matrix4;
+    }
+    bind_pose : Skeleton_Pose;
+    joints : [] Joint_Definition;
+    root: int;
+    name_to_id : Table(string, int);
+
+    deinit :: (using self: *Skeleton_Definition) {
+        for joints {
+            free(it.children.data);
+        }
+        free(joints.data);
+        free(bind_pose.data);
+    }
 }
 
 Skinned_Mesh :: struct {
     using #as mesh: Mesh;
 
     skins : [..] Buffer_Pool_Location;
-    
-    skeleton: []Joint;
-    root_bone: int;
-    bind_pose : []Matrix4;
-    inverse_bind_matrices: []Matrix4;
+    skeleton: Skeleton_Definition;
 
-    deinit :: (mesh : *Skinned_Mesh) {
-        free(mesh.inverse_bind_matrices.data);
-        for mesh.skeleton {
-            free(it.children.data);
-            free(it.name);
-        }
-        free(mesh.skeleton.data);
-        free(mesh.bind_pose.data);
-        array_reset(*mesh.skins);
-        Mesh.deinit(*mesh.mesh);
-        mesh.* = .{};
+    deinit :: (using self : *Skinned_Mesh) {
+        Skeleton_Definition.deinit(*skeleton);
+        array_reset(*skins);
+        Mesh.deinit(*mesh);
+        self.* = .{};
     }
 }
 
 Skinned_Mesh_Instance :: struct {
     transform: Matrix4;
     mesh: *Skinned_Mesh;
-    skeleton: []Joint;
+
+    current_pose: Skeleton_Pose;
     joint_descriptor: VkDescriptorSet;
     joint_buffer: Buffer;
 }
@@ -98,7 +107,7 @@ load_skinned_gltf :: (path: string) -> Skinned_Mesh {
     assert(gltf_data.skins.count == 1, "No or multiple skins found in gltf, this isn't supported"); // @TODO
     skin := gltf_data.skins[0];
 
-    result.skeleton = NewArray(skin.joints.count, Joint);
+    result.skeleton.joints = NewArray(skin.joints.count, Skeleton_Definition.Joint_Definition);
     joint_ids := NewArray(skin.joints.count, int, allocator = temp);
     
     // fill the ids
@@ -113,27 +122,31 @@ load_skinned_gltf :: (path: string) -> Skinned_Mesh {
         return -1;
     }
 
-    result.inverse_bind_matrices = NewArray(skin.joints.count, Matrix4);
-    result.bind_pose = NewArray(skin.joints.count, Matrix4);
-    read_accessor_into_array(result.inverse_bind_matrices.data, 0, size_of(Matrix4), gltf_data, skin.inverse_bind_matrices);
-    for *result.inverse_bind_matrices {
+    inverse_bind_matrices := NewArray(skin.joints.count, Matrix4, allocator = temp);
+    result.skeleton.bind_pose = NewArray(skin.joints.count, Joint);
+    read_accessor_into_array(inverse_bind_matrices.data, 0, size_of(Matrix4), gltf_data, skin.inverse_bind_matrices);
+    for *inverse_bind_matrices {
         it.* = transpose(it.*);
     }
-    for *joint: result.skeleton {
-        node := gltf_data.nodes[skin.joints[it_index]];
-        joint.model_space_matrix = node.world_transform;
-        joint.local_space_matrix = node.local_transform;
-        joint.name = copy_string(node.name);
-        result.bind_pose[it_index] = node.local_transform;
+    for 0..skin.joints.count - 1 {
+        node := gltf_data.nodes[skin.joints[it]];
+        log("%", node.name);
+        table_add(*result.skeleton.name_to_id, copy_string(node.name), it);
 
-        joint.children = NewArray(node.children.count, int);
-        joint.parent = find_joint_id(joint_ids, node.parent);
-        if joint.parent == -1 {
-            result.root_bone = it_index;
+        d_joint := *result.skeleton.joints[it];
+        d_joint.children = NewArray(node.children.count, int);
+        d_joint.parent = find_joint_id(joint_ids, node.parent);
+        if d_joint.parent == -1 {
+            result.skeleton.root = it;
         }
-        for *child: joint.children { 
-            child.* = find_joint_id(joint_ids, node.children[it_index]);
+        for node.children {
+            d_joint.children[it_index] = find_joint_id(joint_ids, it);
         }
+        d_joint.inverse_bind_matrix = inverse_bind_matrices[it];
+
+        p_joint := *result.skeleton.bind_pose[it];
+        p_joint.model_space_matrix = node.world_transform;
+        p_joint.local_space_matrix = node.local_transform;
     }
 
     return result;
@@ -149,7 +162,7 @@ instantiate :: (scene: *Scene, mesh: *Skinned_Mesh, matrix := Matrix4_Identity) 
         pSetLayouts = *global_renderer.skinned_mesh_layout
     };
     Vk_Check(vkAllocateDescriptorSets(global_renderer.device, *alloc_info, *instance.joint_descriptor));
-    size := size_of(Matrix4) * mesh.skeleton.count;
+    size := size_of(Matrix4) * mesh.skeleton.joints.count;
     instance.joint_buffer = create_buffer(xx size, .UNIFORM_BUFFER_BIT, .UPLOAD, true);
     
     buffer_info := VkDescriptorBufferInfo.{
@@ -167,13 +180,19 @@ instantiate :: (scene: *Scene, mesh: *Skinned_Mesh, matrix := Matrix4_Identity) 
     }];
     vkUpdateDescriptorSets(global_renderer.device, writes.count, writes.data, 0, null);
 
-    instance.skeleton = array_copy(mesh.skeleton);
-    for *instance.skeleton {
+    instance.current_pose = NewArray(mesh.skeleton.joints.count, Joint);
+    for *instance.current_pose {
+        it.* = mesh.skeleton.bind_pose[it_index];
         it.dirty = true;
     }
+    upload_skeleton(instance);
     return instance;    
 }
 
+destroy :: (self: *Skinned_Mesh_Instance) {
+    destroy_buffer(*self.joint_buffer);
+    free(self.current_pose.data);
+}   
 
 draw :: (using self: Skinned_Mesh, command_buffer: VkCommandBuffer) {
 
@@ -188,39 +207,39 @@ draw :: (using self: Skinned_Mesh, command_buffer: VkCommandBuffer) {
 upload_skeleton :: (using self: *Skinned_Mesh_Instance) {
 
     update_branch_transforms :: (using self: *Skinned_Mesh_Instance, id: int, buffer: []Matrix4) {
-        joint := skeleton[id];
-        if !joint.dirty then return;
-
+        joint := *current_pose[id];
+        def := self.mesh.skeleton.joints[id];
         parent_transform : Matrix4 = ---;
-        if joint.parent != -1 {
-            joint.model_space_matrix = skeleton[joint.parent].model_space_matrix * joint.local_space_matrix;
+        if def.parent != -1 {
+            joint.model_space_matrix = current_pose[def.parent].model_space_matrix * joint.local_space_matrix;
         } else {
             joint.model_space_matrix = joint.local_space_matrix;
         }
-        
-        buffer[id] = transpose(joint.model_space_matrix * mesh.inverse_bind_matrices[id]);
+            
+        buffer[id] = transpose(joint.model_space_matrix *def.inverse_bind_matrix);
         joint.dirty = false;
 
-        for joint.children {
+        for def.children {
             update_branch_transforms(self, it, buffer);
         }
     }
 
-    // TODO: Dirty flag, do the world calculation here 
     buffer : [] Matrix4; 
     buffer.data = joint_buffer.mapped;
-    buffer.count = mesh.skeleton.count;
+    buffer.count = mesh.skeleton.joints.count;
 
     // Traverse the tree from the root, only updating dirty elements
-    update_branch_transforms(self, mesh.root_bone, buffer); 
-}
-
-set_bone_matrix :: (skeleton: []Joint, name: string, matrix: Matrix4) {
-
-    for skeleton {
-        if it.name == name {
-            it.local_space_matrix = matrix;
-            it.dirty = true;
+    for *self.current_pose {
+        if it.dirty {
+            update_branch_transforms(self, mesh.skeleton.root, buffer);
         }
     }
+}
+
+set_bone_matrix :: (using self: *Skinned_Mesh_Instance, name: string, matrix: Matrix4) {
+    id, found := table_find(*mesh.skeleton.name_to_id, name);
+    assert(found, "No bone named % in skeleton", name);
+
+    current_pose[id].local_space_matrix = mesh.skeleton.bind_pose[id].local_space_matrix * matrix;
+    current_pose[id].dirty = true;
 }

@@ -5,6 +5,7 @@
 #import "File";
 #import "Debug";
 #import "Bit_Operations";
+#import "Hash_Table";
 
 File_Watcher :: #import "File_Watcher";
 #import "SDL";

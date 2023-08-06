@@ -60,12 +60,6 @@ instantiate :: (scene: *Scene, mesh: *Mesh, matrix := Matrix4_Identity) -> *Mesh
     return inst;
 }
 
-
-destroy :: (self: *Skinned_Mesh_Instance) {
-    destroy_buffer(*self.joint_buffer);
-    array_reset(*self.skeleton);
-}   
-
 print_matrix :: (m: Matrix4) {
     log("%\n%\n%\n%", m.v[0], m.v[1], m.v[2], m.v[3]);
 }
