@@ -18,19 +18,18 @@ Engine :: struct {
         w := 1280;
         h := 720;
         global_engine.window = SDL_CreateWindow("Demo", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, xx w, xx h, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
-        global_engine.renderer = renderer_init(global_engine.window);
-        global_engine.default_font = create_font_from_data(default_font_data, 8);
+        global_engine.renderer = Renderer.create(global_engine.window);
+        global_engine.default_font = Font.from_data(default_font_data, 8);
 
         Console.init();
         Resources.init();
     }
 
     deinit :: () {
-        renderer_wait_idle();
-        destroy_font(*global_engine.default_font);
+        Font.deinit(*global_engine.default_font);
         Resources.deinit();
         Console.deinit();
-        renderer_deinit();
+        Renderer.destroy(*global_engine.renderer);
         SDL_DestroyWindow(global_engine.window);
         SDL_Quit();
     }
@@ -47,6 +46,13 @@ Engine :: struct {
         if global_engine.draw_perf_overlay {
             draw_text(tprint("Frametime: %ms", global_engine.frame_time), 0, 8, *global_engine.default_font);
         }
+    }
+
+    window_dims :: () -> Vector2i {
+        x: s32 = ---;
+        y: s32 = ---;
+        SDL_GetWindowSize(global_engine.window, *x, *y);
+        return .{xx x, xx y};
     }
 }
 

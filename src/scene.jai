@@ -2,9 +2,6 @@ Scene :: struct {
     static_meshes: [..]Mesh_Instance;
     skinned_meshes: [..]Skinned_Mesh_Instance;
 
-    color_draw_data: Draw_Data;
-    ui_draw_data: Draw_Data;
-
     destroy :: (using self: *Scene) {
         array_reset(*static_meshes);
         for *skinned_meshes {
@@ -21,32 +18,7 @@ Scene :: struct {
     }
 }
 
-Draw_Data :: struct {
-    vertex_buffer: Buffer;
-    vertices: [..]Vertex;
-    draw_cmds : [..]Draw_Cmd;
-    transform: Matrix4;
 
-
-    destroy :: (dd: *Draw_Data) {
-        array_reset(*dd.draw_cmds);
-        array_reset(*dd.vertices);
-        destroy_buffer(*dd.vertex_buffer);
-    }
-
-    upload :: (dd: *Draw_Data) {
-        if dd.vertices.count == 0 then return; 
-        size : u64 = xx (dd.vertices.count * size_of(Vertex));
-        create_or_update_buffer(*dd.vertex_buffer, size, .VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT | .UNIFORM_BUFFER_BIT | .STORAGE_BUFFER_BIT | .TRANSFER_SRC_BIT, .UPLOAD);
-        copy_data(dd.vertex_buffer, dd.vertices.data, size);
-    }
-}
-
-Draw_Cmd :: struct {
-    id: u32;
-    count: u32;
-    xform: Matrix4;
-}
 
 Mesh_Instance :: struct {
     transform: Matrix4;
