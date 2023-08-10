@@ -1,4 +1,7 @@
-
+WGPU_Check :: (item: *$T) -> *T #expand {
+    assert(item != null, "Unable to create %!", T);
+    return item;
+}
 
 Renderer :: struct {
     // Main State
@@ -9,25 +12,28 @@ Renderer :: struct {
     queue     : wgpu.Queue;
     swapchain : wgpu.SwapChain;
     swapchain_format : wgpu.TextureFormat;
+
+    limits: wgpu.Limits;
     width : u32;
     height: u32;
 
     sampler   : wgpu.Sampler;
 
     single_texture_bind_group : wgpu.BindGroupLayout;
+    global_buffer_bind_group  : wgpu.BindGroupLayout;
 
-    ui_pipeline  : wgpu.RenderPipeline;
+    ui_pipeline          : wgpu.RenderPipeline;
+    static_mesh_pipeline : wgpu.RenderPipeline;
 
     create :: (window: *SDL_Window) -> Renderer {
         renderer := *global_renderer;
 
         wgpu.SetLogCallback(wgpu_log_callback, null);
-        wgpu.SetLogLevel(.Trace);
+        wgpu.SetLogLevel(.Warn);
 
         {   // Instance
             desc: wgpu.InstanceDescriptor;
-            renderer.instance = wgpu.CreateInstance(*desc);
-            assert(renderer.instance != null, "Unable to create Instance");
+            renderer.instance = WGPU_Check(wgpu.CreateInstance(*desc));
         }
 
         {   // Surface
@@ -52,8 +58,7 @@ Renderer :: struct {
                 #assert(false);
             }
 
-            renderer.surface = wgpu.InstanceCreateSurface(renderer.instance, *desc);
-            assert(renderer.surface != null, "Unable to create Surface");
+            renderer.surface = WGPU_Check(wgpu.InstanceCreateSurface(renderer.instance, *desc));
         }
         
         {   // Adapter
@@ -94,7 +99,7 @@ Renderer :: struct {
             limits := get_required_limits(renderer.adapter);
 
             extras := wgpu.RequiredLimitsExtras.{
-                maxPushConstantSize = 2 * size_of(Vector2),
+                maxPushConstantSize = size_of(Standard_Push_Constants),
             };
 
             required_limits := wgpu.RequiredLimits.{
@@ -123,13 +128,12 @@ Renderer :: struct {
 
             activated_limits : wgpu.SupportedLimits;
             wgpu.DeviceGetLimits(renderer.device, *activated_limits);
-            log("Activated limits: %", limits);
+            renderer.limits = activated_limits.limits;
+            log("Activated limits: %", renderer.limits);
         }
 
         {   // Queue 
-            renderer.queue = wgpu.DeviceGetQueue(renderer.device);    
-            assert(renderer.queue != null, "Unable to create Queue");
-
+            renderer.queue = WGPU_Check(wgpu.DeviceGetQueue(renderer.device));
             wgpu.QueueOnSubmittedWorkDone(renderer.queue, wgpu_on_queue_work_done, null);
         }
         
@@ -145,8 +149,7 @@ Renderer :: struct {
             };
             renderer.width = desc.width;
             renderer.height = desc.height;
-            renderer.swapchain = wgpu.DeviceCreateSwapChain(renderer.device, renderer.surface, *desc);
-            assert(renderer.swapchain != null, "Unable to create SwapChain");
+            renderer.swapchain = WGPU_Check(wgpu.DeviceCreateSwapChain(renderer.device, renderer.surface, *desc));
         }
 
         {   // Sampler
@@ -165,20 +168,13 @@ Renderer :: struct {
                 maxAnisotropy = 1,
             };
 
-            renderer.sampler = wgpu.DeviceCreateSampler(renderer.device, *desc);
-            assert(renderer.sampler != null, "Unable to create Sampler");
+            renderer.sampler = WGPU_Check(wgpu.DeviceCreateSampler(renderer.device, *desc));
         }
 
-        {   // Bindings
-            builder : Bindings_Builder;
-            Bindings_Builder.add_entry(*builder, wgpu.SamplerBindingLayout.{type = .Filtering}, binding = 0, .Fragment);
-            Bindings_Builder.add_entry(*builder, wgpu.TextureBindingLayout.{sampleType = .Float, viewDimension = ._2D, multisampled = false}, binding = 1, .Fragment);
-            renderer.single_texture_bind_group = Bindings_Builder.build(*builder);
-        }
-
-        {   // Pipelines
-            renderer.ui_pipeline = create_ui_pipeline(renderer);
-        }
+        create_binding_groups(renderer);
+      
+        renderer.ui_pipeline = create_ui_pipeline(renderer);
+        renderer.static_mesh_pipeline = create_static_mesh_pipeline(renderer);
 
         return renderer;
     }
@@ -198,7 +194,6 @@ Renderer :: struct {
     get_required_limits :: (adapter: wgpu.Adapter) -> wgpu.Limits {
         supported_limits : wgpu.SupportedLimits;
         wgpu.AdapterGetLimits(adapter, *supported_limits);
-        // log("Limits: %", supported_limits);
 
         return .{
             maxTextureDimension1D                     = 1,
@@ -213,7 +208,7 @@ Renderer :: struct {
             maxSamplersPerShaderStage                 = 1,
             maxStorageBuffersPerShaderStage           = 0,
             maxStorageTexturesPerShaderStage          = 0,
-            maxUniformBuffersPerShaderStage           = 0,
+            maxUniformBuffersPerShaderStage           = 1,
             maxUniformBufferBindingSize               = 0,
             maxStorageBufferBindingSize               = 0,
             minUniformBufferOffsetAlignment           = supported_limits.limits.minUniformBufferOffsetAlignment,
@@ -222,7 +217,7 @@ Renderer :: struct {
             maxBufferSize                             = 4096,
             maxVertexAttributes                       = 4,
             maxVertexBufferArrayStride                = size_of(Vertex),
-            maxInterStageShaderComponents             = 6,
+            maxInterStageShaderComponents             = 16,
             maxInterStageShaderVariables              = 0,
             maxColorAttachments                       = 0,
             maxColorAttachmentBytesPerSample          = 0,
@@ -283,21 +278,29 @@ Renderer :: struct {
         };
     }
 
+    create_binding_groups :: (using renderer: *Renderer) {
+        {   // Single texture
+            builder : Bindings_Builder;
+            Bindings_Builder.add_entry(*builder, wgpu.SamplerBindingLayout.{type = .Filtering}, binding = 0, .Fragment);
+            Bindings_Builder.add_entry(*builder, wgpu.TextureBindingLayout.{sampleType = .Float, viewDimension = ._2D, multisampled = false}, binding = 1, .Fragment);
+            renderer.single_texture_bind_group = Bindings_Builder.build(*builder);
+        }
+
+        {   // Global Data
+            builder : Bindings_Builder;
+            size := aligned_size(size_of(Global_Buffer), renderer.limits.minUniformBufferOffsetAlignment);
+            Bindings_Builder.add_entry(*builder, wgpu.BufferBindingLayout.{ type = .Uniform, hasDynamicOffset = false, minBindingSize = size }, binding = 0, .Vertex | .Fragment);
+            renderer.global_buffer_bind_group = Bindings_Builder.build(*builder);
+            print("%\n\n", size);
+        }
+    }
+
     create_ui_pipeline :: (renderer: *Renderer) -> wgpu.RenderPipeline {
-        // Shader
-        wgsl_desc := wgpu.ShaderModuleWGSLDescriptor.{
-            code = UI_SHADER,
-        };
-
-        shader_desc := wgpu.ShaderModuleDescriptor.{
-            nextInChain = *wgsl_desc.chain
-        };
-
-        shader_module := wgpu.DeviceCreateShaderModule(renderer.device, *shader_desc);
-        assert(shader_module != null, "Unable to create shader module");
+        
+        shader_module := create_shader_module(UI_SHADER, renderer.device);
 
         layout_builder: Pipeline_Layout_Builder;
-        Pipeline_Layout_Builder.push_constants(*layout_builder, size_of(Vector2) * 2, stages = .Vertex);
+        Pipeline_Layout_Builder.push_constants(*layout_builder, size_of(UI_Push_Constants), stages = .Vertex);
         Pipeline_Layout_Builder.add_bind_groups(*layout_builder, renderer.single_texture_bind_group);
         pipeline_layout := Pipeline_Layout_Builder.build(*layout_builder, renderer.device);
 
@@ -307,21 +310,32 @@ Renderer :: struct {
         return Pipeline_Builder.build(*builder, renderer.device, pipeline_layout, "UI Pipeline");
     }
     
-    // create_static_mesh_pipeline :: (using renderer: *Renderer) -> wgpu.RenderPipeline {
+    create_static_mesh_pipeline :: (using renderer: *Renderer) -> wgpu.RenderPipeline {
+        shader_module := create_shader_module(STANDARD_SHADER, device);
 
-    // }
+        layout_builder: Pipeline_Layout_Builder;
+        Pipeline_Layout_Builder.push_constants(*layout_builder, size_of(Standard_Push_Constants), stages = .Vertex);
+        Pipeline_Layout_Builder.add_bind_groups(*layout_builder, renderer.global_buffer_bind_group);
+        pipeline_layout := Pipeline_Layout_Builder.build(*layout_builder, renderer.device);
+
+        builder: Pipeline_Builder;
+        Pipeline_Builder.add_vertex_shader(*builder, shader_module, "static_vs", Vertex);
+        Pipeline_Builder.add_fragment_shader(*builder, shader_module, "fs_main");
+        return Pipeline_Builder.build(*builder, renderer.device, pipeline_layout, "UI Pipeline");
+    }
+
 
     end_frame :: () {
         using global_renderer;
 
 
-        current_texture := wgpu.SwapChainGetCurrentTextureView(swapchain);
+        current_texture := WGPU_Check(wgpu.SwapChainGetCurrentTextureView(swapchain));
         defer wgpu.TextureViewRelease(current_texture);
 
         Draw_Data.upload(*context.immediate._2d_draw_data);
 
         encoder_desc := wgpu.CommandEncoderDescriptor.{ label = "Main Command Encoder" };
-        command_encoder := wgpu.DeviceCreateCommandEncoder(device, *encoder_desc);
+        command_encoder := WGPU_Check(wgpu.DeviceCreateCommandEncoder(device, *encoder_desc));
         defer wgpu.CommandEncoderRelease(command_encoder);
 
         render_pass_desc := wgpu.RenderPassDescriptor.{
@@ -336,7 +350,7 @@ Renderer :: struct {
             },
             depthStencilAttachment = null,
         };
-        render_pass := wgpu.CommandEncoderBeginRenderPass(command_encoder, *render_pass_desc);
+        render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(command_encoder, *render_pass_desc));
 
         {   // Immediate 2d data
             using context.immediate._2d_draw_data;
@@ -353,7 +367,7 @@ Renderer :: struct {
 
         wgpu.RenderPassEncoderEnd(render_pass);
         command_buffer_desc := wgpu.CommandBufferDescriptor.{ label = "Main Command Buffer" };
-        command_buffer := wgpu.CommandEncoderFinish(command_encoder, *command_buffer_desc);
+        command_buffer := WGPU_Check(wgpu.CommandEncoderFinish(command_encoder, *command_buffer_desc));
         defer wgpu.CommandBufferRelease(command_buffer);
         wgpu.QueueSubmit(queue, 1, *command_buffer);
         wgpu.SwapChainPresent(swapchain);

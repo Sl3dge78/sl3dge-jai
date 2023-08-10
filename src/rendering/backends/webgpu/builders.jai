@@ -54,7 +54,7 @@ Pipeline_Builder :: struct {
     }
 
     build :: (using builder: *Pipeline_Builder, device: wgpu.Device, layout: wgpu.PipelineLayout, label := "") -> wgpu.RenderPipeline {
-        assert(vertex_buffer_layouts.attributeCount != 0, "No vertex buffer layout specified when building pipeline!");
+        assert(vertex_buffer_layout.attributeCount != 0, "No vertex buffer layout specified when building pipeline!");
         assert(vertex.module != null, "No vertex shader specified when building pipeline");
         
         desc := wgpu.RenderPipelineDescriptor.{
@@ -90,8 +90,7 @@ Pipeline_Builder :: struct {
 
         desc.fragment = ifx fragment.module == null then null else *fragment;
 
-        pipeline := wgpu.DeviceCreateRenderPipeline(device, *desc);
-        assert(pipeline != null, "Unable to create Pipeline");
+        pipeline := WGPU_Check(wgpu.DeviceCreateRenderPipeline(device, *desc));
         return pipeline;
     }
 }
@@ -127,8 +126,7 @@ Pipeline_Layout_Builder :: struct {
             bindGroupLayouts     = bind_groups.data,
         };
 
-        pipeline_layout := wgpu.DeviceCreatePipelineLayout(device, *layout_desc);
-        assert(pipeline_layout != null, "Unable to create Pipeline Layout");
+        pipeline_layout := WGPU_Check(wgpu.DeviceCreatePipelineLayout(device, *layout_desc));
         return pipeline_layout;
     }
 }
@@ -162,10 +160,21 @@ Bindings_Builder :: struct {
             entryCount = xx entries.count,
             entries = entries.data,
         };
-        group_layout := wgpu.DeviceCreateBindGroupLayout(global_renderer.device, *desc);
-        assert(group_layout != null, "Unable to create Bind Group Layout");
+        group_layout := WGPU_Check(wgpu.DeviceCreateBindGroupLayout(global_renderer.device, *desc));
         
         array_reset(*entries);
         return group_layout;
     }
+}
+
+create_shader_module :: (code: string, device: wgpu.Device) -> wgpu.ShaderModule {
+    wgsl_desc := wgpu.ShaderModuleWGSLDescriptor.{
+        code = code.data,
+    };
+
+    shader_desc := wgpu.ShaderModuleDescriptor.{
+        nextInChain = *wgsl_desc.chain
+    };
+
+    return WGPU_Check(wgpu.DeviceCreateShaderModule(device, *shader_desc));
 }
