@@ -236,58 +236,54 @@ Renderer :: struct {
     }
 
     // This needs to be a macro otherwise the generated array gets optimized out
-    get_vertex_layout :: ($type: Type) -> wgpu.VertexBufferLayout #expand {
-        #insert #run -> string {
-            builder: String_Builder;
+    get_vertex_layout :: ($type: Type) -> wgpu.VertexBufferLayout {
+        info := type_info(type);
+        attributes := NewArray(info.members.count, wgpu.VertexAttribute, allocator = temp);
 
-            info := type_info(type);
+        for info.members {
+            // .{ format = .Float32x2, offset = 0, shaderLocation = 0 },
+            format: wgpu.VertexFormat;
 
-            print_to_builder(*builder, "attributes := wgpu.VertexAttribute.[\n");
+            if it.type.type == {
+                case .BOOL; {
+                    format = .Sint32;
+                }
+                case .INTEGER; {
+                    int_type_info := cast(*Type_Info_Integer) it.type;
 
-            for info.members {
-                // .{ format = .Float32x2, offset = 0, shaderLocation = 0 },
-                format: wgpu.VertexFormat;
-
-                if it.type.type == {
-                    case .BOOL; {
+                    if int_type_info.signed {
                         format = .Sint32;
-                    }
-                    case .INTEGER; {
-                        int_type_info := cast(*Type_Info_Integer) it.type;
-
-                        if int_type_info.signed {
-                            format = .Sint32;
-                        } else {
-                            format = .Uint32;
-                        }
-                    }
-                    case .FLOAT; {
-                        assert(it.type.runtime_size <= 4, "Only float32 is supported in Vertex Attribute Data.");
-                        format = .Float32;
-                    }
-                    case .STRUCT; {
-                        struct_type_info := cast(*Type_Info_Struct) it.type;
-
-                        if struct_type_info.name == {
-                            case "Vector4"; format = .Float32x4;
-                            case "Vector3"; format = .Float32x3;
-                            case "Vector2"; format = .Float32x2;
-                            case; assert(false, "Unsupported struct type. Only Vector2, Vector3, Vector4 are supported");
-                        }
+                    } else {
+                        format = .Uint32;
                     }
                 }
+                case .FLOAT; {
+                    assert(it.type.runtime_size <= 4, "Only float32 is supported in Vertex Attribute Data.");
+                    format = .Float32;
+                }
+                case .STRUCT; {
+                    struct_type_info := cast(*Type_Info_Struct) it.type;
 
-                print_to_builder(*builder, ".{ format = .%, offset = %, shaderLocation = % },\n", format, it.offset_in_bytes, it_index);
+                    if struct_type_info.name == {
+                        case "Vector4"; format = .Float32x4;
+                        case "Vector3"; format = .Float32x3;
+                        case "Vector2"; format = .Float32x2;
+                        case; assert(false, "Unsupported struct type. Only Vector2, Vector3, Vector4 are supported");
+                    }
+                }
             }
+            attributes[it_index] = .{format = format, offset = xx it.offset_in_bytes, shaderLocation = xx it_index };
+        }
 
-            print_to_builder(*builder, "];\n");
-            
-            print_to_builder(*builder, "return wgpu.VertexBufferLayout.{ arrayStride=%, stepMode=.Vertex, attributeCount = attributes.count, attributes = attributes.data };\n", size_of(type));
-            return builder_to_string(*builder);
+        return wgpu.VertexBufferLayout.{
+            arrayStride = xx size_of(type),
+            stepMode = .Vertex,
+            attributeCount = xx attributes.count,
+            attributes = attributes.data
         };
     }
 
-    create_ui_pipeline :: (rdr: *Renderer) -> wgpu.RenderPipeline {
+    create_ui_pipeline :: (renderer: *Renderer) -> wgpu.RenderPipeline {
         // Shader
         wgsl_desc := wgpu.ShaderModuleWGSLDescriptor.{
             code = UI_SHADER,
@@ -297,96 +293,23 @@ Renderer :: struct {
             nextInChain = *wgsl_desc.chain
         };
 
-        shader_module := wgpu.DeviceCreateShaderModule(rdr.device, *shader_desc);
+        shader_module := wgpu.DeviceCreateShaderModule(renderer.device, *shader_desc);
         assert(shader_module != null, "Unable to create shader module");
 
-        // Layout
-        bind_groups := wgpu.BindGroupLayout.[
-            rdr.single_texture_bind_group,
-        ];
+        layout_builder: Pipeline_Layout_Builder;
+        Pipeline_Layout_Builder.push_constants(*layout_builder, size_of(Vector2) * 2, stages = .Vertex);
+        Pipeline_Layout_Builder.add_bind_groups(*layout_builder, renderer.single_texture_bind_group);
+        pipeline_layout := Pipeline_Layout_Builder.build(*layout_builder, renderer.device);
 
-        push_constant_range := wgpu.PushConstantRange.{
-            stages = .Vertex,
-            start = 0,
-            end = size_of(Vector2) * 2,
-        };
-
-        extras := wgpu.PipelineLayoutExtras.{
-            pushConstantRangeCount = 1,
-            pushConstantRanges = *push_constant_range
-        };
-
-        layout_desc := wgpu.PipelineLayoutDescriptor.{
-            nextInChain = *extras.chain,
-            bindGroupLayoutCount = bind_groups.count,
-            bindGroupLayouts     = bind_groups.data,
-        };
-
-        pipeline_layout := wgpu.DeviceCreatePipelineLayout(rdr.device, *layout_desc);
-        assert(pipeline_layout != null, "Unable to create Pipeline Layout");
-
-        vertex_buffer_layout := get_vertex_layout(Vertex); 
-        vertex := wgpu.VertexState.{
-            module        = shader_module,
-            entryPoint    = "vs_main",
-            constantCount = 0,
-            constants     = null,
-            bufferCount   = 1,
-            buffers       = *vertex_buffer_layout,
-        };
-
-        primitive := wgpu.PrimitiveState.{
-            topology =         .TriangleList,
-            stripIndexFormat = .Undefined,
-            frontFace =        .CCW,
-            cullMode =         .None,
-        };
-            
-        multisample := wgpu.MultisampleState.{
-            count = 1,
-            mask = ~(cast(u32)0),
-            alphaToCoverageEnabled = false,
-        };
-
-        color_target := wgpu.ColorTargetState.{
-            format = rdr.swapchain_format,
-            blend = *wgpu.BlendState.{
-                color = .{
-                    operation = .Add, 
-                    srcFactor = .SrcAlpha,
-                    dstFactor = .OneMinusSrcAlpha,
-                },
-                alpha = .{
-                    operation = .Add,
-                    srcFactor = .SrcAlpha,
-                    dstFactor = .OneMinusSrcAlpha,
-                },
-            },
-            writeMask = xx wgpu.ColorWriteMask.All,
-        };
-
-        fragment := wgpu.FragmentState.{
-            module =         shader_module,
-            entryPoint =     "fs_main",
-            constantCount =  0,
-            constants =      null,
-            targetCount =    1,
-            targets =        *color_target,
-        };
-
-        desc := wgpu.RenderPipelineDescriptor.{
-            label = "UI Pipeline",
-            layout = pipeline_layout,
-            vertex = vertex,
-            primitive = primitive,
-            depthStencil = null,
-            multisample = multisample,
-            fragment = *fragment,
-        };
-        pipeline := wgpu.DeviceCreateRenderPipeline(rdr.device, *desc);
-        assert(pipeline != null, "Unable to create Pipeline");
-        return pipeline;
+        builder: Pipeline_Builder;
+        Pipeline_Builder.add_vertex_shader(*builder, shader_module, "vs_main", Vertex);
+        Pipeline_Builder.add_fragment_shader(*builder, shader_module, "fs_main");
+        return Pipeline_Builder.build(*builder, renderer.device, pipeline_layout, "UI Pipeline");
     }
+    
+    // create_static_mesh_pipeline :: (using renderer: *Renderer) -> wgpu.RenderPipeline {
+
+    // }
 
     end_frame :: () {
         using global_renderer;
@@ -402,6 +325,7 @@ Renderer :: struct {
         defer wgpu.CommandEncoderRelease(command_encoder);
 
         render_pass_desc := wgpu.RenderPassDescriptor.{
+            label = "UI Pass",
             colorAttachmentCount = 1,
             colorAttachments = *wgpu.RenderPassColorAttachment.{
                 view = current_texture,

@@ -1,0 +1,171 @@
+Pipeline_Builder :: struct {
+    vertex := wgpu.VertexState.{
+        module =       null,  // add_vertex_shader
+        entryPoint =   "",    // add_vertex_shader
+        constantCount = 0,
+        constants     = null,
+        bufferCount   = 0,    // add_vertex_shader
+        buffers       = null, // add_vertex_shader
+    };
+    vertex_buffer_layout: wgpu.VertexBufferLayout; // add_vertex_shader
+
+    primitive := wgpu.PrimitiveState.{
+        topology =         .TriangleList,
+        stripIndexFormat = .Undefined,
+        frontFace =        .CCW,
+        cullMode =         .None,
+    };
+
+    multisample := wgpu.MultisampleState.{
+        count = 1,
+        mask = ~(cast(u32)0),
+        alphaToCoverageEnabled = false,
+    };
+
+    fragment := wgpu.FragmentState.{
+        module =         null, // add_fragment_shader
+        entryPoint =     "",   // add_fragment_shader
+        constantCount =  0,
+        constants =      null,
+        targetCount =    0,    // build 
+        targets =        null, // build
+    };
+
+    add_vertex_shader :: (builder: *Pipeline_Builder, module: wgpu.ShaderModule, entry_point: string, $vertex_type: Type) {
+        builder.vertex.module = module;
+        builder.vertex.entryPoint = temp_c_string(entry_point);
+        builder.vertex_buffer_layout = Renderer.get_vertex_layout(vertex_type);
+        builder.vertex.bufferCount = 1;
+        builder.vertex.buffers = *builder.vertex_buffer_layout;
+    }
+
+    add_fragment_shader :: (using builder: *Pipeline_Builder, module: wgpu.ShaderModule, entry_point: string) {
+        fragment.module = module;
+        fragment.entryPoint = temp_c_string(entry_point);
+    }
+
+    primitive_state :: (using builder: *Pipeline_Builder, topology : wgpu.PrimitiveTopology, front_face: wgpu.FrontFace = .CCW, cull_mode: wgpu.CullMode = .None) {
+        primitive = wgpu.PrimitiveState.{
+            topology =         topology,
+            stripIndexFormat = .Undefined,
+            frontFace =        front_face,
+            cullMode =         cull_mode,
+        };
+    }
+
+    build :: (using builder: *Pipeline_Builder, device: wgpu.Device, layout: wgpu.PipelineLayout, label := "") -> wgpu.RenderPipeline {
+        assert(vertex_buffer_layouts.attributeCount != 0, "No vertex buffer layout specified when building pipeline!");
+        assert(vertex.module != null, "No vertex shader specified when building pipeline");
+        
+        desc := wgpu.RenderPipelineDescriptor.{
+            label = temp_c_string(label),
+            layout = layout,
+            vertex = vertex,
+            primitive = primitive,
+            depthStencil = null,
+            multisample = multisample,
+        };
+
+        // Fragment
+        if fragment.module != null {
+            color_target := wgpu.ColorTargetState.{
+                format = global_renderer.swapchain_format, // @Hardcoded
+                blend = *wgpu.BlendState.{
+                    color = .{
+                        operation = .Add, 
+                        srcFactor = .SrcAlpha,
+                        dstFactor = .OneMinusSrcAlpha,
+                    },
+                    alpha = .{
+                        operation = .Add,
+                        srcFactor = .SrcAlpha,
+                        dstFactor = .OneMinusSrcAlpha,
+                    },
+                },
+                writeMask = xx wgpu.ColorWriteMask.All,
+            };
+            fragment.targetCount = 1;
+            fragment.targets = *color_target;
+        }
+
+        desc.fragment = ifx fragment.module == null then null else *fragment;
+
+        pipeline := wgpu.DeviceCreateRenderPipeline(device, *desc);
+        assert(pipeline != null, "Unable to create Pipeline");
+        return pipeline;
+    }
+}
+
+Pipeline_Layout_Builder :: struct {
+    push_constant_range := wgpu.PushConstantRange.{
+        stages = .Vertex,
+        start = 0,
+        end = size_of(Vector2) * 2,
+    };
+    bind_groups : [..] wgpu.BindGroupLayout;
+
+    push_constants :: (using builder: *Pipeline_Layout_Builder, size: u32, stages: wgpu.ShaderStageFlags = .Vertex, start : u32 = 0) {
+        push_constant_range.stages = stages;
+        push_constant_range.start = start;
+        push_constant_range.end = size;
+    }
+
+    add_bind_groups :: (using builder: *Pipeline_Layout_Builder, bind_group_layouts: ..wgpu.BindGroupLayout) {
+        bind_groups.allocator = temp;
+        array_add(*bind_groups, ..bind_group_layouts);
+    }
+
+    build :: (using builder: *Pipeline_Layout_Builder, device: wgpu.Device) -> wgpu.PipelineLayout {
+        extras := wgpu.PipelineLayoutExtras.{
+            pushConstantRangeCount = 1,
+            pushConstantRanges = *push_constant_range
+        };
+
+        layout_desc := wgpu.PipelineLayoutDescriptor.{
+            nextInChain = *extras.chain,
+            bindGroupLayoutCount = xx bind_groups.count,
+            bindGroupLayouts     = bind_groups.data,
+        };
+
+        pipeline_layout := wgpu.DeviceCreatePipelineLayout(device, *layout_desc);
+        assert(pipeline_layout != null, "Unable to create Pipeline Layout");
+        return pipeline_layout;
+    }
+}
+
+Bindings_Builder :: struct {
+
+    entries: [..] wgpu.BindGroupLayoutEntry;
+
+    add_entry :: (using builder: *Bindings_Builder, entry: $T, binding: u32, visibility: wgpu.ShaderStageFlags) {
+        
+        group_entry := wgpu.BindGroupLayoutEntry.{
+            binding = binding,
+            visibility = visibility
+        };
+        #if T == wgpu.BufferBindingLayout {
+            group_entry.buffer = entry;
+        } else #if T == wgpu.SamplerBindingLayout {
+            group_entry.sampler = entry;
+        } else #if wgpu.TextureBindingLayout {
+            group_entry.texture = entry;
+        } else #if wgpu.StorageTextureBindingLayout {
+            group_entry.storageTexture = entry;
+        } else { #assert(false); }
+
+        array_add(*entries, group_entry);
+    }
+
+    build :: (using builder: *Bindings_Builder) -> wgpu.BindGroupLayout {
+        
+        desc := wgpu.BindGroupLayoutDescriptor.{
+            entryCount = xx entries.count,
+            entries = entries.data,
+        };
+        group_layout := wgpu.DeviceCreateBindGroupLayout(global_renderer.device, *desc);
+        assert(group_layout != null, "Unable to create Bind Group Layout");
+        
+        array_reset(*entries);
+        return group_layout;
+    }
+}
