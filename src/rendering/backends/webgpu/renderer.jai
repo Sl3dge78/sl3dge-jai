@@ -248,10 +248,17 @@ Renderer :: struct {
 
         wgpu.BindGroupRelease(global_matrices_binding);
         Buffer.destroy(*global_matrices_buffer);
+
+        Buffer.destroy(*shadowmap_matrices_buffer);
+        Texture.destroy(*shadowmap_framebuffer);
+        wgpu.BindGroupRelease(shadowmap_matrices_binding);
+        wgpu.BindGroupRelease(shadowmap_texture_binding);
+        
         Texture.destroy(*depth_texture);
 
         wgpu.BindGroupLayoutRelease(single_texture_bind_group);
         wgpu.BindGroupLayoutRelease(global_matrices_bind_group);
+        wgpu.BindGroupLayoutRelease(shadowmap_texture_bind_group);
 
         wgpu.SamplerRelease(sampler);
 
