@@ -21,17 +21,26 @@ Renderer :: struct {
 
     sampler   : wgpu.Sampler;
 
-    single_texture_bind_group : wgpu.BindGroupLayout;
+    single_texture_bind_group   : wgpu.BindGroupLayout;
     global_matrices_bind_group  : wgpu.BindGroupLayout;
+    shadowmap_texture_bind_group: wgpu.BindGroupLayout;
 
     ui_pipeline          : wgpu.RenderPipeline;
 
     depth_texture : Texture;
-    static_mesh_pipeline : wgpu.RenderPipeline;
+    static_mesh_pipelines : [2] wgpu.RenderPipeline; // 0 = shadowmap, 1 = color
 
-    global_matrices: Global_Matrices;
     global_matrices_buffer: Buffer;
     global_matrices_binding: wgpu.BindGroup;
+
+    shadowmap_matrices_buffer: Buffer;
+    shadowmap_matrices_binding: wgpu.BindGroup;
+    shadowmap_framebuffer: Texture;
+    shadowmap_texture_binding : wgpu.BindGroup;
+
+    projection := Matrix4_Identity;
+    view := Matrix4_Identity;
+    light_dir : Vector3;
 
     create :: (window: *SDL_Window) -> Renderer {
         renderer := *global_renderer;
@@ -182,11 +191,11 @@ Renderer :: struct {
         create_binding_groups(renderer);
       
         renderer.ui_pipeline = create_ui_pipeline(renderer);
-        renderer.static_mesh_pipeline = create_static_mesh_pipeline(renderer);
+        renderer.static_mesh_pipelines = create_static_mesh_pipeline(renderer);
 
-        {   // Global Matrices
+        {   // Color Uniforms
             renderer.global_matrices_buffer = Buffer.create(size_of(Global_Matrices), .Uniform | .CopyDst);
-
+            
             desc := wgpu.BindGroupDescriptor.{
                 layout = renderer.global_matrices_bind_group,
                 entryCount = 1,
@@ -196,13 +205,34 @@ Renderer :: struct {
             };
             renderer.global_matrices_binding = WGPU_Check(wgpu.DeviceCreateBindGroup(renderer.device, *desc));
 
-            renderer.global_matrices = .{
-                projection = make_projection_matrix(radians(45), cast(float)renderer.width/cast(float)renderer.height, 0.1, 1000),
-                view = Matrix4_Identity,
-                light = make_look_at_matrix(.{0, 0, 0}, unit_vector(.{1, -2, -1}), .{0, 1, 0}, false),
-                light_dir = unit_vector(.{1, -2, -1}),
-            };
+            renderer.projection = make_projection_matrix(radians(45), cast(float)renderer.width/cast(float)renderer.height, 0.1, 1000);
+            renderer.view = Matrix4_Identity;
+            renderer.light_dir = unit_vector(.{1, -2, -1});
+        }
 
+        {   // Shadowmap Uniforms
+            renderer.shadowmap_framebuffer = Texture.create(2048, 2048, .TextureBinding | .RenderAttachment, .Depth24Plus);
+            
+            entries := wgpu.BindGroupEntry.[
+                .{binding = 0, sampler = global_renderer.sampler },
+                .{binding = 1, textureView = renderer.shadowmap_framebuffer.view },
+            ];
+            desc1 := wgpu.BindGroupDescriptor.{
+                layout = global_renderer.shadowmap_texture_bind_group,
+                entryCount = entries.count,
+                entries = entries.data,
+            };
+            renderer.shadowmap_texture_binding = wgpu.DeviceCreateBindGroup(renderer.device, *desc1);
+
+            renderer.shadowmap_matrices_buffer = Buffer.create(size_of(Global_Matrices), .Uniform | .CopyDst);
+            desc2 := wgpu.BindGroupDescriptor.{
+                layout = renderer.global_matrices_bind_group,
+                entryCount = 1,
+                entries = *wgpu.BindGroupEntry.{
+                    binding = 0, buffer = renderer.shadowmap_matrices_buffer.handle, offset = 0, size = renderer.shadowmap_matrices_buffer.size
+                },
+            };
+            renderer.shadowmap_matrices_binding = WGPU_Check(wgpu.DeviceCreateBindGroup(renderer.device, *desc2));
         }
 
         return renderer;
@@ -213,7 +243,8 @@ Renderer :: struct {
         Draw_Data.destroy(*context.immediate._3d_draw_data);
 
         wgpu.RenderPipelineRelease(ui_pipeline);
-        wgpu.RenderPipelineRelease(static_mesh_pipeline);
+        wgpu.RenderPipelineRelease(static_mesh_pipelines[0]);
+        wgpu.RenderPipelineRelease(static_mesh_pipelines[1]);
 
         wgpu.BindGroupRelease(global_matrices_binding);
         Buffer.destroy(*global_matrices_buffer);
@@ -286,7 +317,7 @@ Renderer :: struct {
             maxTextureDimension2D                     = 2048,
             maxTextureDimension3D                     = 1,
             maxTextureArrayLayers                     = 1,
-            maxBindGroups                             = 1,
+            maxBindGroups                             = 2,
             maxBindingsPerBindGroup                   = 2,
             maxDynamicUniformBuffersPerPipelineLayout = 0,
             maxDynamicStorageBuffersPerPipelineLayout = 0,
@@ -372,6 +403,13 @@ Renderer :: struct {
             renderer.single_texture_bind_group = Bindings_Builder.build(*builder);
         }
 
+        {   // Shadowmap
+            builder : Bindings_Builder;
+            Bindings_Builder.add_entry(*builder, wgpu.SamplerBindingLayout.{type = .Filtering}, binding = 0, .Fragment);
+            Bindings_Builder.add_entry(*builder, wgpu.TextureBindingLayout.{sampleType = .Depth, viewDimension = ._2D, multisampled = false}, binding = 1, .Fragment);
+            renderer.shadowmap_texture_bind_group = Bindings_Builder.build(*builder);
+        }
+
         {   // Global Data
             builder : Bindings_Builder;
             Bindings_Builder.add_entry(*builder, wgpu.BufferBindingLayout.{ type = .Uniform, hasDynamicOffset = false, minBindingSize = xx size_of(Global_Matrices) }, binding = 0, .Vertex | .Fragment);
@@ -396,26 +434,67 @@ Renderer :: struct {
         return Pipeline_Builder.build(*builder, device, pipeline_layout, "UI Pipeline");
     }
     
-    create_static_mesh_pipeline :: (using renderer: *Renderer) -> wgpu.RenderPipeline {
+    create_static_mesh_pipeline :: (using renderer: *Renderer) -> [2]wgpu.RenderPipeline {
+        pipelines : [2]wgpu.RenderPipeline;
+        
         shader_module := create_shader_module(STANDARD_SHADER, device);
         defer wgpu.ShaderModuleRelease(shader_module);
 
-        depth_texture = Texture.create(width, height, .RenderAttachment, depth_format);
+        {   // Shadowmap            
+            layout_builder: Pipeline_Layout_Builder;
+            Pipeline_Layout_Builder.push_constants(*layout_builder, size_of(Standard_Push_Constants), stages = .Vertex);
+            Pipeline_Layout_Builder.add_bind_groups(*layout_builder, renderer.global_matrices_bind_group);
+            pipeline_layout := Pipeline_Layout_Builder.build(*layout_builder, renderer.device);
+            defer wgpu.PipelineLayoutRelease(pipeline_layout);
 
-        layout_builder: Pipeline_Layout_Builder;
-        Pipeline_Layout_Builder.push_constants(*layout_builder, size_of(Standard_Push_Constants), stages = .Vertex);
-        Pipeline_Layout_Builder.add_bind_groups(*layout_builder, renderer.global_matrices_bind_group);
-        pipeline_layout := Pipeline_Layout_Builder.build(*layout_builder, renderer.device);
-        defer wgpu.PipelineLayoutRelease(pipeline_layout);
+            builder: Pipeline_Builder;
+            Pipeline_Builder.add_vertex_shader(*builder, shader_module, "static_vs", Vertex);
+            Pipeline_Builder.depth_stencil_state(*builder, renderer.depth_format);
+            pipelines[0] = Pipeline_Builder.build(*builder, renderer.device, pipeline_layout, "Static Mesh Color Pipeline");
+        }
 
-        builder: Pipeline_Builder;
-        Pipeline_Builder.add_vertex_shader(*builder, shader_module, "static_vs", Vertex);
-        Pipeline_Builder.add_fragment_shader(*builder, shader_module, "fs_main");
-        Pipeline_Builder.depth_stencil_state(*builder, renderer.depth_format);
-        return Pipeline_Builder.build(*builder, renderer.device, pipeline_layout, "UI Pipeline");
+        {   // Color
+            depth_texture = Texture.create(width, height, .RenderAttachment, depth_format);
+
+            layout_builder: Pipeline_Layout_Builder;
+            Pipeline_Layout_Builder.push_constants(*layout_builder, size_of(Standard_Push_Constants), stages = .Vertex);
+            Pipeline_Layout_Builder.add_bind_groups(*layout_builder, renderer.global_matrices_bind_group);
+            Pipeline_Layout_Builder.add_bind_groups(*layout_builder, renderer.shadowmap_texture_bind_group);
+            pipeline_layout := Pipeline_Layout_Builder.build(*layout_builder, renderer.device);
+            defer wgpu.PipelineLayoutRelease(pipeline_layout);
+
+            builder: Pipeline_Builder;
+            Pipeline_Builder.add_vertex_shader(*builder, shader_module, "static_vs", Vertex);
+            Pipeline_Builder.add_fragment_shader(*builder, shader_module, "fs_main");
+            Pipeline_Builder.depth_stencil_state(*builder, renderer.depth_format);
+            pipelines[1] = Pipeline_Builder.build(*builder, renderer.device, pipeline_layout, "Static Mesh Color Pipeline");
+        }
+        return pipelines;
     }
 
-    mesh_render_pass :: (using renderer: *Renderer, command_encoder: wgpu.CommandEncoder, framebuffer: wgpu.TextureView) {
+    shadowmap_render_pass :: (using renderer: *Renderer, command_encoder: wgpu.CommandEncoder, framebuffer: wgpu.TextureView) {
+        
+        render_pass_desc := wgpu.RenderPassDescriptor.{
+            label = "Shadow Map",
+            depthStencilAttachment = *wgpu.RenderPassDepthStencilAttachment.{
+                view = framebuffer,
+                depthLoadOp = .Clear,
+                depthStoreOp = .Store,
+                depthClearValue = 1,
+                stencilLoadOp = .Clear,
+                stencilStoreOp = .Discard,
+                stencilClearValue = 0,
+                stencilReadOnly = true,
+            }
+        };
+        render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(command_encoder, *render_pass_desc));
+        wgpu.RenderPassEncoderSetPipeline(render_pass, static_mesh_pipelines[0]);
+        wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, shadowmap_matrices_binding, 0, null);
+        draw_immediate_meshes(renderer, render_pass);
+        wgpu.RenderPassEncoderEnd(render_pass);
+    }
+
+    main_render_pass :: (using renderer: *Renderer, command_encoder: wgpu.CommandEncoder, framebuffer: wgpu.TextureView) {
         render_pass_desc := wgpu.RenderPassDescriptor.{
             label = "Main Pass",
             colorAttachmentCount = 1,
@@ -424,7 +503,7 @@ Renderer :: struct {
                 resolveTarget = null,
                 loadOp = .Clear,
                 storeOp = .Store,
-                clearValue = .{0.9, 0.1, 0.2, 1.0}
+                clearValue = .{0.529, 0.808, 0.922, 1.0}
             },
             depthStencilAttachment = *wgpu.RenderPassDepthStencilAttachment.{
                 view = renderer.depth_texture.view,
@@ -438,16 +517,10 @@ Renderer :: struct {
             },
         };
         render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(command_encoder, *render_pass_desc));
-
-        using context.immediate._3d_draw_data;
-        wgpu.RenderPassEncoderSetPipeline(render_pass, static_mesh_pipeline);
+        wgpu.RenderPassEncoderSetPipeline(render_pass, static_mesh_pipelines[1]);
         wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, global_matrices_binding, 0, null);
-        wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 0, vertex_buffer.handle, 0, vertex_buffer.size);
-        for draw_cmds {
-            pc := Standard_Push_Constants.{transpose(it.xform), transpose(inverse(it.xform))};
-            wgpu.RenderPassEncoderSetPushConstants(render_pass, .Vertex, 0, size_of(type_of(pc)), *pc);
-            wgpu.RenderPassEncoderDraw(render_pass, it.count, 1, it.id, 0);
-        }
+        wgpu.RenderPassEncoderSetBindGroup(render_pass, 1, shadowmap_texture_binding, 0, null);
+        draw_immediate_meshes(renderer, render_pass);
 
         wgpu.RenderPassEncoderEnd(render_pass);
     }
@@ -482,6 +555,17 @@ Renderer :: struct {
         wgpu.RenderPassEncoderEnd(render_pass);
     }
 
+    draw_immediate_meshes :: (using renderer: *Renderer, render_pass: wgpu.RenderPassEncoder) {
+        using context.immediate._3d_draw_data;
+        
+        wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 0, vertex_buffer.handle, 0, vertex_buffer.size);
+        for draw_cmds {
+            pc := Standard_Push_Constants.{transpose(it.xform), transpose(inverse(it.xform))};
+            wgpu.RenderPassEncoderSetPushConstants(render_pass, .Vertex, 0, size_of(type_of(pc)), *pc);
+            wgpu.RenderPassEncoderDraw(render_pass, it.count, 1, it.id, 0);
+        }
+    }
+
     end_frame :: () {
         using renderer := *global_renderer;
 
@@ -494,19 +578,30 @@ Renderer :: struct {
         Draw_Data.upload(*context.immediate._3d_draw_data);
         defer Draw_Data.reset(*context.immediate._3d_draw_data);
 
-        gbl_buff := Global_Matrices.{
-            projection = transpose(global_matrices.projection),
-            view = transpose(global_matrices.view),
-            light = transpose(global_matrices.light),
-            light_dir = global_matrices.light_dir
+        size:: 20;
+        light_proj := orthographic_projection_matrix(size, -size, -size, size, -size, size, true);
+        light_view := make_look_at_matrix(.{0, 0, 0}, light_dir, .{0, 1, 0}, false);
+        matrices := Global_Matrices.{
+            projection = transpose(projection),
+            view = transpose(view),
+            light = transpose(light_proj * light_view),
+            light_dir = light_dir
         };
-        Buffer.write_data(global_matrices_buffer, *gbl_buff, size_of(type_of(gbl_buff)));
+        Buffer.write_data(global_matrices_buffer, *matrices, size_of(type_of(matrices)));
+
+        shadowmap_matrices := Global_Matrices.{
+            projection = transpose(light_proj),
+            view = transpose(light_view),
+            light = matrices.light,
+            light_dir = matrices.light_dir
+        };
+        Buffer.write_data(shadowmap_matrices_buffer, *shadowmap_matrices, size_of(type_of(shadowmap_matrices)));
 
         encoder_desc := wgpu.CommandEncoderDescriptor.{ label = "Main Command Encoder" };
         command_encoder := WGPU_Check(wgpu.DeviceCreateCommandEncoder(device, *encoder_desc));
         defer wgpu.CommandEncoderRelease(command_encoder);
-
-        mesh_render_pass(renderer, command_encoder, current_texture);
+        shadowmap_render_pass(renderer, command_encoder, shadowmap_framebuffer.view);
+        main_render_pass(renderer, command_encoder, current_texture);
         ui_render_pass(renderer, command_encoder, current_texture);
         
         command_buffer_desc := wgpu.CommandBufferDescriptor.{ label = "Main Command Buffer" };
@@ -517,16 +612,15 @@ Renderer :: struct {
     }
 
     change_light_direction :: (dir: Vector3) {
-        global_renderer.global_matrices.light_dir = dir;
-        global_renderer.global_matrices.light = make_look_at_matrix(.{0, 0, 0}, dir, .{0, 1, 0}, false);
+        global_renderer.light_dir = dir;
     }
 
     set_projection_matrix :: (fov: float) {
-        global_renderer.global_matrices.projection = make_projection_matrix(radians(45), cast(float)global_renderer.width/cast(float)global_renderer.height, 0.1, 1000);
+        global_renderer.projection = make_projection_matrix(radians(45), cast(float)global_renderer.width/cast(float)global_renderer.height, 0.1, 1000);
     }
 
     set_view_matrix :: (view: Matrix4) {
-        global_renderer.global_matrices.view = view;
+        global_renderer.view = view;
     }
 }
 

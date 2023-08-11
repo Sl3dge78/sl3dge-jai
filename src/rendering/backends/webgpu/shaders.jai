@@ -86,6 +86,8 @@ STANDARD_SHADER :: #string __WGSL
 
     var<push_constant> push_constants : Push_Constants;
     @group(0) @binding(0) var<uniform> global_data: Global_Buffer;
+    @group(1) @binding(0) var shadow_sampler: sampler;
+    @group(1) @binding(1) var shadow_texture: texture_depth_2d;
 
     @vertex
     fn static_vs (in: Static_Vertex_Input) -> Vertex_Output {
@@ -100,34 +102,40 @@ STANDARD_SHADER :: #string __WGSL
         result.pos_light_space = light_xform * vec4f(in.position, 1.0);
         return result;
     }
-    /*
-    fn shadow (shadow_coord: vec4f) -> float {
-        let uv : vec2f = shadow_coord.xy * 0.5 + 0.5; // @TODO: Do depth calc in -1 to 1 range
-        let current : float = shadow_coord.z;
-        var total : int = 0;
-        let x = 1.0 - max(dot(In.normal, light_dir), 0.0);
+    
+    fn shadow (shadow_coord: vec4f, normal: vec3f) -> f32 {
+        let pcf_count = 3;
+        let pcf_total_texels = (pcf_count * 2 + 1) * (pcf_count * 2 + 1);
+        let map_size = 2048.0;
+        let texel_size = 1.0 / map_size;
+
+        let uv : vec2f = shadow_coord.xy * vec2f(0.5, -0.5) + 0.5; // @TODO: Do depth calc in -1 to 1 range
+        let current : f32 = shadow_coord.z;
+        var total : i32 = 0;
+        let x = 1.0 - max(dot(normal, global_data.light_dir), 0.0);
         var bias = max(2.5 * x, 1.0);
         bias *= texel_size;
-        for(int x = -pcf_count; x <= pcf_count; x++) {
-            for(int y = -pcf_count; y <= pcf_count; y++) {
-                float closest = texture(shadow_map, uv + vec2(x, y) * texel_size).r;        
+        for(var x = -pcf_count; x <= pcf_count; x++) {
+            for(var y = -pcf_count; y <= pcf_count; y++) {
+                let closest = textureSample(shadow_texture, shadow_sampler, uv + vec2f(f32(x), f32(y)) * vec2f(texel_size, texel_size));        
                 if (current - bias > closest) {
                     total += 1;
                 }
             }
         }
-        float result = float(total) / float(pcf_total_texels);
+        let result = f32(total) / f32(pcf_total_texels);
         return 1.0 - result;
     }
-    */
+    
 
     @fragment
     fn fs_main (in: Vertex_Output) -> @location(0) vec4f {
         let L = global_data.light_dir;
         var iterated_color = in.color.rgb;
         let NdotL = max(dot(in.normal, -L), 0.0);
+        let shadow = shadow(in.pos_light_space / in.pos_light_space.w, in.normal);
         let ambient = vec3(0.529, 0.808, 0.922) * 0.1;
-        let factor = max(sqrt(NdotL), 0.2);
+        let factor = max(min(shadow, sqrt(NdotL)), 0.2);
         iterated_color = ambient * (1.0 - factor) + iterated_color * factor;
 
         return vec4f(iterated_color, 1.0);

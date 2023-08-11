@@ -68,7 +68,8 @@ Texture :: struct {
         };
 
         if format == {
-            case .Depth24Plus; view_desc.aspect = .DepthOnly;
+            case .Depth24Plus; #through;
+            case .Depth32Float; view_desc.aspect = .DepthOnly;
         }
         result.view = WGPU_Check(wgpu.TextureCreateView(result.handle, *view_desc));
         return result;
