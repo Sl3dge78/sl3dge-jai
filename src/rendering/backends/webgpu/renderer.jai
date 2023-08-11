@@ -13,6 +13,8 @@ Renderer :: struct {
     swapchain : wgpu.SwapChain;
     swapchain_format : wgpu.TextureFormat;
 
+    depth_format :: wgpu.TextureFormat.Depth24Plus;
+
     limits: wgpu.Limits;
     width : u32;
     height: u32;
@@ -20,10 +22,16 @@ Renderer :: struct {
     sampler   : wgpu.Sampler;
 
     single_texture_bind_group : wgpu.BindGroupLayout;
-    global_buffer_bind_group  : wgpu.BindGroupLayout;
+    global_matrices_bind_group  : wgpu.BindGroupLayout;
 
     ui_pipeline          : wgpu.RenderPipeline;
+
+    depth_texture : Texture;
     static_mesh_pipeline : wgpu.RenderPipeline;
+
+    global_matrices: Global_Matrices;
+    global_matrices_buffer: Buffer;
+    global_matrices_binding: wgpu.BindGroup;
 
     create :: (window: *SDL_Window) -> Renderer {
         renderer := *global_renderer;
@@ -176,17 +184,43 @@ Renderer :: struct {
         renderer.ui_pipeline = create_ui_pipeline(renderer);
         renderer.static_mesh_pipeline = create_static_mesh_pipeline(renderer);
 
+        {   // Global Matrices
+            renderer.global_matrices_buffer = Buffer.create(size_of(Global_Matrices), .Uniform | .CopyDst);
+
+            desc := wgpu.BindGroupDescriptor.{
+                layout = renderer.global_matrices_bind_group,
+                entryCount = 1,
+                entries = *wgpu.BindGroupEntry.{
+                    binding = 0, buffer = renderer.global_matrices_buffer.handle, offset = 0, size = renderer.global_matrices_buffer.size
+                },
+            };
+            renderer.global_matrices_binding = WGPU_Check(wgpu.DeviceCreateBindGroup(renderer.device, *desc));
+
+            renderer.global_matrices = .{
+                projection = make_projection_matrix(radians(45), cast(float)renderer.width/cast(float)renderer.height, 0.1, 1000),
+                view = Matrix4_Identity,
+                light = make_look_at_matrix(.{0, 0, 0}, unit_vector(.{1, -2, -1}), .{0, 1, 0}, false),
+                light_dir = unit_vector(.{1, -2, -1}),
+            };
+
+        }
+
         return renderer;
     }
 
     destroy :: (using renderer: *Renderer) {
         Draw_Data.destroy(*context.immediate._2d_draw_data);
+        Draw_Data.destroy(*context.immediate._3d_draw_data);
 
         wgpu.RenderPipelineRelease(ui_pipeline);
         wgpu.RenderPipelineRelease(static_mesh_pipeline);
 
+        wgpu.BindGroupRelease(global_matrices_binding);
+        Buffer.destroy(*global_matrices_buffer);
+        Texture.destroy(*depth_texture);
+
         wgpu.BindGroupLayoutRelease(single_texture_bind_group);
-        wgpu.BindGroupLayoutRelease(global_buffer_bind_group);
+        wgpu.BindGroupLayoutRelease(global_matrices_bind_group);
 
         wgpu.SamplerRelease(sampler);
 
@@ -261,12 +295,12 @@ Renderer :: struct {
             maxStorageBuffersPerShaderStage           = 0,
             maxStorageTexturesPerShaderStage          = 0,
             maxUniformBuffersPerShaderStage           = 1,
-            maxUniformBufferBindingSize               = 0,
+            maxUniformBufferBindingSize               = 256,
             maxStorageBufferBindingSize               = 0,
             minUniformBufferOffsetAlignment           = supported_limits.limits.minUniformBufferOffsetAlignment,
             minStorageBufferOffsetAlignment           = supported_limits.limits.minStorageBufferOffsetAlignment,
             maxVertexBuffers                          = 1,
-            maxBufferSize                             = 4096,
+            maxBufferSize                             = 16 * 1024 * 1024,
             maxVertexAttributes                       = 4,
             maxVertexBufferArrayStride                = size_of(Vertex),
             maxInterStageShaderComponents             = 16,
@@ -340,9 +374,8 @@ Renderer :: struct {
 
         {   // Global Data
             builder : Bindings_Builder;
-            size := aligned_size(size_of(Global_Buffer), renderer.limits.minUniformBufferOffsetAlignment);
-            Bindings_Builder.add_entry(*builder, wgpu.BufferBindingLayout.{ type = .Uniform, hasDynamicOffset = false, minBindingSize = size }, binding = 0, .Vertex | .Fragment);
-            renderer.global_buffer_bind_group = Bindings_Builder.build(*builder);
+            Bindings_Builder.add_entry(*builder, wgpu.BufferBindingLayout.{ type = .Uniform, hasDynamicOffset = false, minBindingSize = xx size_of(Global_Matrices) }, binding = 0, .Vertex | .Fragment);
+            renderer.global_matrices_bind_group = Bindings_Builder.build(*builder);
         }
     }
 
@@ -367,41 +400,67 @@ Renderer :: struct {
         shader_module := create_shader_module(STANDARD_SHADER, device);
         defer wgpu.ShaderModuleRelease(shader_module);
 
+        depth_texture = Texture.create(width, height, .RenderAttachment, depth_format);
+
         layout_builder: Pipeline_Layout_Builder;
         Pipeline_Layout_Builder.push_constants(*layout_builder, size_of(Standard_Push_Constants), stages = .Vertex);
-        Pipeline_Layout_Builder.add_bind_groups(*layout_builder, renderer.global_buffer_bind_group);
+        Pipeline_Layout_Builder.add_bind_groups(*layout_builder, renderer.global_matrices_bind_group);
         pipeline_layout := Pipeline_Layout_Builder.build(*layout_builder, renderer.device);
         defer wgpu.PipelineLayoutRelease(pipeline_layout);
 
         builder: Pipeline_Builder;
         Pipeline_Builder.add_vertex_shader(*builder, shader_module, "static_vs", Vertex);
         Pipeline_Builder.add_fragment_shader(*builder, shader_module, "fs_main");
+        Pipeline_Builder.depth_stencil_state(*builder, renderer.depth_format);
         return Pipeline_Builder.build(*builder, renderer.device, pipeline_layout, "UI Pipeline");
     }
 
-
-    end_frame :: () {
-        using global_renderer;
-
-
-        current_texture := WGPU_Check(wgpu.SwapChainGetCurrentTextureView(swapchain));
-        defer wgpu.TextureViewRelease(current_texture);
-
-        Draw_Data.upload(*context.immediate._2d_draw_data);
-
-        encoder_desc := wgpu.CommandEncoderDescriptor.{ label = "Main Command Encoder" };
-        command_encoder := WGPU_Check(wgpu.DeviceCreateCommandEncoder(device, *encoder_desc));
-        defer wgpu.CommandEncoderRelease(command_encoder);
-
+    mesh_render_pass :: (using renderer: *Renderer, command_encoder: wgpu.CommandEncoder, framebuffer: wgpu.TextureView) {
         render_pass_desc := wgpu.RenderPassDescriptor.{
-            label = "UI Pass",
+            label = "Main Pass",
             colorAttachmentCount = 1,
             colorAttachments = *wgpu.RenderPassColorAttachment.{
-                view = current_texture,
+                view = framebuffer,
                 resolveTarget = null,
                 loadOp = .Clear,
                 storeOp = .Store,
                 clearValue = .{0.9, 0.1, 0.2, 1.0}
+            },
+            depthStencilAttachment = *wgpu.RenderPassDepthStencilAttachment.{
+                view = renderer.depth_texture.view,
+                depthLoadOp = .Clear,
+                depthStoreOp = .Store,
+                depthClearValue = 1,
+                stencilLoadOp = .Clear,
+                stencilStoreOp = .Discard,
+                stencilClearValue = 0,
+                stencilReadOnly = true,
+            },
+        };
+        render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(command_encoder, *render_pass_desc));
+
+        using context.immediate._3d_draw_data;
+        wgpu.RenderPassEncoderSetPipeline(render_pass, static_mesh_pipeline);
+        wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, global_matrices_binding, 0, null);
+        wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 0, vertex_buffer.handle, 0, vertex_buffer.size);
+        for draw_cmds {
+            pc := Standard_Push_Constants.{transpose(it.xform), transpose(inverse(it.xform))};
+            wgpu.RenderPassEncoderSetPushConstants(render_pass, .Vertex, 0, size_of(type_of(pc)), *pc);
+            wgpu.RenderPassEncoderDraw(render_pass, it.count, 1, it.id, 0);
+        }
+
+        wgpu.RenderPassEncoderEnd(render_pass);
+    }
+
+    ui_render_pass :: (using renderer: *Renderer, command_encoder: wgpu.CommandEncoder, framebuffer: wgpu.TextureView) {
+        render_pass_desc := wgpu.RenderPassDescriptor.{
+            label = "UI Pass",
+            colorAttachmentCount = 1,
+            colorAttachments = *wgpu.RenderPassColorAttachment.{
+                view = framebuffer,
+                resolveTarget = null,
+                loadOp = .Load,
+                storeOp = .Store,
             },
             depthStencilAttachment = null,
         };
@@ -417,15 +476,57 @@ Renderer :: struct {
             for context.immediate._2d_draw_data.draw_cmds {
                 wgpu.RenderPassEncoderDraw(render_pass, it.count, 1, it.id, 0);
             }
-            Draw_Data.reset(*context.immediate._2d_draw_data);
+            
         }
 
         wgpu.RenderPassEncoderEnd(render_pass);
+    }
+
+    end_frame :: () {
+        using renderer := *global_renderer;
+
+        current_texture := WGPU_Check(wgpu.SwapChainGetCurrentTextureView(swapchain));
+        defer wgpu.TextureViewRelease(current_texture);
+
+        // Upload data
+        Draw_Data.upload(*context.immediate._2d_draw_data);
+        defer Draw_Data.reset(*context.immediate._2d_draw_data);
+        Draw_Data.upload(*context.immediate._3d_draw_data);
+        defer Draw_Data.reset(*context.immediate._3d_draw_data);
+
+        gbl_buff := Global_Matrices.{
+            projection = transpose(global_matrices.projection),
+            view = transpose(global_matrices.view),
+            light = transpose(global_matrices.light),
+            light_dir = global_matrices.light_dir
+        };
+        Buffer.write_data(global_matrices_buffer, *gbl_buff, size_of(type_of(gbl_buff)));
+
+        encoder_desc := wgpu.CommandEncoderDescriptor.{ label = "Main Command Encoder" };
+        command_encoder := WGPU_Check(wgpu.DeviceCreateCommandEncoder(device, *encoder_desc));
+        defer wgpu.CommandEncoderRelease(command_encoder);
+
+        mesh_render_pass(renderer, command_encoder, current_texture);
+        ui_render_pass(renderer, command_encoder, current_texture);
+        
         command_buffer_desc := wgpu.CommandBufferDescriptor.{ label = "Main Command Buffer" };
         command_buffer := WGPU_Check(wgpu.CommandEncoderFinish(command_encoder, *command_buffer_desc));
         defer wgpu.CommandBufferRelease(command_buffer);
         wgpu.QueueSubmit(queue, 1, *command_buffer);
         wgpu.SwapChainPresent(swapchain);
+    }
+
+    change_light_direction :: (dir: Vector3) {
+        global_renderer.global_matrices.light_dir = dir;
+        global_renderer.global_matrices.light = make_look_at_matrix(.{0, 0, 0}, dir, .{0, 1, 0}, false);
+    }
+
+    set_projection_matrix :: (fov: float) {
+        global_renderer.global_matrices.projection = make_projection_matrix(radians(45), cast(float)global_renderer.width/cast(float)global_renderer.height, 0.1, 1000);
+    }
+
+    set_view_matrix :: (view: Matrix4) {
+        global_renderer.global_matrices.view = view;
     }
 }
 

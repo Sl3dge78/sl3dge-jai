@@ -16,7 +16,7 @@ Draw_Data :: struct {
     vertex_buffer: Buffer;
     vertices: [..]Vertex;
     draw_cmds : [..]Draw_Cmd;
-    transform: Matrix4;
+    transform: Matrix4 = Matrix4_Identity;
 
     destroy :: (dd: *Draw_Data) {
         array_reset(*dd.draw_cmds);
@@ -28,15 +28,13 @@ Draw_Data :: struct {
         if dd.vertices.count == 0 then return; 
         size : u64 = xx (dd.vertices.count * size_of(Vertex));
         Buffer.create_or_update(*dd.vertex_buffer, size, .Vertex | .CopyDst);
-
-        // create_or_update_buffer(*dd.vertex_buffer, size, .VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT | .UNIFORM_BUFFER_BIT | .STORAGE_BUFFER_BIT | .TRANSFER_SRC_BIT, .UPLOAD);
         Buffer.write_data(dd.vertex_buffer, dd.vertices.data, size);
     }
 
     reset :: (dd: *Draw_Data) {
         dd.vertices.count = 0;
         dd.draw_cmds.count = 0;
-        dd. transform = Matrix4_Identity;
+        dd.transform = Matrix4_Identity;
     }
 }
 
@@ -81,7 +79,7 @@ immediate_triangle :: () {
 }
 
 immediate_quad :: (p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, normal: Vector3, color := Vector4.{1, 1, 1, 1}) {
-    v := prepare_vertices(6);
+    v := prepare_3d_vertices(6);
     v[0] = .{p0, normal, .{0, 0}, color};
     v[1] = .{p1, normal, .{1, 0}, color};
     v[2] = .{p2, normal, .{1, 1}, color};

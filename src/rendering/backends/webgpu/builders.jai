@@ -16,6 +16,9 @@ Pipeline_Builder :: struct {
         cullMode =         .None,
     };
 
+    depth_stencil : wgpu.DepthStencilState;
+    has_depth : bool;
+
     multisample := wgpu.MultisampleState.{
         count = 1,
         mask = ~(cast(u32)0),
@@ -45,12 +48,28 @@ Pipeline_Builder :: struct {
     }
 
     primitive_state :: (using builder: *Pipeline_Builder, topology : wgpu.PrimitiveTopology, front_face: wgpu.FrontFace = .CCW, cull_mode: wgpu.CullMode = .None) {
-        primitive = wgpu.PrimitiveState.{
+            primitive = wgpu.PrimitiveState.{
             topology =         topology,
             stripIndexFormat = .Undefined,
             frontFace =        front_face,
             cullMode =         cull_mode,
         };
+    }
+
+    depth_stencil_state :: (using builder: *Pipeline_Builder, format: wgpu.TextureFormat) {
+        builder.depth_stencil = wgpu.DepthStencilState.{
+            format = format, 
+            depthWriteEnabled = true, 
+            depthCompare = .Less,
+            stencilFront = .{},
+            stencilBack = .{},
+            stencilReadMask = 0xFFFFFFFF,
+            stencilWriteMask = 0xFFFFFFFF,
+            depthBias = 0,
+            depthBiasSlopeScale = 0,
+            depthBiasClamp = 0,
+        };
+        builder.has_depth = true;
     }
 
     build :: (using builder: *Pipeline_Builder, device: wgpu.Device, layout: wgpu.PipelineLayout, label := "") -> wgpu.RenderPipeline {
@@ -62,8 +81,9 @@ Pipeline_Builder :: struct {
             layout = layout,
             vertex = vertex,
             primitive = primitive,
-            depthStencil = null,
+            depthStencil = null,       // Set below
             multisample = multisample,
+            fragment = null,           // Set below
         };
 
         // Fragment
@@ -87,8 +107,12 @@ Pipeline_Builder :: struct {
             fragment.targetCount = 1;
             fragment.targets = *color_target;
         }
-
         desc.fragment = ifx fragment.module == null then null else *fragment;
+
+        // Depth
+        if has_depth {
+            desc.depthStencil = *depth_stencil;
+        }
 
         pipeline := WGPU_Check(wgpu.DeviceCreateRenderPipeline(device, *desc));
         return pipeline;

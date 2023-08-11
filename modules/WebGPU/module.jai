@@ -1395,10 +1395,10 @@ ShaderModuleWGSLDescriptor :: struct {
 }
 
 StencilFaceState :: struct {
-    compare:     CompareFunction;
-    failOp:      StencilOperation;
-    depthFailOp: StencilOperation;
-    passOp:      StencilOperation;
+    compare:     CompareFunction = .Always;
+    failOp:      StencilOperation = .Keep;
+    depthFailOp: StencilOperation = .Keep;
+    passOp:      StencilOperation = .Keep;
 }
 
 StorageTextureBindingLayout :: struct {

@@ -123,7 +123,14 @@ STANDARD_SHADER :: #string __WGSL
 
     @fragment
     fn fs_main (in: Vertex_Output) -> @location(0) vec4f {
-        return vec4f(1.0, 1.0, 1.0, 1.0);
+        let L = global_data.light_dir;
+        var iterated_color = in.color.rgb;
+        let NdotL = max(dot(in.normal, -L), 0.0);
+        let ambient = vec3(0.529, 0.808, 0.922) * 0.1;
+        let factor = max(sqrt(NdotL), 0.2);
+        iterated_color = ambient * (1.0 - factor) + iterated_color * factor;
+
+        return vec4f(iterated_color, 1.0);
     }
 
 __WGSL
@@ -133,9 +140,10 @@ Standard_Push_Constants :: struct {
     inverse_transform: Matrix4;
 }
 
-Global_Buffer :: struct {
+Global_Matrices :: struct {
     projection: Matrix4;
     view      : Matrix4;
     light     : Matrix4;
     light_dir : Vector3;
+    __align : float;
 }

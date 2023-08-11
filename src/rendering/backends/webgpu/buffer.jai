@@ -10,8 +10,7 @@ Buffer :: struct {
             size = size, 
             mappedAtCreation = map
         };
-        self.handle = wgpu.DeviceCreateBuffer(global_renderer.device, *desc);
-        assert(self.handle != null, "Unable to create Buffer!");
+        self.handle = WGPU_Check(wgpu.DeviceCreateBuffer(global_renderer.device, *desc));
 
         return self;
     }
