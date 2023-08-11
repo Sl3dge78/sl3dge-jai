@@ -8,7 +8,7 @@ Engine :: struct {
     frame_start : u64;
     frame_time: float;
 
-    init :: () {
+    create :: () {
         log("Init engine");
         path := path_strip_filename(get_path_of_running_executable());
         set_working_directory(path);
@@ -21,14 +21,14 @@ Engine :: struct {
         global_engine.renderer = Renderer.create(global_engine.window);
         global_engine.default_font = Font.from_data(default_font_data, 8);
 
-        Console.init();
-        Resources.init();
+        Console.create();
+        Resources.create();
     }
 
-    deinit :: () {
-        Font.deinit(*global_engine.default_font);
-        Resources.deinit();
-        Console.deinit();
+    destroy :: () {
+        Font.destroy(*global_engine.default_font);
+        Resources.destroy();
+        Console.destroy();
         Renderer.destroy(*global_engine.renderer);
         SDL_DestroyWindow(global_engine.window);
         SDL_Quit();

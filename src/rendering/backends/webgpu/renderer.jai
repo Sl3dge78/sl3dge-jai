@@ -183,12 +183,64 @@ Renderer :: struct {
         Draw_Data.destroy(*context.immediate._2d_draw_data);
 
         wgpu.RenderPipelineRelease(ui_pipeline);
+        wgpu.RenderPipelineRelease(static_mesh_pipeline);
+
+        wgpu.BindGroupLayoutRelease(single_texture_bind_group);
+        wgpu.BindGroupLayoutRelease(global_buffer_bind_group);
+
+        wgpu.SamplerRelease(sampler);
+
         wgpu.SwapChainRelease(swapchain);
         wgpu.QueueRelease(queue);
         wgpu.DeviceRelease(device);
         wgpu.AdapterRelease(adapter);
         wgpu.SurfaceRelease(surface);
+
+        report_gpu_leaks(instance);
+
         wgpu.InstanceRelease(instance);
+    }
+
+    report_gpu_leaks :: (instance: wgpu.Instance) {
+        storage_report :: (s: wgpu.StorageReport, name: string, builder: *String_Builder) -> bool {
+            if s.numOccupied == 0 then return false;
+            print_to_builder(builder, "%: %\n", name, s.numOccupied);
+            return true;
+        }
+
+        hub_report :: (h: wgpu.HubReport, builder: *String_Builder) -> bool {
+            found := false;
+            arr : [15]wgpu.StorageReport = xx *h;
+            ti := type_info(wgpu.HubReport);
+            
+            // Skip the first 2 members (adapters & devices)
+            for 2..ti.members.count - 1 {
+                found |= storage_report(arr[it], ti.members[it].name, builder);
+            }
+            return found;
+        }
+
+        report : wgpu.GlobalReport;
+        wgpu.GenerateReport(instance, *report);
+        
+        builder: String_Builder;
+        found:= false;
+
+        found |= storage_report(report.surfaces, "Surfaces", *builder);
+        found |= hub_report(report.vulkan, *builder);
+        if report.backendType == {
+            case .Vulkan; found |= hub_report(report.vulkan, *builder);
+            case .OpenGL; found |= hub_report(report.gl, *builder);
+            case; assert(false, "Memory check unimplemented for backend : %", report.backendType);
+        }
+        
+        if found {
+            log("=== GPU Leaks found ===");
+            str := builder_to_string(*builder);
+            defer free(str);
+            log("%", str);
+        }
+
     }
 
     get_required_limits :: (adapter: wgpu.Adapter) -> wgpu.Limits {
@@ -291,32 +343,35 @@ Renderer :: struct {
             size := aligned_size(size_of(Global_Buffer), renderer.limits.minUniformBufferOffsetAlignment);
             Bindings_Builder.add_entry(*builder, wgpu.BufferBindingLayout.{ type = .Uniform, hasDynamicOffset = false, minBindingSize = size }, binding = 0, .Vertex | .Fragment);
             renderer.global_buffer_bind_group = Bindings_Builder.build(*builder);
-            print("%\n\n", size);
         }
     }
 
-    create_ui_pipeline :: (renderer: *Renderer) -> wgpu.RenderPipeline {
+    create_ui_pipeline :: (using renderer: *Renderer) -> wgpu.RenderPipeline {
         
-        shader_module := create_shader_module(UI_SHADER, renderer.device);
+        shader_module := create_shader_module(UI_SHADER, device);
+        defer wgpu.ShaderModuleRelease(shader_module);
 
         layout_builder: Pipeline_Layout_Builder;
         Pipeline_Layout_Builder.push_constants(*layout_builder, size_of(UI_Push_Constants), stages = .Vertex);
-        Pipeline_Layout_Builder.add_bind_groups(*layout_builder, renderer.single_texture_bind_group);
-        pipeline_layout := Pipeline_Layout_Builder.build(*layout_builder, renderer.device);
+        Pipeline_Layout_Builder.add_bind_groups(*layout_builder, single_texture_bind_group);
+        pipeline_layout := Pipeline_Layout_Builder.build(*layout_builder, device);
+        defer wgpu.PipelineLayoutRelease(pipeline_layout);
 
         builder: Pipeline_Builder;
         Pipeline_Builder.add_vertex_shader(*builder, shader_module, "vs_main", Vertex);
         Pipeline_Builder.add_fragment_shader(*builder, shader_module, "fs_main");
-        return Pipeline_Builder.build(*builder, renderer.device, pipeline_layout, "UI Pipeline");
+        return Pipeline_Builder.build(*builder, device, pipeline_layout, "UI Pipeline");
     }
     
     create_static_mesh_pipeline :: (using renderer: *Renderer) -> wgpu.RenderPipeline {
         shader_module := create_shader_module(STANDARD_SHADER, device);
+        defer wgpu.ShaderModuleRelease(shader_module);
 
         layout_builder: Pipeline_Layout_Builder;
         Pipeline_Layout_Builder.push_constants(*layout_builder, size_of(Standard_Push_Constants), stages = .Vertex);
         Pipeline_Layout_Builder.add_bind_groups(*layout_builder, renderer.global_buffer_bind_group);
         pipeline_layout := Pipeline_Layout_Builder.build(*layout_builder, renderer.device);
+        defer wgpu.PipelineLayoutRelease(pipeline_layout);
 
         builder: Pipeline_Builder;
         Pipeline_Builder.add_vertex_shader(*builder, shader_module, "static_vs", Vertex);

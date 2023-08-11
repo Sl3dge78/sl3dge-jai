@@ -5,11 +5,11 @@ Console :: struct {
     console: [20]string;
     console_pos: int;
 
-    init :: () {
+    create :: () {
         context.logger = Console.log;
     }
 
-    deinit :: () {
+    destroy :: () {
         context.logger = Context.default_logger;
         for global_console.console {
             free(it);

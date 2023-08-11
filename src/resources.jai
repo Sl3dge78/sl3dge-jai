@@ -92,7 +92,7 @@ Resources :: struct {
         return null;
     }
 
-    init :: () {
+    create :: () {
         // Initialize the file watcher and fill the resource_info array with run time info
         File_Watcher.init(*resources.watcher, on_file_change);
         File_Watcher.add_directories(*resources.watcher, "res");
@@ -110,7 +110,7 @@ Resources :: struct {
         load_all();
     }
 
-    deinit :: () {
+    destroy :: () {
         File_Watcher.deinit(resources.watcher);
         unload_all();
     }
@@ -209,7 +209,7 @@ load_font_file :: (info: *Resource_Info) -> bool {
 }
 
 unload_font :: (info :*Resource_Info) {
-    Font.deinit(xx info.pointer);
+    Font.destroy(xx info.pointer);
 }
 
 get_font_type :: (path: string) -> string {

@@ -87,8 +87,9 @@ Font :: struct {
         return self, true;
     }
 
-    deinit :: (font: *Font) {
+    destroy :: (font: *Font) {
         Texture.destroy(*font.texture);
+        wgpu.BindGroupRelease(font.binding);
     }
 }
 

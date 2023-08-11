@@ -70,6 +70,7 @@ Texture :: struct {
 
     destroy :: (texture: *Texture) {
         wgpu.TextureRelease(texture.handle);
+        wgpu.TextureViewRelease(texture.view);
         texture.handle = null;
     }
 }
