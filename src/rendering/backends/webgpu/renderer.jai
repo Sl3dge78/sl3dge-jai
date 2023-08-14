@@ -1,7 +1,3 @@
-WGPU_Check :: (item: *$T) -> *T #expand {
-    assert(item != null, "Unable to create %!", T);
-    return item;
-}
 
 Renderer :: struct {
     // Main State
@@ -29,6 +25,7 @@ Renderer :: struct {
 
     depth_texture : Texture;
     static_mesh_pipelines : [2] wgpu.RenderPipeline; // 0 = shadowmap, 1 = color
+    skinned_mesh_pipelines : [2] wgpu.RenderPipeline; // 0 = shadowmap, 1 = color
 
     global_matrices_buffer: Buffer;
     global_matrices_binding: wgpu.BindGroup;
@@ -192,6 +189,7 @@ Renderer :: struct {
       
         renderer.ui_pipeline = create_ui_pipeline(renderer);
         renderer.static_mesh_pipelines = create_static_mesh_pipeline(renderer);
+        renderer.skinned_mesh_pipelines = create_skinned_mesh_pipeline(renderer);
 
         {   // Color Uniforms
             renderer.global_matrices_buffer = Buffer.create(size_of(Global_Matrices), .Uniform | .CopyDst);
@@ -479,6 +477,44 @@ Renderer :: struct {
         return pipelines;
     }
 
+    create_skinned_mesh_pipeline :: (using renderer: *Renderer) -> [2]wgpu.RenderPipeline {
+        pipelines : [2]wgpu.RenderPipeline;
+        
+        shader_module := create_shader_module(STANDARD_SHADER, device);
+        defer wgpu.ShaderModuleRelease(shader_module);
+
+        {   // Shadowmap            
+            layout_builder: Pipeline_Layout_Builder;
+            Pipeline_Layout_Builder.push_constants(*layout_builder, size_of(Standard_Push_Constants), stages = .Vertex);
+            Pipeline_Layout_Builder.add_bind_groups(*layout_builder, renderer.global_matrices_bind_group);
+            pipeline_layout := Pipeline_Layout_Builder.build(*layout_builder, renderer.device);
+            defer wgpu.PipelineLayoutRelease(pipeline_layout);
+
+            builder: Pipeline_Builder;
+            Pipeline_Builder.add_vertex_shader(*builder, shader_module, "skinned_vs", Vertex);
+            Pipeline_Builder.depth_stencil_state(*builder, renderer.depth_format);
+            pipelines[0] = Pipeline_Builder.build(*builder, renderer.device, pipeline_layout, "Skinned Mesh Color Pipeline");
+        }
+
+        {   // Color
+            depth_texture = Texture.create(width, height, .RenderAttachment, depth_format);
+
+            layout_builder: Pipeline_Layout_Builder;
+            Pipeline_Layout_Builder.push_constants(*layout_builder, size_of(Standard_Push_Constants), stages = .Vertex);
+            Pipeline_Layout_Builder.add_bind_groups(*layout_builder, renderer.global_matrices_bind_group);
+            Pipeline_Layout_Builder.add_bind_groups(*layout_builder, renderer.shadowmap_texture_bind_group);
+            pipeline_layout := Pipeline_Layout_Builder.build(*layout_builder, renderer.device);
+            defer wgpu.PipelineLayoutRelease(pipeline_layout);
+
+            builder: Pipeline_Builder;
+            Pipeline_Builder.add_vertex_shader(*builder, shader_module, "skinned_vs", Vertex);
+            Pipeline_Builder.add_fragment_shader(*builder, shader_module, "fs_main");
+            Pipeline_Builder.depth_stencil_state(*builder, renderer.depth_format);
+            pipelines[1] = Pipeline_Builder.build(*builder, renderer.device, pipeline_layout, "Skinned Mesh Color Pipeline");
+        }
+        return pipelines;
+    }
+
     shadowmap_render_pass :: (using renderer: *Renderer, command_encoder: wgpu.CommandEncoder, framebuffer: wgpu.TextureView) {
         
         render_pass_desc := wgpu.RenderPassDescriptor.{
@@ -632,28 +668,3 @@ Renderer :: struct {
 }
 
 global_renderer : Renderer;
-
-c_print :: (format: string, args: ..Any, to_standard_error := false) #expand {
-    new_ctx: Context;
-    push_context new_ctx {
-        print(format, ..args, to_standard_error);
-    }
-} @PrintLike
-
-wgpu_log_callback :: (level: wgpu.LogLevel, message: *u8, data: *void) #c_call {
-    c_print("WGPU - % : %\n", level, to_string(message));
-}
-
-wgpu_device_lost_callback :: (reason: wgpu.DeviceLostReason, message: *u8, userdata: *void) -> void #c_call {
-    c_print("WGPU DEVICE LOST - % : %\n", reason, to_string(message));
-    debug_break();
-}
-
-wgpu_error_callback :: (type: wgpu.ErrorType, message: *u8, userdata: *void) -> void #c_call {
-    c_print("WGPU ERROR - % : %\n", type, to_string(message));
-    debug_break();
-}
-
-wgpu_on_queue_work_done :: (status: wgpu.QueueWorkDoneStatus, userdata: *void) -> void #c_call {
-    c_print("WGPU QUEUE - %\n", status);
-}

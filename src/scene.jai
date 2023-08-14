@@ -8,17 +8,8 @@ Scene :: struct {
             destroy(it);
         }
         array_reset(*skinned_meshes);
-        Draw_Data.destroy(*self.color_draw_data);
-        Draw_Data.destroy(*self.ui_draw_data);
-    }
-
-    prepare_for_rendering :: (using self: *Scene) {
-        Draw_Data.upload(*self.color_draw_data);
-        Draw_Data.upload(*self.ui_draw_data);
     }
 }
-
-
 
 Mesh_Instance :: struct {
     transform: Matrix4;

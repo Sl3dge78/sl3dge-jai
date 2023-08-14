@@ -1,5 +1,6 @@
 
 Skinned_Vertex :: struct {
+    using #as v: Vertex;
     joints: [4]u8;
     weights: Vector4;
 }
@@ -21,7 +22,7 @@ skinned_vertex_input_attribute :: #run () -> []VkVertexInputAttributeDescription
 
 Joint :: struct {
     local_space_matrix: Matrix4;
-    model_space_matrix: Matrix4;       
+    model_space_matrix: Matrix4;
     dirty: bool;
 }
 

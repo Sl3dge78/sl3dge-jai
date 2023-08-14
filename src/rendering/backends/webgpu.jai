@@ -3,3 +3,4 @@
 #load "webgpu/buffer.jai";
 #load "webgpu/shaders.jai";
 #load "webgpu/builders.jai";
+#load "webgpu/debug.jai";

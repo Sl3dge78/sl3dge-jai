@@ -62,6 +62,8 @@ STANDARD_SHADER :: #string __WGSL
         @location(1) normal: vec3f,
         @location(2) uv: vec2f,
         @location(3) color: vec4f,
+        @location(4) joints: vec4<u16>,
+        @location(5) weights: vec4f,
     };
 
     struct Vertex_Output {
@@ -84,10 +86,15 @@ STANDARD_SHADER :: #string __WGSL
         light_dir : vec3f,
     };
 
+    struct Instance_Data {
+        joint_matrices: [64]mat4x4f,
+    };
+
     var<push_constant> push_constants : Push_Constants;
     @group(0) @binding(0) var<uniform> global_data: Global_Buffer;
     @group(1) @binding(0) var shadow_sampler: sampler;
     @group(1) @binding(1) var shadow_texture: texture_depth_2d;
+    @group(2) @binding(0) var instance_data: Instance_Data;
 
     @vertex
     fn static_vs (in: Static_Vertex_Input) -> Vertex_Output {
@@ -100,6 +107,25 @@ STANDARD_SHADER :: #string __WGSL
         result.uv = in.uv;
         let light_xform = global_data.light * push_constants.transform;
         result.pos_light_space = light_xform * vec4f(in.position, 1.0);
+        return result;
+    }
+
+    @vertex
+    fn skinned_vs (in: Skinned_Vertex_Input) -> Vertex_Output {
+        let skin_mat = in.weights.x * instance_data.joint_matrices[in.joints.x] + 
+            in.weights.y * instance_data.joint_matrices[in.joints.y] +
+            in.weights.z * instance_data.joint_matrices[in.joints.z] +
+            in.weights.w * instance_data.joint_matrices[in.joints.w];
+        let world_pos = push_constants.transform * skin_mat * vec4f(in.position, 1.0);
+
+        var result: Vertex_Output;
+        result.position = global_data.projection * (global_data.view * world_pos);
+
+        let inv_skin = inverse(push_constants.transform * skin_mat);
+        result.color = in.color;
+        result.normal = mat3x3f(inv_skin) * in.normal;
+        result.uv = in.uv;
+        result.pos_light_space = gobal_data.light * world_pos;
         return result;
     }
     

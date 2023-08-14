@@ -23,9 +23,9 @@ wgpu :: #import,dir "modules/WebGPU";
 
 #load "src/rendering/text.jai";
 #load "src/rendering/immediate.jai";
-// #load "src/mesh.jai";
-// #load "src/skinned_mesh.jai";
-// #load "src/scene.jai";
+#load "src/rendering/mesh.jai";
+#load "src/rendering/skinned_mesh.jai";
+#load "src/scene.jai";
 
 #import,dir "modules/gltf_parser";
 
