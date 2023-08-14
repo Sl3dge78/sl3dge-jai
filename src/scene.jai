@@ -2,8 +2,6 @@ Scene :: struct {
     static_meshes: [..]Mesh_Instance;
     skinned_meshes: [..]Skinned_Mesh_Instance;
 
-    color_draw_data: Draw_Data;
-    ui_draw_data: Draw_Data;
 
     destroy :: (using self: *Scene) {
         array_reset(*static_meshes);
@@ -11,41 +9,8 @@ Scene :: struct {
             destroy(it);
         }
         array_reset(*skinned_meshes);
-        Draw_Data.destroy(*self.color_draw_data);
-        Draw_Data.destroy(*self.ui_draw_data);
+
     }
-
-    prepare_for_rendering :: (using self: *Scene) {
-        Draw_Data.upload(*self.color_draw_data);
-        Draw_Data.upload(*self.ui_draw_data);
-    }
-}
-
-Draw_Data :: struct {
-    vertex_buffer: Buffer;
-    vertices: [..]Vertex;
-    draw_cmds : [..]Draw_Cmd;
-    transform: Matrix4;
-
-
-    destroy :: (dd: *Draw_Data) {
-        array_reset(*dd.draw_cmds);
-        array_reset(*dd.vertices);
-        destroy_buffer(*dd.vertex_buffer);
-    }
-
-    upload :: (dd: *Draw_Data) {
-        if dd.vertices.count == 0 then return; 
-        size : u64 = xx (dd.vertices.count * size_of(Vertex));
-        create_or_update_buffer(*dd.vertex_buffer, size, .VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT | .UNIFORM_BUFFER_BIT | .STORAGE_BUFFER_BIT | .TRANSFER_SRC_BIT, .UPLOAD);
-        copy_data(dd.vertex_buffer, dd.vertices.data, size);
-    }
-}
-
-Draw_Cmd :: struct {
-    id: u32;
-    count: u32;
-    xform: Matrix4;
 }
 
 Mesh_Instance :: struct {
@@ -77,15 +42,16 @@ record_3d_commands :: (scene: *Scene, command_buffer: VkCommandBuffer, $kind: Pi
     last_material: *Material;
 
     // Immediate meshes
-    if scene.color_draw_data.vertices.count != 0 {
+    if context.immediate._3d_draw_data.vertices.count != 0 {
+        using context.immediate._3d_draw_data;
         bind_material(command_buffer, global_renderer.static_mesh_material, kind);
         last_material = *global_renderer.static_mesh_material;
 
         offset : u64 = 0;
-        vkCmdBindVertexBuffers(command_buffer, 0, 1, *scene.color_draw_data.vertex_buffer.buffer, *offset);
+        vkCmdBindVertexBuffers(command_buffer, 0, 1, *vertex_buffer.buffer, *offset);
 
         // Issue draw calls & end command buffer
-        for scene.color_draw_data.draw_cmds {
+        for draw_cmds {
             pc := PushConstantData.{transpose(it.xform), transpose(inverse(it.xform))};
             vkCmdPushConstants(command_buffer, last_material.pipelines[kind].pipeline_layout, .VERTEX_BIT, 0, size_of(PushConstantData), *pc);
             vkCmdDraw(command_buffer, it.count, 1, it.id, 0);
@@ -124,10 +90,10 @@ record_2d_commands :: (scene: *Scene, command_buffer: VkCommandBuffer, pipeline:
     vkCmdPushConstants(command_buffer, pipeline.pipeline_layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
 
     offset : u64 = 0;
-    vkCmdBindVertexBuffers(command_buffer, 0, 1, *scene.ui_draw_data.vertex_buffer.buffer, *offset);
+    vkCmdBindVertexBuffers(command_buffer, 0, 1, *context.immediate._2d_draw_data.vertex_buffer.buffer, *offset);
 
     // Issue draw calls & end command buffer
-    for scene.ui_draw_data.draw_cmds {
+    for context.immediate._2d_draw_data.draw_cmds {
         vkCmdDraw(command_buffer, it.count, 1, it.id, 0);
     }
 }

@@ -66,12 +66,14 @@ Renderer :: struct {
 
     projection: Matrix4;
     view: Matrix4;
-
     light_dir: Vector3;
 
     // Scene rendering
     buffer_pool: Buffer_Pool;
     scene: *Scene;
+
+    immediate_3d_draw_data: Draw_Data;
+    immediate_2d_draw_data: Draw_Data;
     
     FRAME_CAMERADATA_SET :: 0;
     FRAME_SHADOWMAP_SET  :: 1;
@@ -382,7 +384,7 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
 
             cam_data_aligned := aligned_size(size_of(Camera_Data), renderer.physical_device_properties.limits.minUniformBufferOffsetAlignment);
 
-            it.camera_buffer = create_buffer(cam_data_aligned * 2, .UNIFORM_BUFFER_BIT, .UPLOAD, true);
+            it.camera_buffer = buffer_create(cam_data_aligned * 2, .UNIFORM_BUFFER_BIT, .UPLOAD, true);
             it.shadowmap_camera_data = cast(*Camera_Data)it.camera_buffer.mapped;
             it.camera_data = it.camera_buffer.mapped + cam_data_aligned;
 
@@ -431,7 +433,7 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
     renderer.sampler = create_sampler(renderer.device);
     data := u8.[255, 255, 255, 255];
     { 
-        renderer.default_texture = create_texture_from_data(data.data, 1, 1, 4, u8);
+        renderer.default_texture = Texture.from_data(data.data, 1, 1, 4, u8);
         alloc_info := VkDescriptorSetAllocateInfo.{
             descriptorPool = global_renderer.descriptor_pool,
             descriptorSetCount = 1, 
@@ -462,7 +464,7 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
 
     {   // Shadowmap
         renderer.shadowmap_render_pass = create_shadowmap_renderpass(renderer.device);
-        renderer.shadowmap_texture = create_texture(Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE, global_renderer.depth_format, .DEPTH_STENCIL_ATTACHMENT_BIT | .SAMPLED_BIT, .DEPTH_BIT);
+        renderer.shadowmap_texture = Texture.create(Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE, global_renderer.depth_format, .DEPTH_STENCIL_ATTACHMENT_BIT | .SAMPLED_BIT, .DEPTH_BIT);
 
         alloc_info := VkDescriptorSetAllocateInfo.{
             descriptorPool = global_renderer.descriptor_pool,
@@ -556,7 +558,10 @@ renderer_deinit :: () {
 
     Buffer_Pool.reset_pool(*buffer_pool);
 
-    destroy_texture(*depth_texture);
+    Draw_Data.destroy(*context.immediate._3d_draw_data);
+    Draw_Data.destroy(*context.immediate._2d_draw_data);
+
+    Texture.destroy(*depth_texture);
 
     vkDestroyDescriptorPool(device, descriptor_pool, null);
     vkDestroyDescriptorSetLayout(device, empty_set_layout, null);
@@ -577,10 +582,10 @@ renderer_deinit :: () {
     // Shadowmap render pass
     vkDestroyRenderPass(device, shadowmap_render_pass, null);
     vkDestroyFramebuffer(device, shadowmap_framebuffer, null);
-    destroy_texture(*shadowmap_texture);
+    Texture.destroy(*shadowmap_texture);
 
     vkDestroySampler(device, sampler, null);
-    destroy_texture(*default_texture);
+    Texture.destroy(*default_texture);
 
     for swapchain_image_views {
         vkDestroyImageView(device, it, null);
@@ -592,7 +597,7 @@ renderer_deinit :: () {
         vkDestroyFence(device, it.frame_fence, null);
         vkDestroySemaphore(device, it.render_finished_semaphore, null);
         vkDestroySemaphore(device, it.image_available_semaphore, null);
-        destroy_buffer(*it.camera_buffer);    
+        buffer_destroy(*it.camera_buffer);    
     }
     vkDestroyCommandPool(device, command_pool, null);
     for framebuffers {
@@ -616,7 +621,9 @@ end_frame :: () {
     Vk_Check(vkAcquireNextImageKHR(device, swapchain, U64_MAX, image_available_semaphore, VK_NULL_HANDLE, *image_index));
 
     // Commit draw data
-    Scene.prepare_for_rendering(scene);
+    Draw_Data.upload(*context.immediate._2d_draw_data);
+    Draw_Data.upload(*context.immediate._3d_draw_data);
+
     size:: 20;
     light_proj := orthographic_projection_matrix(size, -size, -size, size, -size, size, true);
     light_view := make_look_at_matrix(.{0, 0, 0}, light_dir, .{0, 1, 0}, false);
@@ -690,13 +697,8 @@ end_frame :: () {
         Vk_Check(result);
     }
 
-    scene.color_draw_data.vertices.count = 0;
-    scene.color_draw_data.draw_cmds.count = 0;
-    scene.color_draw_data.transform = Matrix4_Identity;
-
-    scene.ui_draw_data.vertices.count = 0;
-    scene.ui_draw_data.draw_cmds.count = 0;
-    scene.ui_draw_data.transform = Matrix4_Identity;
+    Draw_Data.reset(*context.immediate._3d_draw_data);
+    Draw_Data.reset(*context.immediate._2d_draw_data);
 
     // Update the context's frame data
     frame_index = (frame_index + 1) % FRAME_COUNT;
@@ -707,16 +709,8 @@ end_frame :: () {
     global_engine.frame_time = cast(float)(SDL_GetPerformanceCounter() - global_engine.frame_start) / cast(float)(SDL_GetPerformanceFrequency() / 1000);
 }
 
-begin_3d :: () {
-    context.vk.current_draw_data = *global_renderer.scene.color_draw_data;
-}
-
-begin_2d :: () {
-    context.vk.current_draw_data = *global_renderer.scene.ui_draw_data;
-}
-
 set_transform_matrix :: (mat: Matrix4) {
-    context.vk.current_draw_data.transform = mat;
+    context.immediate._3d_draw_data.transform = mat;
 }
 
 set_view_matrix :: (view: Matrix4) {

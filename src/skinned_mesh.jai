@@ -163,7 +163,7 @@ instantiate :: (scene: *Scene, mesh: *Skinned_Mesh, matrix := Matrix4_Identity) 
     };
     Vk_Check(vkAllocateDescriptorSets(global_renderer.device, *alloc_info, *instance.joint_descriptor));
     size := size_of(Matrix4) * mesh.skeleton.joints.count;
-    instance.joint_buffer = create_buffer(xx size, .UNIFORM_BUFFER_BIT, .UPLOAD, true);
+    instance.joint_buffer = buffer_create(xx size, .UNIFORM_BUFFER_BIT, .UPLOAD, true);
     
     buffer_info := VkDescriptorBufferInfo.{
         buffer = instance.joint_buffer.buffer,
@@ -190,7 +190,7 @@ instantiate :: (scene: *Scene, mesh: *Skinned_Mesh, matrix := Matrix4_Identity) 
 }
 
 destroy :: (self: *Skinned_Mesh_Instance) {
-    destroy_buffer(*self.joint_buffer);
+    buffer_destroy(*self.joint_buffer);
     free(self.current_pose.data);
 }   
 

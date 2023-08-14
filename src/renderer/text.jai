@@ -32,7 +32,7 @@ create_font_from_data :: (font_data: string, size: float) -> Font, bool {
     stbtt_PackFontRange(*pack_context, font_data.data, 0, size, xx self.first_char, 437, self.char_data.data);
     stbtt_PackEnd(*pack_context);
 
-    self.texture = create_texture_from_data(bitmap.data, 512, 512, 1, u8);
+    self.texture = Texture.from_data(bitmap.data, 512, 512, 1, u8);
 
     // This has nothing to do here
     // TODO : Proper material generation
@@ -75,7 +75,7 @@ create_font_from_data :: (font_data: string, size: float) -> Font, bool {
 }
 
 destroy_font :: (font : *Font) {
-    destroy_texture(*font.texture);
+    Texture.destroy(*font.texture);
 }
 
 size_text :: (text: string, font: *Font) -> float {
@@ -98,7 +98,7 @@ draw_text :: (text: string, x: float, y: float, font: *Font, color: Vector4 = .{
         
         q : stbtt_aligned_quad = ---;
         stbtt_GetPackedQuad(font.char_data.data, 512, 512, xx(it - font.first_char), *x, *y, *q, 0);
-        v := prepare_vertices(6);
+        v := prepare_2d_vertices(6);
         v[0] = Vertex.{ .{q.x0, q.y0, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s0, q.t0}, color };
         v[1] = Vertex.{ .{q.x1, q.y1, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s1, q.t1}, color };
         v[2] = Vertex.{ .{q.x1, q.y0, 0}, .{0.0, 0.0, 1.0}, Vector2.{q.s1, q.t0}, color };

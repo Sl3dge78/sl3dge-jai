@@ -11,7 +11,7 @@ Buffer_Pool :: struct {
 
     maybe_grow :: (using buffer_pool: *Buffer_Pool, size: VkDeviceSize) {
         if buffers.count == 0 || size > (BUFFER_SIZE - current_position_in_buffer) {
-            array_add(*buffers, create_buffer(BUFFER_SIZE, .VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT | .STORAGE_BUFFER_BIT | .TRANSFER_SRC_BIT, .UPLOAD));
+            array_add(*buffers, buffer_create(BUFFER_SIZE, .VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT | .STORAGE_BUFFER_BIT | .TRANSFER_SRC_BIT, .UPLOAD));
             current_position_in_buffer = 0;
         }
     }
@@ -22,7 +22,7 @@ Buffer_Pool :: struct {
         Buffer_Pool.maybe_grow(buffer_pool, xx size);
         loc.buffer = *buffers[buffers.count - 1];
         loc.offset = current_position_in_buffer;
-        copy_data(loc.buffer, data.data, size, loc.offset);
+        buffer_write_data(loc.buffer, data.data, size, loc.offset);
         current_position_in_buffer += size;
         return loc;
     }
@@ -38,7 +38,7 @@ Buffer_Pool :: struct {
 
     reset_pool :: (using buffer_pool: *Buffer_Pool) {
         for *buffers {
-            destroy_buffer(it);
+            buffer_destroy(it);
         }
         array_reset(*buffers);
         current_position_in_buffer = 0;

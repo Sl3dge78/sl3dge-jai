@@ -26,7 +26,6 @@ Console :: struct {
 
     draw :: (font: *Font) {
         using global_console;
-        begin_2d();
 
         // Message
         if message_timer > 0 {

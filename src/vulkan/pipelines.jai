@@ -16,10 +16,7 @@ create_ui_pipeline :: (device: VkDevice, render_pass: VkRenderPass) -> Pipeline 
     frag := create_shader_module(device, "shaders/ui.frag.spv");
     defer vkDestroyShaderModule(device, frag, null);
 
-    stages := VkPipelineShaderStageCreateInfo.[
-        .{stage = .VERTEX_BIT,   module = vtx, pName = "main"},
-        .{stage = .FRAGMENT_BIT, module = frag, pName = "main"}
-    ];
+    
 
     layouts := VkDescriptorSetLayout.[
         global_renderer.single_texture_layout,
@@ -39,18 +36,13 @@ create_ui_pipeline :: (device: VkDevice, render_pass: VkRenderPass) -> Pipeline 
     };
     Vk_Check(vkCreatePipelineLayout(device, *layout_ci, null, *pipeline.pipeline_layout));
 
-    create_info := pipeline_create_info(pipeline.pipeline_layout, render_pass);
-    create_info.pColorBlendState.pAttachments = *VkPipelineColorBlendAttachmentState.{
-        blendEnable = VK_TRUE,
-        srcColorBlendFactor = .SRC_ALPHA,
-        dstColorBlendFactor = .ONE_MINUS_SRC_ALPHA,
-        colorBlendOp = .ADD,
-        srcAlphaBlendFactor = .SRC_ALPHA,
-        dstAlphaBlendFactor = .ONE_MINUS_SRC_ALPHA,
-        alphaBlendOp = .ADD,
-        colorWriteMask = .R_BIT | .G_BIT | .B_BIT | .A_BIT,
-    };
-    vkCreateGraphicsPipelines(device, null, 1, *create_info, null, *pipeline.pipeline);
+    builder: Pipeline_Builder;
+    Pipeline_Builder.add_vertex_input(*builder, Vertex);
+    Pipeline_Builder.add_shader(*builder, .VERTEX_BIT, vtx, "main");
+    Pipeline_Builder.add_shader(*builder, .FRAGMENT_BIT, frag, "main");
+    Pipeline_Builder.add_dynamic_state(*builder, VkDynamicState.VIEWPORT, VkDynamicState.SCISSOR);
+    builder.color_blend = true;
+    pipeline.pipeline = Pipeline_Builder.build(*builder, device, pipeline.pipeline_layout, render_pass);
     log("UI Pipeline created.");
 
     return pipeline;
@@ -111,23 +103,12 @@ create_static_mesh_material :: (device : VkDevice, shadowmap_rp: VkRenderPass, c
         Vk_Check(vkCreatePipelineLayout(device, *layout_ci, null, *result.pipelines[Pipeline_Kind.SHADOWMAP].pipeline_layout));
 
         // Pipeline
-        stages := VkPipelineShaderStageCreateInfo.[
-            .{stage = .VERTEX_BIT, module = vtx, pName = "main"}
-        ];
-
-        rasterization_state := rasterization_state_ci();
-        rasterization_state.depthBiasEnable = VK_TRUE;
-        rasterization_state.depthBiasConstantFactor = 1.25;
-        rasterization_state.depthBiasClamp = 0;
-        rasterization_state.depthBiasSlopeFactor = 1.75;
-
-        viewport_state := viewport_state_ci(Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE);
-
-        create_info := pipeline_create_info(result.pipelines[Pipeline_Kind.SHADOWMAP].pipeline_layout, shadowmap_rp);
-        create_info.pDynamicState = null;
-        create_info.pRasterizationState = *rasterization_state;
-        create_info.pViewportState = *viewport_state;
-        vkCreateGraphicsPipelines(device, null, 1, *create_info, null, *result.pipelines[Pipeline_Kind.SHADOWMAP].pipeline);
+        builder: Pipeline_Builder;
+        Pipeline_Builder.add_vertex_input(*builder, Vertex);
+        Pipeline_Builder.add_shader(*builder, .VERTEX_BIT, vtx, "main");
+        Pipeline_Builder.rasterization_state_depth_bias(*builder, 1.25, 0, 1.75);
+        Pipeline_Builder.viewport_state(*builder, Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE);
+        result.pipelines[Pipeline_Kind.SHADOWMAP].pipeline = Pipeline_Builder.build(*builder, device, result.pipelines[Pipeline_Kind.SHADOWMAP].pipeline_layout, shadowmap_rp);
         log("Shadowmap pipeline created.");
     }
 
@@ -155,13 +136,12 @@ create_static_mesh_material :: (device : VkDevice, shadowmap_rp: VkRenderPass, c
         Vk_Check(vkCreatePipelineLayout(device, *layout_ci, null, *result.pipelines[Pipeline_Kind.COLOR].pipeline_layout));
 
         // Pipeline
-        stages := VkPipelineShaderStageCreateInfo.[
-            .{stage = .VERTEX_BIT,   module = vtx, pName = "main"},
-            .{stage = .FRAGMENT_BIT, module = frag, pName = "main"}
-        ];
-
-        create_info := pipeline_create_info(result.pipelines[Pipeline_Kind.COLOR].pipeline_layout, color_rp);
-        vkCreateGraphicsPipelines(device, null, 1, *create_info, null, *result.pipelines[Pipeline_Kind.COLOR].pipeline);
+        builder: Pipeline_Builder;
+        Pipeline_Builder.add_vertex_input(*builder, Vertex);
+        Pipeline_Builder.add_shader(*builder, .VERTEX_BIT, vtx, "main");
+        Pipeline_Builder.add_shader(*builder, .FRAGMENT_BIT, frag, "main");
+        Pipeline_Builder.add_dynamic_state(*builder, VkDynamicState.VIEWPORT, VkDynamicState.SCISSOR);
+        result.pipelines[Pipeline_Kind.COLOR].pipeline = Pipeline_Builder.build(*builder, device, result.pipelines[Pipeline_Kind.COLOR].pipeline_layout, color_rp);
         log("Color pipeline created.");
     }
     return result;
@@ -201,27 +181,14 @@ create_skinned_mesh_material :: (device : VkDevice, shadowmap_rp: VkRenderPass, 
         layout := *result.pipelines[Pipeline_Kind.SHADOWMAP].pipeline_layout;
         Vk_Check(vkCreatePipelineLayout(device, *layout_ci, null, layout));
 
-        // Pipeline
-        stages := VkPipelineShaderStageCreateInfo.[
-            .{stage = .VERTEX_BIT, module = vtx, pName = "main"}
-        ];
-
-        rasterization_state := rasterization_state_ci();
-        rasterization_state.depthBiasEnable = VK_TRUE;
-        rasterization_state.depthBiasConstantFactor = 1.25;
-        rasterization_state.depthBiasClamp = 0;
-        rasterization_state.depthBiasSlopeFactor = 1.75;
-
-        viewport_state := viewport_state_ci(Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE);
-
-        vertex_input_state := vertex_input_state_ci(.[.{0, size_of(Vertex), .VERTEX}, .{1, size_of(Skinned_Vertex), .VERTEX}], skinned_vertex_input_attribute);
-
-        create_info := pipeline_create_info(layout.*, shadowmap_rp);
-        create_info.pDynamicState = null;
-        create_info.pRasterizationState = *rasterization_state;
-        create_info.pViewportState = *viewport_state;
-        create_info.pVertexInputState = *vertex_input_state;
-        vkCreateGraphicsPipelines(device, null, 1, *create_info, null, *result.pipelines[Pipeline_Kind.SHADOWMAP].pipeline);
+        builder: Pipeline_Builder;
+        Pipeline_Builder.add_vertex_input(*builder, Vertex);
+        Pipeline_Builder.add_vertex_input(*builder, Skinned_Vertex);
+        Pipeline_Builder.add_shader(*builder, .VERTEX_BIT, vtx, "main");
+        Pipeline_Builder.rasterization_state_depth_bias(*builder, 1.25, 0, 1.75);
+        Pipeline_Builder.viewport_state(*builder, Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE);
+        result.pipelines[Pipeline_Kind.SHADOWMAP].pipeline = Pipeline_Builder.build(*builder, device, result.pipelines[Pipeline_Kind.SHADOWMAP].pipeline_layout, shadowmap_rp);
+        
         log("Shadowmap pipeline created.");
     }
 
@@ -248,17 +215,15 @@ create_skinned_mesh_material :: (device : VkDevice, shadowmap_rp: VkRenderPass, 
             pSetLayouts = layouts.data,
         };
         Vk_Check(vkCreatePipelineLayout(device, *layout_ci, null, *result.pipelines[Pipeline_Kind.COLOR].pipeline_layout));
-
-        // Pipeline
-        stages := VkPipelineShaderStageCreateInfo.[
-            .{stage = .VERTEX_BIT,   module = vtx, pName = "main"},
-            .{stage = .FRAGMENT_BIT, module = frag, pName = "main"}
-        ];
-        vertex_input_state := vertex_input_state_ci(.[.{0, size_of(Vertex), .VERTEX}, .{1, size_of(Skinned_Vertex), .VERTEX}], skinned_vertex_input_attribute);
-
-        create_info := pipeline_create_info(result.pipelines[Pipeline_Kind.COLOR].pipeline_layout, color_rp);
-        create_info.pVertexInputState = *vertex_input_state;
-        vkCreateGraphicsPipelines(device, null, 1, *create_info, null, *result.pipelines[Pipeline_Kind.COLOR].pipeline);
+        
+        builder: Pipeline_Builder;
+        Pipeline_Builder.add_vertex_input(*builder, Vertex);
+        Pipeline_Builder.add_vertex_input(*builder, Skinned_Vertex);
+        Pipeline_Builder.add_shader(*builder, .VERTEX_BIT, vtx, "main");
+        Pipeline_Builder.add_shader(*builder, .FRAGMENT_BIT, frag, "main");
+        Pipeline_Builder.add_dynamic_state(*builder, VkDynamicState.VIEWPORT, VkDynamicState.SCISSOR);
+        result.pipelines[Pipeline_Kind.COLOR].pipeline = Pipeline_Builder.build(*builder, device, result.pipelines[Pipeline_Kind.COLOR].pipeline_layout, color_rp);
+        
         log("Color pipeline created.");
     }
     return result;

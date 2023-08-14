@@ -5,7 +5,7 @@ Buffer :: struct {
     size: u64;
 }
 
-create_buffer :: (size: u64, usage: VkBufferUsageFlagBits, mem_type: Renderer.MemoryType, $map := false) -> Buffer {
+buffer_create :: (size: u64, usage: VkBufferUsageFlagBits, mem_type: Renderer.MemoryType, $map := false) -> Buffer {
     result: Buffer;
     buffer_ci := VkBufferCreateInfo.{
         size = size,
@@ -20,27 +20,27 @@ create_buffer :: (size: u64, usage: VkBufferUsageFlagBits, mem_type: Renderer.Me
     result.size = size;
 
     #if map {
-        map_buffer(*result);
+        buffer_map(*result);
     }
     return result;
 }
 
-create_or_update_buffer :: (buffer: *Buffer, size: u64, usage: VkBufferUsageFlagBits, mem_type: Renderer.MemoryType, $map := false) {
+buffer_create_or_update :: (buffer: *Buffer, size: u64, usage: VkBufferUsageFlagBits, mem_type: Renderer.MemoryType, $map := false) {
     if buffer.buffer != VK_NULL_HANDLE && buffer.size >= size then return;
     if buffer.buffer != VK_NULL_HANDLE {
-        destroy_buffer(buffer);
+        buffer_destroy(buffer);
     }
 
-    buffer.* = create_buffer(size, usage, mem_type, map);
+    buffer.* = buffer_create(size, usage, mem_type, map);
 }
 
-destroy_buffer :: (buffer: *Buffer) {
+buffer_destroy :: (buffer: *Buffer) {
     vkFreeMemory(global_renderer.device, buffer.memory, null);
     vkDestroyBuffer(global_renderer.device, buffer.buffer, null);
     buffer.* = .{};
 }
 
-copy_data :: (buffer: Buffer, data: *void, size: u64, offset: VkDeviceSize = 0) {
+buffer_write_data :: (buffer: Buffer, data: *void, size: u64, offset: VkDeviceSize = 0) {
     ptr: *void;
     vkMapMemory(global_renderer.device, buffer.memory, offset, size, 0, *ptr);
     defer vkUnmapMemory(global_renderer.device, buffer.memory);
@@ -48,14 +48,14 @@ copy_data :: (buffer: Buffer, data: *void, size: u64, offset: VkDeviceSize = 0) 
     memcpy(ptr, data, xx size);
 }
 
-map_buffer :: (buffer: *Buffer) -> *void {
+buffer_map :: (buffer: *Buffer) -> *void {
     ptr: *void;
     vkMapMemory(global_renderer.device, buffer.memory, 0, VK_WHOLE_SIZE, 0, *ptr);
     buffer.mapped = ptr;
     return ptr;
 }
 
-unmap_buffer :: (buffer: *Buffer) {
+buffer_unmap :: (buffer: *Buffer) {
     vkUnmapMemory(global_renderer.device, buffer.memory);
     buffer.mapped = null;
 }

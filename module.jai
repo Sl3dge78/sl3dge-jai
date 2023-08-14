@@ -14,23 +14,19 @@ File_Watcher :: #import "File_Watcher";
 
 #load "src/engine.jai";
 #load "src/input.jai";
-#if RENDERER == .OPENGL {
-    #import "GL";
-    #load "src/opengl/renderer.jai";
-    #load "src/opengl/render_texture.jai";
-    #load "src/opengl/shaders.jai";
-} else #if RENDERER == .VULKAN {
-    #import,dir "modules/Vulkan";
-    #load "src/vulkan/initialization.jai";
-    #load "src/vulkan/immediate.jai";
-    #load "src/vulkan/renderer.jai";
-    #load "src/vulkan/utils.jai";
-    #load "src/vulkan/buffer.jai";
-    #load "src/vulkan/buffer_pool.jai";
-    #load "src/vulkan/texture.jai";
-    #load "src/vulkan/pipelines.jai";
-}
+
+#import,dir "modules/Vulkan";
+#load "src/vulkan/initialization.jai";
+#load "src/vulkan/renderer.jai";
+#load "src/vulkan/utils.jai";
+#load "src/vulkan/buffer.jai";
+#load "src/vulkan/buffer_pool.jai";
+#load "src/vulkan/texture.jai";
+#load "src/vulkan/pipelines.jai";
+#load "src/vulkan/pipeline_builder.jai";
+
 #load "src/renderer/text.jai";
+#load "src/renderer/immediate.jai";
 #load "src/camera.jai";
 #load "src/console.jai";
 #load "src/resources.jai";
@@ -46,10 +42,3 @@ File_Watcher :: #import "File_Watcher";
 #load "src/math/gjk.jai";
 #load "src/math/ray.jai";
 #load "src/tween.jai";
-
-RendererBackend :: enum {
-    OPENGL;
-    VULKAN;
-}
-
-#module_parameters (RENDERER : RendererBackend = .OPENGL);

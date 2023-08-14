@@ -207,7 +207,7 @@ create_or_update_swapchain :: () {
         vkDestroySwapchainKHR(device, old_swapchain, null);
         swapchain_images.count = 0;
 
-        destroy_texture(*depth_texture);
+        Texture.destroy(*depth_texture);
     }
 
     swapchain_images = fill_array(VkImage, vkGetSwapchainImagesKHR, device, swapchain, allocator = context.allocator);
@@ -219,7 +219,7 @@ create_or_update_swapchain :: () {
     }
 
     {   // Depth image
-        depth_texture = create_texture(swapchain_extent.width, swapchain_extent.height, depth_format, .DEPTH_STENCIL_ATTACHMENT_BIT, .DEPTH_BIT | .STENCIL_BIT);
+        depth_texture = Texture.create(swapchain_extent.width, swapchain_extent.height, depth_format, .DEPTH_STENCIL_ATTACHMENT_BIT, .DEPTH_BIT | .STENCIL_BIT);
         transition_image_layout(depth_texture.image, .UNDEFINED, .DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
     }
 
@@ -230,119 +230,6 @@ create_or_update_swapchain :: () {
     log("\tPresent mode: %", present_mode);
     log("\tImage count: %", image_count);
     log("\tExtent: %", swapchain_extent);
-}
-
-viewport_state_ci :: (w: u32, h: u32) -> VkPipelineViewportStateCreateInfo #expand {
-    `__viewport := VkViewport.{0, 0, xx w,  cast(float)h, 0, 1};
-    `__scissors := VkRect2D.{offset = .{0, 0}, extent = .{w, h}};
-    return .{
-        viewportCount = 1,
-        pViewports = *__viewport,
-        scissorCount = 1,
-        pScissors = *__scissors,
-    };
-}
-
-rasterization_state_ci :: () -> VkPipelineRasterizationStateCreateInfo {
-    return .{
-        depthClampEnable = VK_FALSE,
-        rasterizerDiscardEnable = VK_FALSE,
-        polygonMode = .FILL,
-        cullMode = .NONE,
-        frontFace = .COUNTER_CLOCKWISE,
-        depthBiasEnable = VK_FALSE,
-        depthBiasConstantFactor = 0,
-        depthBiasClamp = 0,
-        depthBiasSlopeFactor = 0,
-        lineWidth = 1,
-    };
-}
-
-vertex_input_state_ci :: (bindings : []VkVertexInputBindingDescription, attributes : []VkVertexInputAttributeDescription) -> VkPipelineVertexInputStateCreateInfo {
-    return.{
-        vertexBindingDescriptionCount = xx bindings.count,
-        pVertexBindingDescriptions = bindings.data,
-        vertexAttributeDescriptionCount = xx attributes.count,
-        pVertexAttributeDescriptions = attributes.data
-    };
-}
-
-pipeline_create_info :: (layout: VkPipelineLayout, renderpass: VkRenderPass) -> VkGraphicsPipelineCreateInfo #expand {
-
-    `dynamic_state := VkDynamicState.[.VIEWPORT, .SCISSOR];
-
-    create_info := VkGraphicsPipelineCreateInfo.{
-        stageCount = `stages.count,
-        pStages = `stages.data,
-        pVertexInputState = *VkPipelineVertexInputStateCreateInfo.{
-            vertexBindingDescriptionCount = 1,
-            pVertexBindingDescriptions = *VkVertexInputBindingDescription.{
-                binding = 0, stride = size_of(Vertex), inputRate = .VERTEX
-            },
-            vertexAttributeDescriptionCount = vertex_input_attribute.count,
-            pVertexAttributeDescriptions = vertex_input_attribute.data,
-        },
-        pInputAssemblyState = *VkPipelineInputAssemblyStateCreateInfo.{
-            topology = .TRIANGLE_LIST,
-            primitiveRestartEnable = VK_FALSE,
-        },
-        pViewportState = *VkPipelineViewportStateCreateInfo.{
-            viewportCount = 1,
-            pViewports = VK_NULL_HANDLE,
-            scissorCount = 1,
-            pScissors = VK_NULL_HANDLE,
-        },
-        pRasterizationState = *VkPipelineRasterizationStateCreateInfo.{
-            depthClampEnable = VK_FALSE,
-            rasterizerDiscardEnable = VK_FALSE,
-            polygonMode = .FILL,
-            cullMode = .NONE,
-            frontFace = .COUNTER_CLOCKWISE,
-            depthBiasEnable = VK_FALSE,
-            depthBiasConstantFactor = 0,
-            depthBiasClamp = 0,
-            depthBiasSlopeFactor = 0,
-            lineWidth = 1,
-        },
-        pMultisampleState = *VkPipelineMultisampleStateCreateInfo.{
-            rasterizationSamples = ._1_BIT,
-            sampleShadingEnable = VK_FALSE,
-            minSampleShading = 1,
-            pSampleMask = VK_NULL_HANDLE,
-            alphaToCoverageEnable = VK_FALSE,
-            alphaToOneEnable = VK_FALSE,
-        },
-        pColorBlendState = *VkPipelineColorBlendStateCreateInfo.{
-            logicOpEnable = VK_FALSE,
-            attachmentCount = 1,
-            pAttachments = *VkPipelineColorBlendAttachmentState.{
-                blendEnable = VK_FALSE,
-                srcColorBlendFactor = .ONE,
-                dstColorBlendFactor = .ZERO,
-                colorBlendOp = .ADD,
-                srcAlphaBlendFactor = .ONE,
-                dstAlphaBlendFactor = .ZERO,
-                alphaBlendOp = .ADD,
-                colorWriteMask = .R_BIT | .G_BIT | .B_BIT | .A_BIT,
-            },
-        },
-        pDynamicState = *VkPipelineDynamicStateCreateInfo.{
-            dynamicStateCount = dynamic_state.count,
-            pDynamicStates = dynamic_state.data,
-        },
-        pDepthStencilState = *VkPipelineDepthStencilStateCreateInfo.{
-            depthTestEnable = VK_TRUE,
-            depthWriteEnable = VK_TRUE,
-            depthCompareOp = .LESS,
-            depthBoundsTestEnable = VK_FALSE,
-            minDepthBounds = 0,
-            maxDepthBounds = 1,
-            stencilTestEnable = VK_FALSE,
-        },
-        layout = layout,
-        renderPass = renderpass
-    };
-    return create_info;
 }
 
 create_descriptor_set_layout :: (device: VkDevice, bindings: []VkDescriptorSetLayoutBinding) -> VkDescriptorSetLayout {

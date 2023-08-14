@@ -233,12 +233,12 @@ get_shader_type :: (path: string) -> string {
 
 // .png files
 load_image :: (info: *Resource_Info) -> bool {
-    (cast(*Texture)info.pointer).* = create_texture_from_file(info.path);
+    (cast(*Texture)info.pointer).* = Texture.from_file(info.path);
     return true;
 }
 
 unload_image :: (info: *Resource_Info) {
-    destroy_texture(xx info.pointer);
+    Texture.destroy(xx info.pointer);
 }
 
 get_image_type :: (path: string) -> string {
