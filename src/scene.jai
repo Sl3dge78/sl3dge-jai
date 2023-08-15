@@ -53,7 +53,7 @@ record_3d_commands :: (scene: *Scene, command_buffer: VkCommandBuffer, $kind: Pi
         // Issue draw calls & end command buffer
         for draw_cmds {
             pc := PushConstantData.{transpose(it.xform), transpose(inverse(it.xform))};
-            vkCmdPushConstants(command_buffer, last_material.pipelines[kind].pipeline_layout, .VERTEX_BIT, 0, size_of(PushConstantData), *pc);
+            vkCmdPushConstants(command_buffer, last_material.pipelines[kind].layout, .VERTEX_BIT, 0, size_of(PushConstantData), *pc);
             vkCmdDraw(command_buffer, it.count, 1, it.id, 0);
         }
     }
@@ -66,7 +66,7 @@ record_3d_commands :: (scene: *Scene, command_buffer: VkCommandBuffer, $kind: Pi
 
     for scene.static_meshes {
         pc := PushConstantData.{transpose(it.transform), transpose(inverse(it.transform))};
-        vkCmdPushConstants(command_buffer, last_material.pipelines[kind].pipeline_layout, .VERTEX_BIT, 0, size_of(PushConstantData), *pc);
+        vkCmdPushConstants(command_buffer, last_material.pipelines[kind].layout, .VERTEX_BIT, 0, size_of(PushConstantData), *pc);
         draw(it.mesh, command_buffer);
     }
 
@@ -78,16 +78,16 @@ record_3d_commands :: (scene: *Scene, command_buffer: VkCommandBuffer, $kind: Pi
 
     for *scene.skinned_meshes {
         upload_skeleton(it);
-        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, last_material.pipelines[kind].pipeline_layout, Renderer.INSTANCE_SET, 1, *it.joint_descriptor, 0, null);
+        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, last_material.pipelines[kind].layout, Renderer.INSTANCE_SET, 1, *it.joint_descriptor, 0, null);
         pc := PushConstantData.{transpose(it.transform), transpose(inverse(it.transform))};
-        vkCmdPushConstants(command_buffer, last_material.pipelines[kind].pipeline_layout, .VERTEX_BIT, 0, size_of(PushConstantData), *pc);
+        vkCmdPushConstants(command_buffer, last_material.pipelines[kind].layout, .VERTEX_BIT, 0, size_of(PushConstantData), *pc);
         draw(it.mesh, command_buffer);
     }
 }
 
 record_2d_commands :: (scene: *Scene, command_buffer: VkCommandBuffer, pipeline: Pipeline) {
     pc := float.[2.0 / cast(float)global_renderer.swapchain_extent.width, 2.0 / cast(float)global_renderer.swapchain_extent.height, -1, -1];
-    vkCmdPushConstants(command_buffer, pipeline.pipeline_layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
+    vkCmdPushConstants(command_buffer, pipeline.layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
 
     offset : u64 = 0;
     vkCmdBindVertexBuffers(command_buffer, 0, 1, *context.immediate._2d_draw_data.vertex_buffer.buffer, *offset);

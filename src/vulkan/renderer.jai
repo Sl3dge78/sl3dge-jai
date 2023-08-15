@@ -219,8 +219,6 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
         }
     }
 
-    log("Max sets: %", renderer.physical_device_properties.limits.maxBoundDescriptorSets);
-
     // Memory
     {
         find_compatible_memory_type :: (prop: *VkPhysicalDeviceMemoryProperties, flags: VkMemoryPropertyFlags) -> u32 {
@@ -262,26 +260,13 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
             queueCount = 1,
             pQueuePriorities = float.[1].data,
         };
-        features_13 := VkPhysicalDeviceVulkan13Features.{
-            dynamicRendering = VK_TRUE,
-        };
         device_features := VkPhysicalDeviceFeatures.{
             samplerAnisotropy = VK_TRUE,
         };
-        dynamic_rendering_feature := VkPhysicalDeviceDynamicRenderingFeaturesKHR.{
-            pNext = *features_13,
-            dynamicRendering = VK_TRUE,
-        };
         exts := *u8.[
             VK_KHR_SWAPCHAIN_EXTENSION_NAME.data,
-            VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME.data,
-            VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME.data,
-            VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME.data,
-            VK_KHR_MAINTENANCE2_EXTENSION_NAME.data,
-            VK_KHR_MULTIVIEW_EXTENSION_NAME.data,
         ];
         create_info := VkDeviceCreateInfo.{
-            pNext = *features_13,
             pQueueCreateInfos = *queue_create_info,
             queueCreateInfoCount = 1,
             pEnabledFeatures = *device_features,
@@ -307,14 +292,10 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
     // Descriptor pools
     {
         pool_sizes := VkDescriptorPoolSize.[
-            .{
-                type = .UNIFORM_BUFFER,
-                descriptorCount = 32,
-            },
-            .{
-                type = .COMBINED_IMAGE_SAMPLER,
-                descriptorCount = 32, 
-            }
+            .{ type = .UNIFORM_BUFFER,
+                descriptorCount = 32, },
+            .{ type = .COMBINED_IMAGE_SAMPLER,
+                descriptorCount = 32, }
         ];
 
         pool_info := VkDescriptorPoolCreateInfo.{
@@ -573,7 +554,7 @@ renderer_deinit :: () {
     Material.destroy(device, *static_mesh_material);
     Material.destroy(device, *skinned_mesh_material);
 
-    vkDestroyPipelineLayout(device, ui_pipeline.pipeline_layout, null);
+    vkDestroyPipelineLayout(device, ui_pipeline.layout, null);
     vkDestroyPipeline(device, ui_pipeline.pipeline, null);
 
     // Standard render pass

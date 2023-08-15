@@ -1,17 +1,21 @@
 Pipeline_Builder :: struct {
     stages : [..]VkPipelineShaderStageCreateInfo;
+    
     vertex_bindings: [..]VkVertexInputBindingDescription;
     vertex_attributes: [..]VkVertexInputAttributeDescription;
+
     input_assembly := VkPipelineInputAssemblyStateCreateInfo.{
         topology = .TRIANGLE_LIST,
         primitiveRestartEnable = VK_FALSE,
     };
+
     viewport := VkPipelineViewportStateCreateInfo.{
         viewportCount = 1,
         pViewports = VK_NULL_HANDLE,
         scissorCount = 1,
         pScissors = VK_NULL_HANDLE,
     };
+
     rasterization := VkPipelineRasterizationStateCreateInfo.{
         depthClampEnable = VK_FALSE,
         rasterizerDiscardEnable = VK_FALSE,
@@ -24,6 +28,7 @@ Pipeline_Builder :: struct {
         depthBiasSlopeFactor = 0,
         lineWidth = 1,
     };
+
     multisample := VkPipelineMultisampleStateCreateInfo.{
         rasterizationSamples = ._1_BIT,
         sampleShadingEnable = VK_FALSE,
@@ -32,6 +37,7 @@ Pipeline_Builder :: struct {
         alphaToCoverageEnable = VK_FALSE,
         alphaToOneEnable = VK_FALSE,
     };
+
     color_blend : bool; 
 
     dynamic_state : [..]VkDynamicState;
@@ -44,6 +50,9 @@ Pipeline_Builder :: struct {
         maxDepthBounds = 1,
         stencilTestEnable = VK_FALSE,
     };
+
+    descriptor_set_layouts: [..]VkDescriptorSetLayout;
+    push_constant: VkPushConstantRange;
 
     add_shader :: (self: *Pipeline_Builder, stage: VkShaderStageFlagBits, module: VkShaderModule, entry_point: string) {
         self.stages.allocator = temp;
@@ -87,7 +96,7 @@ Pipeline_Builder :: struct {
             }
             array_add(*self.vertex_attributes, .{location = xx self.vertex_attributes.count, binding = xx self.vertex_bindings.count, format = format, offset = xx it.offset_in_bytes });
         }
-
+        self.vertex_bindings.allocator = temp;
         array_add(*self.vertex_bindings, .{xx self.vertex_bindings.count, size_of(type), .VERTEX});
         
     }
@@ -114,7 +123,30 @@ Pipeline_Builder :: struct {
         array_add(*self.dynamic_state, ..dyn);
     }
 
-    build :: (self: *Pipeline_Builder, device: VkDevice, layout: VkPipelineLayout, render_pass: VkRenderPass) -> VkPipeline {
+    add_descriptor_set_layouts :: (self: *Pipeline_Builder, dsl: ..VkDescriptorSetLayout) {
+        self.descriptor_set_layouts.allocator = temp;
+        array_add(*self.descriptor_set_layouts, ..dsl);
+    }
+
+    set_push_constants :: (self: *Pipeline_Builder, stage: VkShaderStageFlagBits, size: int, offset := 0) {
+        self.push_constant = .{
+            stageFlags = stage,
+            offset = xx offset,
+            size = xx size
+        };
+    }
+
+    build :: (self: *Pipeline_Builder, device: VkDevice, render_pass: VkRenderPass) -> Pipeline #must {
+        layout_ci := VkPipelineLayoutCreateInfo.{
+            pushConstantRangeCount = 1,
+            pPushConstantRanges = *self.push_constant,
+            setLayoutCount = xx self.descriptor_set_layouts.count,
+            pSetLayouts = self.descriptor_set_layouts.data
+        };
+
+        layout: VkPipelineLayout = ---;
+        Vk_Check(vkCreatePipelineLayout(device, *layout_ci, null, *layout));
+
         vertex_input : VkPipelineVertexInputStateCreateInfo = .{
             vertexBindingDescriptionCount = xx self.vertex_bindings.count,
             pVertexBindingDescriptions = self.vertex_bindings.data,
@@ -167,9 +199,9 @@ Pipeline_Builder :: struct {
             renderPass = render_pass,
         };
 
-        result: VkPipeline = ---;
-        Vk_Check(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, *create_info, null, *result));
+        pipeline: VkPipeline = ---;
+        Vk_Check(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, *create_info, null, *pipeline));
 
-        return result;
+        return .{ layout, pipeline };
     }
 }

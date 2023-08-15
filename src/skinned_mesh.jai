@@ -44,6 +44,10 @@ Skeleton_Definition :: struct {
         }
         free(joints.data);
         free(bind_pose.data);
+        for *name_to_id {
+            free(it_index);
+        }
+        deinit(*name_to_id);
     }
 }
 
