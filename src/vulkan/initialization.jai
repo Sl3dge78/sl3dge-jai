@@ -84,8 +84,7 @@ create_shadowmap_renderpass :: (device: VkDevice) -> VkRenderPass {
     format := global_renderer.surface_format.format;
     depth_format := global_renderer.depth_format;
 
-    attachments := VkAttachmentDescription.[
-    .{
+    attachments := VkAttachmentDescription.[.{
         format = depth_format,
         samples = ._1_BIT,
         loadOp = .CLEAR,
@@ -96,8 +95,7 @@ create_shadowmap_renderpass :: (device: VkDevice) -> VkRenderPass {
         finalLayout = .DEPTH_STENCIL_READ_ONLY_OPTIMAL,
     }];
 
-    dependencies := VkSubpassDependency.[
-    .{
+    dependencies := VkSubpassDependency.[.{
         srcSubpass = VK_SUBPASS_EXTERNAL,
         dstSubpass = 0,
         srcStageMask = .FRAGMENT_SHADER_BIT, 

@@ -1,10 +1,64 @@
 
-Immediate_Context :: struct {
+Immediate :: struct {
     _3d_draw_data: Draw_Data;
     _2d_draw_data: Draw_Data;
+
+    draw_2d :: (command_buffer: VkCommandBuffer, pipeline: Pipeline) {
+        pc := float.[2.0 / cast(float)global_renderer.swapchain_extent.width, 2.0 / cast(float)global_renderer.swapchain_extent.height, -1, -1];
+        vkCmdPushConstants(command_buffer, pipeline.layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
+
+        offset : u64 = 0;
+        vkCmdBindVertexBuffers(command_buffer, 0, 1, *context.immediate._2d_draw_data.vertex_buffer.buffer, *offset);
+
+        // Issue draw calls & end command buffer
+        for context.immediate._2d_draw_data.draw_cmds {
+            vkCmdDraw(command_buffer, it.count, 1, it.id, 0);
+        }
+    }
+
+    draw_3d :: (command_buffer: VkCommandBuffer, $kind: Pipeline_Kind) {
+        current_material: *Material;
+
+        if context.immediate._3d_draw_data.vertices.count != 0 {
+            using context.immediate._3d_draw_data;
+            bind_material(command_buffer, global_renderer.static_mesh_material, kind);
+            current_material = *global_renderer.static_mesh_material;
+
+            offset : u64 = 0;
+            vkCmdBindVertexBuffers(command_buffer, 0, 1, *vertex_buffer.buffer, *offset);
+
+            for draw_cmds {
+                pc := PushConstantData.{transpose(it.xform), transpose(inverse(it.xform))};
+                vkCmdPushConstants(command_buffer, current_material.pipelines[kind].layout, .VERTEX_BIT, 0, size_of(PushConstantData), *pc);
+                vkCmdDraw(command_buffer, it.count, 1, it.id, 0);
+            }
+        }
+    }
+
+    quad :: (p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, normal: Vector3, color := Vector4.{1, 1, 1, 1}) {
+        v := prepare_3d_vertices(6);
+        v[0] = .{p0, normal, .{0, 0}, color};
+        v[1] = .{p1, normal, .{1, 0}, color};
+        v[2] = .{p2, normal, .{1, 1}, color};
+
+        v[3] = .{p0, normal, .{0, 0}, color};
+        v[4] = .{p2, normal, .{1, 1}, color};
+        v[5] = .{p3, normal, .{0, 1}, color};
+    }
+
+    cube :: (offset: Vector3 = .{0, 0, 0}, color: Vector4 = .{1, 1, 1, 1}) {
+        quad(xyz(-.5, -.5, -.5) + offset, xyz(.5, -.5, -.5) + offset, xyz(.5, -.5, .5) + offset, xyz(-.5, -.5, .5) + offset, DOWN, color); 
+        quad(xyz(-.5, .5, -.5) + offset, xyz(-.5, .5, .5) + offset,  xyz(.5, .5, .5) + offset, xyz(.5, .5, -.5) + offset, UP, color);
+
+        quad(xyz(-.5, -.5, -.5) + offset, xyz(-.5, -.5, .5) + offset, xyz(-.5, .5, .5) + offset, xyz(-.5, .5, -.5) + offset, RIGHT, color); 
+        quad(xyz(.5, -.5, -.5) + offset, xyz(.5, .5, -.5) + offset, xyz(.5, .5, .5) + offset, xyz(.5, -.5, .5) + offset, LEFT, color); 
+
+        quad(xyz(-.5, -.5, -.5) + offset, xyz(-.5, .5, -.5) + offset, xyz(.5, .5, -.5) + offset, xyz(.5, -.5, -.5) + offset, BACK, color); 
+        quad(xyz(-.5, -.5, .5) + offset, xyz(.5, -.5, .5) + offset, xyz(.5, .5, .5) + offset, xyz(-.5, .5, .5) + offset, FORWARD, color); 
+    }
 }
 
-#add_context immediate: Immediate_Context;
+#add_context immediate: Immediate;
 
 Draw_Data :: struct {
     vertex_buffer: Buffer;
@@ -64,31 +118,3 @@ prepare_vertices :: (using dd : *Draw_Data, nb: u32) -> *Vertex {
     return ptr;
 }
 
-immediate_triangle :: () {
-    v := prepare_3d_vertices(3);
-    v[0] = .{.{0.0, 0.0, 0.0}, .{1, 0, 0, 1}};
-    v[1] = .{.{100.0, 100.0, 0.0}, .{0, 1, 0, 1}};
-    v[2] = .{.{0.0, 100.0, 0}, .{0, 0, 1, 1}};
-}
-
-immediate_quad :: (p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, normal: Vector3, color := Vector4.{1, 1, 1, 1}) {
-    v := prepare_3d_vertices(6);
-    v[0] = .{p0, normal, .{0, 0}, color};
-    v[1] = .{p1, normal, .{1, 0}, color};
-    v[2] = .{p2, normal, .{1, 1}, color};
-
-    v[3] = .{p0, normal, .{0, 0}, color};
-    v[4] = .{p2, normal, .{1, 1}, color};
-    v[5] = .{p3, normal, .{0, 1}, color};
-}
-
-immediate_cube :: (offset: Vector3 = .{0, 0, 0}, color: Vector4 = .{1, 1, 1, 1}) {
-    immediate_quad(xyz(-.5, -.5, -.5) + offset, xyz(.5, -.5, -.5) + offset, xyz(.5, -.5, .5) + offset, xyz(-.5, -.5, .5) + offset, DOWN, color); 
-    immediate_quad(xyz(-.5, .5, -.5) + offset, xyz(-.5, .5, .5) + offset,  xyz(.5, .5, .5) + offset, xyz(.5, .5, -.5) + offset, UP, color);
-
-    immediate_quad(xyz(-.5, -.5, -.5) + offset, xyz(-.5, -.5, .5) + offset, xyz(-.5, .5, .5) + offset, xyz(-.5, .5, -.5) + offset, RIGHT, color); 
-    immediate_quad(xyz(.5, -.5, -.5) + offset, xyz(.5, .5, -.5) + offset, xyz(.5, .5, .5) + offset, xyz(.5, -.5, .5) + offset, LEFT, color); 
-
-    immediate_quad(xyz(-.5, -.5, -.5) + offset, xyz(-.5, .5, -.5) + offset, xyz(.5, .5, -.5) + offset, xyz(.5, -.5, -.5) + offset, BACK, color); 
-    immediate_quad(xyz(-.5, -.5, .5) + offset, xyz(.5, -.5, .5) + offset, xyz(.5, .5, .5) + offset, xyz(-.5, .5, .5) + offset, FORWARD, color); 
-}

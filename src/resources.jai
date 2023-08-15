@@ -204,12 +204,12 @@ unload_var :: (info: *Resource_Info) {
 
 // .ttf files
 load_font_file :: (info: *Resource_Info) -> bool {
-    (cast(*Font)info.pointer).* = create_font_from_file(info.path, 8); // @Todo: Find a way to specify a font size
+    (cast(*Font)info.pointer).* = Font.from_file(info.path, 8); // @Todo: Find a way to specify a font size
     return true;
 }
 
 unload_font :: (info :*Resource_Info) {
-    destroy_font(xx info.pointer);
+    Font.destroy(xx info.pointer);
 }
 
 get_font_type :: (path: string) -> string {

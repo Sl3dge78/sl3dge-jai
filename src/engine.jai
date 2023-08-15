@@ -18,8 +18,8 @@ Engine :: struct {
         w := 1280;
         h := 720;
         global_engine.window = SDL_CreateWindow("Demo", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, xx w, xx h, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
-        global_engine.renderer = renderer_init(global_engine.window);
-        global_engine.default_font = create_font_from_data(default_font_data, 8);
+        global_engine.renderer = Renderer.create(global_engine.window);
+        global_engine.default_font = Font.from_data(default_font_data, 8);
 
         Console.init();
         Resources.init();
@@ -27,10 +27,10 @@ Engine :: struct {
 
     deinit :: () {
         Renderer.wait_idle();
-        destroy_font(*global_engine.default_font);
+        Font.destroy(*global_engine.default_font);
         Resources.deinit();
         Console.deinit();
-        renderer_deinit();
+        Renderer.destroy();
         SDL_DestroyWindow(global_engine.window);
         SDL_Quit();
     }

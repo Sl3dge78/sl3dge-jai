@@ -29,7 +29,7 @@ fill_array :: ($type: Type, func: $R, arg1: $S, arg2: $U, allocator := temp) -> 
     return array;
 }
 
-alloc_device_memory :: (item: $T, mem_type: Renderer.MemoryType) -> VkDeviceMemory {
+alloc_device_memory :: (item: $T, mem_type: MemoryType) -> VkDeviceMemory {
     memory_reqs: VkMemoryRequirements;
     memory: VkDeviceMemory;
     #if T == VkBuffer {

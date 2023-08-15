@@ -4,7 +4,7 @@ Buffer :: struct {
     mapped: *void;
     size: u64;
 
-    create :: (size: u64, usage: VkBufferUsageFlagBits, mem_type: Renderer.MemoryType, $map := false) -> Buffer {
+    create :: (size: u64, usage: VkBufferUsageFlagBits, mem_type: MemoryType, $map := false) -> Buffer {
         result: Buffer;
         buffer_ci := VkBufferCreateInfo.{
             size = size,
@@ -24,7 +24,7 @@ Buffer :: struct {
         return result;
     }
 
-    create_or_update :: (buffer: *Buffer, size: u64, usage: VkBufferUsageFlagBits, mem_type: Renderer.MemoryType, $map := false) {
+    create_or_update :: (buffer: *Buffer, size: u64, usage: VkBufferUsageFlagBits, mem_type: MemoryType, $map := false) {
         if buffer.buffer != VK_NULL_HANDLE && buffer.size >= size then return;
         if buffer.buffer != VK_NULL_HANDLE {
             Renderer.wait_idle();

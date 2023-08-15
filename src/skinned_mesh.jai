@@ -134,7 +134,6 @@ load_skinned_gltf :: (path: string) -> Skinned_Mesh {
     }
     for 0..skin.joints.count - 1 {
         node := gltf_data.nodes[skin.joints[it]];
-        log("%", node.name);
         table_add(*result.skeleton.name_to_id, copy_string(node.name), it);
 
         d_joint := *result.skeleton.joints[it];
