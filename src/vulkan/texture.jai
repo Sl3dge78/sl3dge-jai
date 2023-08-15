@@ -51,9 +51,9 @@ Texture :: struct {
         texture := Texture.create(w, h, format, .TRANSFER_DST_BIT | .SAMPLED_BIT);
 
         image_size: VkDeviceSize = xx(texture.w * texture.h * channels);
-        staging_buffer := buffer_create(image_size, .TRANSFER_SRC_BIT, .UPLOAD);
-        defer buffer_destroy(*staging_buffer);
-        buffer_write_data(staging_buffer, ptr, image_size);
+        staging_buffer := Buffer.create(image_size, .TRANSFER_SRC_BIT, .UPLOAD);
+        defer Buffer.destroy(*staging_buffer);
+        Buffer.write_data(staging_buffer, ptr, image_size);
 
         transition_image_layout(texture.image, .UNDEFINED, .TRANSFER_DST_OPTIMAL);
         copy_buffer_to_image(staging_buffer.buffer, texture.image, xx texture.w, xx texture.h);

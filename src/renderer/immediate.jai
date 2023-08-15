@@ -15,14 +15,14 @@ Draw_Data :: struct {
     destroy :: (dd: *Draw_Data) {
         array_reset(*dd.draw_cmds);
         array_reset(*dd.vertices);
-        buffer_destroy(*dd.vertex_buffer);
+        Buffer.destroy(*dd.vertex_buffer);
     }
 
     upload :: (dd: *Draw_Data) {
         if dd.vertices.count == 0 then return; 
         size : u64 = xx (dd.vertices.count * size_of(Vertex));
-        buffer_create_or_update(*dd.vertex_buffer, size, .VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT | .UNIFORM_BUFFER_BIT | .STORAGE_BUFFER_BIT | .TRANSFER_SRC_BIT, .UPLOAD);
-        buffer_write_data(dd.vertex_buffer, dd.vertices.data, size);
+        Buffer.create_or_update(*dd.vertex_buffer, size, .VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT | .UNIFORM_BUFFER_BIT | .STORAGE_BUFFER_BIT | .TRANSFER_SRC_BIT, .UPLOAD);
+        Buffer.write_data(dd.vertex_buffer, dd.vertices.data, size);
     }
 
     reset :: (dd: *Draw_Data) {

@@ -36,28 +36,17 @@ create_font_from_data :: (font_data: string, size: float) -> Font, bool {
 
     // This has nothing to do here
     // TODO : Proper material generation
-    alloc_info := VkDescriptorSetAllocateInfo.{
-        descriptorPool = global_renderer.descriptor_pool,
-        descriptorSetCount = xx 1,
-        pSetLayouts = *global_renderer.single_texture_layout,
-    };
-    Vk_Check(vkAllocateDescriptorSets(global_renderer.device, *alloc_info, *self.descriptor));
+    self.descriptor = Descriptor_Set.create(global_renderer.single_texture_layout);
 
     image_info := VkDescriptorImageInfo.{
         sampler = global_renderer.sampler, // @Hardcoded
         imageView = self.texture.view, // @Hardcoded
         imageLayout = .SHADER_READ_ONLY_OPTIMAL,
     };
-    descriptor_writes := VkWriteDescriptorSet.[.{
-        dstSet = self.descriptor,
-        dstBinding = 0,
-        dstArrayElement = 0,
-        descriptorType = .COMBINED_IMAGE_SAMPLER,
-        descriptorCount = 1,
-        pImageInfo = *image_info,
-    }];
-    vkUpdateDescriptorSets(global_renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
-    
+    Descriptor_Set.write(self.descriptor, sampler = global_renderer.sampler, // @Hardcoded
+        view = self.texture.view, // @Hardcoded
+        layout = .SHADER_READ_ONLY_OPTIMAL);
+
     // Get additional font info
     info : stbtt_fontinfo = ---;
     stbtt_InitFont(*info, font_data.data, 0);

@@ -79,8 +79,11 @@ Renderer :: struct {
     FRAME_SHADOWMAP_SET  :: 1;
     MATERIAL_SET :: 2;
     INSTANCE_SET :: 3;
-}
 
+    wait_idle :: () {
+        vkDeviceWaitIdle(global_renderer.device);
+    }
+}
 
 Frame_Data :: struct {
     command_buffer: VkCommandBuffer;
@@ -97,6 +100,7 @@ Frame_Data :: struct {
 
     shadowmap_camera_descriptor: VkDescriptorSet;
     shadowmap_camera_data : *Camera_Data;
+
 }
 
 #add_context vk: Frame_Data;
@@ -358,117 +362,41 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
             vkCreateSemaphore(renderer.device, *semaphore_ci, null, *it.image_available_semaphore);
             vkCreateSemaphore(renderer.device, *semaphore_ci, null, *it.render_finished_semaphore);
 
-            fence_ci := VkFenceCreateInfo.{
-                flags = .SIGNALED_BIT,
-            };
+            fence_ci := VkFenceCreateInfo.{ flags = .SIGNALED_BIT, };
             vkCreateFence(renderer.device, *fence_ci, null, *it.frame_fence);
 
+            // Camera uniforms
             cam_data_aligned := aligned_size(size_of(Camera_Data), renderer.physical_device_properties.limits.minUniformBufferOffsetAlignment);
-
-            it.camera_buffer = buffer_create(cam_data_aligned * 2, .UNIFORM_BUFFER_BIT, .UPLOAD, true);
+            it.camera_buffer = Buffer.create(cam_data_aligned * 2, .UNIFORM_BUFFER_BIT, .UPLOAD, true);
             it.shadowmap_camera_data = cast(*Camera_Data)it.camera_buffer.mapped;
             it.camera_data = it.camera_buffer.mapped + cam_data_aligned;
-
-            alloc_info := VkDescriptorSetAllocateInfo.{
-                descriptorPool = renderer.descriptor_pool,
-                descriptorSetCount = 1,
-                pSetLayouts = *renderer.camera_set_layout,
-            };
-            Vk_Check(vkAllocateDescriptorSets(renderer.device, *alloc_info, *it.shadowmap_camera_descriptor));
-            Vk_Check(vkAllocateDescriptorSets(renderer.device, *alloc_info, *it.camera_descriptor));
             
-            buffer_info := VkDescriptorBufferInfo .{
-                buffer = it.camera_buffer.buffer,
-                offset = 0,
-                range = size_of(Camera_Data),
-            };
-            buffer_info2 := VkDescriptorBufferInfo .{
-                buffer = it.camera_buffer.buffer,
-                offset = cam_data_aligned,
-                range = size_of(Camera_Data),
-            };
-            descriptor_writes := VkWriteDescriptorSet.[
-                .{
-                    dstSet = it.shadowmap_camera_descriptor,
-                    dstBinding = 0,
-                    dstArrayElement = 0,
-                    descriptorType = .UNIFORM_BUFFER,
-                    descriptorCount = 1,
-                    pBufferInfo = *buffer_info,
-                },
-                .{
-                    dstSet = it.camera_descriptor,
-                    dstBinding = 0,
-                    dstArrayElement = 0,
-                    descriptorType = .UNIFORM_BUFFER,
-                    descriptorCount = 1,
-                    pBufferInfo = *buffer_info2,
-                },
-            ];
-            vkUpdateDescriptorSets(renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
+            it.shadowmap_camera_descriptor = Descriptor_Set.create(renderer.camera_set_layout);
+            Descriptor_Set.write(it.shadowmap_camera_descriptor, it.camera_buffer.buffer, size_of(Camera_Data), 0);
+
+            it.camera_descriptor = Descriptor_Set.create(renderer.camera_set_layout);
+            Descriptor_Set.write(it.camera_descriptor, it.camera_buffer.buffer, size_of(Camera_Data), cam_data_aligned);
         }
         log("Rendering context created");
     }
 
     // Default texture  & sampler
-    renderer.sampler = create_sampler(renderer.device);
-    data := u8.[255, 255, 255, 255];
     { 
+        renderer.sampler = create_sampler(renderer.device);
+
+        data := u8.[255, 255, 255, 255];
         renderer.default_texture = Texture.from_data(data.data, 1, 1, 4, u8);
-        alloc_info := VkDescriptorSetAllocateInfo.{
-            descriptorPool = global_renderer.descriptor_pool,
-            descriptorSetCount = 1, 
-            pSetLayouts = *renderer.single_texture_layout
-        };
-        Vk_Check(vkAllocateDescriptorSets(renderer.device, *alloc_info, *renderer.default_texture_descriptor));
 
-        image_info := VkDescriptorImageInfo.{
-            sampler = global_renderer.sampler, // @Hardcoded
-            imageView = global_renderer.default_texture.view, // @Hardcoded
-            imageLayout = .SHADER_READ_ONLY_OPTIMAL,
-        };
-        
-        descriptor_writes := VkWriteDescriptorSet.[
-            .{
-                dstSet = renderer.default_texture_descriptor,
-                dstBinding = 0,
-                dstArrayElement = 0,
-                descriptorType = .COMBINED_IMAGE_SAMPLER,
-                descriptorCount = 1,
-                pImageInfo = *image_info,
-            },
-        ];
-
-        vkUpdateDescriptorSets(global_renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
-
+        renderer.default_texture_descriptor = Descriptor_Set.create(renderer.single_texture_layout);
+        Descriptor_Set.write(renderer.default_texture_descriptor, global_renderer.sampler, global_renderer.default_texture.view, .SHADER_READ_ONLY_OPTIMAL);
     }
 
     {   // Shadowmap
         renderer.shadowmap_render_pass = create_shadowmap_renderpass(renderer.device);
         renderer.shadowmap_texture = Texture.create(Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE, global_renderer.depth_format, .DEPTH_STENCIL_ATTACHMENT_BIT | .SAMPLED_BIT, .DEPTH_BIT);
 
-        alloc_info := VkDescriptorSetAllocateInfo.{
-            descriptorPool = global_renderer.descriptor_pool,
-            descriptorSetCount = 1,
-            pSetLayouts = *renderer.shadowmap_layout,
-        };
-        Vk_Check(vkAllocateDescriptorSets(renderer.device, *alloc_info, *renderer.shadowmap_descriptor_set));
-
-        image_info := VkDescriptorImageInfo.{
-            sampler = global_renderer.sampler, // @Hardcoded
-            imageView = global_renderer.shadowmap_texture.view, // @Hardcoded
-            imageLayout = .DEPTH_STENCIL_READ_ONLY_OPTIMAL,
-        };
-
-        descriptor_writes := VkWriteDescriptorSet.[.{
-                dstSet = renderer.shadowmap_descriptor_set,
-                dstBinding = 0,
-                dstArrayElement = 0,
-                descriptorType = .COMBINED_IMAGE_SAMPLER,
-                descriptorCount = 1,
-                pImageInfo = *image_info,
-            }];
-        vkUpdateDescriptorSets(global_renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
+        renderer.shadowmap_descriptor_set = Descriptor_Set.create(renderer.shadowmap_layout);
+        Descriptor_Set.write(renderer.shadowmap_descriptor_set, global_renderer.sampler, global_renderer.shadowmap_texture.view, .DEPTH_STENCIL_READ_ONLY_OPTIMAL);
 
         // @todo: separate sampler
         fb_ci := VkFramebufferCreateInfo.{
@@ -502,9 +430,7 @@ renderer_init :: (window: *SDL_Window) -> Renderer {
     return renderer;
 }
 
-renderer_wait_idle :: () {
-    vkDeviceWaitIdle(global_renderer.device);
-}
+
 
 renderer_resize :: (w: s32, h: s32) {
     create_or_update_swapchain(xx w, xx h);
@@ -578,7 +504,7 @@ renderer_deinit :: () {
         vkDestroyFence(device, it.frame_fence, null);
         vkDestroySemaphore(device, it.render_finished_semaphore, null);
         vkDestroySemaphore(device, it.image_available_semaphore, null);
-        buffer_destroy(*it.camera_buffer);    
+        Buffer.destroy(*it.camera_buffer);    
     }
     vkDestroyCommandPool(device, command_pool, null);
     for framebuffers {

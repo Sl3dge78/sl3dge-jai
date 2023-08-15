@@ -160,30 +160,12 @@ instantiate :: (scene: *Scene, mesh: *Skinned_Mesh, matrix := Matrix4_Identity) 
     instance := array_add(*scene.skinned_meshes);
     instance.mesh = mesh;
     instance.transform = matrix;
-    alloc_info := VkDescriptorSetAllocateInfo.{
-        descriptorPool = global_renderer.descriptor_pool,
-        descriptorSetCount = 1,
-        pSetLayouts = *global_renderer.skinned_mesh_layout
-    };
-    Vk_Check(vkAllocateDescriptorSets(global_renderer.device, *alloc_info, *instance.joint_descriptor));
-    size := size_of(Matrix4) * mesh.skeleton.joints.count;
-    instance.joint_buffer = buffer_create(xx size, .UNIFORM_BUFFER_BIT, .UPLOAD, true);
-    
-    buffer_info := VkDescriptorBufferInfo.{
-        buffer = instance.joint_buffer.buffer,
-        offset = 0,
-        range = xx size
-    };
-    writes := VkWriteDescriptorSet.[.{
-        dstSet = instance.joint_descriptor,
-        dstBinding = 0,
-        dstArrayElement = 0,
-        descriptorType = .UNIFORM_BUFFER,
-        descriptorCount = 1,
-        pBufferInfo = *buffer_info
-    }];
-    vkUpdateDescriptorSets(global_renderer.device, writes.count, writes.data, 0, null);
 
+    size := size_of(Matrix4) * mesh.skeleton.joints.count;
+    instance.joint_buffer = Buffer.create(xx size, .UNIFORM_BUFFER_BIT, .UPLOAD, true);
+    instance.joint_descriptor = Descriptor_Set.create(global_renderer.skinned_mesh_layout);
+    Descriptor_Set.write(instance.joint_descriptor, instance.joint_buffer.buffer, xx size);
+    
     instance.current_pose = NewArray(mesh.skeleton.joints.count, Joint);
     for *instance.current_pose {
         it.* = mesh.skeleton.bind_pose[it_index];
@@ -194,7 +176,7 @@ instantiate :: (scene: *Scene, mesh: *Skinned_Mesh, matrix := Matrix4_Identity) 
 }
 
 destroy :: (self: *Skinned_Mesh_Instance) {
-    buffer_destroy(*self.joint_buffer);
+    Buffer.destroy(*self.joint_buffer);
     free(self.current_pose.data);
 }   
 
