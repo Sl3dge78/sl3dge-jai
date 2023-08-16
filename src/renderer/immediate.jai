@@ -4,7 +4,7 @@ Immediate :: struct {
     _2d_draw_data: Draw_Data;
 
     draw_2d :: (command_buffer: VkCommandBuffer, pipeline: Pipeline) {
-        pc := float.[2.0 / cast(float)global_renderer.swapchain_extent.width, 2.0 / cast(float)global_renderer.swapchain_extent.height, -1, -1];
+        pc := float.[2.0 / cast(float)global_renderer.swapchain.extent.width, 2.0 / cast(float)global_renderer.swapchain.extent.height, -1, -1];
         vkCmdPushConstants(command_buffer, pipeline.layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
 
         offset : u64 = 0;

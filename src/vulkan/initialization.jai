@@ -23,7 +23,7 @@ create_sampler :: (device: VkDevice) -> VkSampler {
 }
 
 create_standard_renderpass :: (device: VkDevice) -> VkRenderPass {
-    format := global_renderer.surface_format.format;
+    format := global_renderer.swapchain.format.format;
     depth_format := global_renderer.depth_format;
 
     attachments := VkAttachmentDescription.[
@@ -81,7 +81,7 @@ create_standard_renderpass :: (device: VkDevice) -> VkRenderPass {
 }
 
 create_shadowmap_renderpass :: (device: VkDevice) -> VkRenderPass {
-    format := global_renderer.surface_format.format;
+    format := global_renderer.swapchain.format.format;
     depth_format := global_renderer.depth_format;
 
     attachments := VkAttachmentDescription.[.{
@@ -148,86 +148,6 @@ create_shader_module :: (device: VkDevice, path: string) -> VkShaderModule {
     };
     Vk_Check(vkCreateShaderModule(device, *create_info, null, *result));
     return result;
-}
-
-create_or_update_swapchain :: () {
-    using global_renderer;
-    Vk_Check(vkDeviceWaitIdle(device));
-
-    present_modes := fill_array(VkPresentModeKHR, vkGetPhysicalDeviceSurfacePresentModesKHR, physical_device, surface);
-    present_mode : VkPresentModeKHR = .FIFO_KHR;
-    for present_modes {
-        if it == .MAILBOX_KHR then present_mode = .MAILBOX_KHR;
-        break;
-    }
-    image_count := ifx present_mode == .MAILBOX_KHR then 3 else 2;
-
-    surface_capabilities: VkSurfaceCapabilitiesKHR;
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, *surface_capabilities);
-
-    swapchain_extent = surface_capabilities.currentExtent;
-    if swapchain_extent.width == U32_MAX {
-        w : s32 = ---;
-        h : s32 = ---;
-        SDL_GetWindowSize(window, *w, *h);
-        swapchain_extent.width  = clamp(cast(u32) w, surface_capabilities.minImageExtent.width, surface_capabilities.maxImageExtent.width);
-        swapchain_extent.height = clamp(cast(u32) h, surface_capabilities.minImageExtent.height, surface_capabilities.maxImageExtent.height);
-    }
-    old_swapchain := swapchain;
-
-    create_info := VkSwapchainCreateInfoKHR.{
-        surface = surface,
-        minImageCount = xx image_count,
-        imageFormat = surface_format.format,
-        imageColorSpace = surface_format.colorSpace,
-        imageExtent = swapchain_extent,
-        imageArrayLayers = 1,
-        imageUsage = .COLOR_ATTACHMENT_BIT | .TRANSFER_DST_BIT,
-        imageSharingMode = .EXCLUSIVE,
-        preTransform = surface_capabilities.currentTransform,
-        compositeAlpha = .OPAQUE_BIT_KHR,
-        presentMode = present_mode,
-        clipped = VK_TRUE,
-        oldSwapchain = old_swapchain
-    };
-    Vk_Check(vkCreateSwapchainKHR(device, *create_info, null, *swapchain));
-
-    if old_swapchain != VK_NULL_HANDLE {
-        for framebuffers {
-            vkDestroyFramebuffer(device, it, null);
-        }
-
-        for swapchain_image_views {
-            vkDestroyImageView(device, it, null);
-        }
-        swapchain_image_views.count = 0;
-
-        vkDestroySwapchainKHR(device, old_swapchain, null);
-        swapchain_images.count = 0;
-
-        Texture.destroy(*depth_texture);
-    }
-
-    swapchain_images = fill_array(VkImage, vkGetSwapchainImagesKHR, device, swapchain, allocator = context.allocator);
-
-    for swapchain_images {
-        image_view := make_image_view(it, surface_format.format);
-        array_add(*swapchain_image_views, image_view);
-
-    }
-
-    {   // Depth image
-        depth_texture = Texture.create(swapchain_extent.width, swapchain_extent.height, depth_format, .DEPTH_STENCIL_ATTACHMENT_BIT, .DEPTH_BIT | .STENCIL_BIT);
-        transition_image_layout(depth_texture.image, .UNDEFINED, .DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-    }
-
-    create_framebuffers();
-
-    log("Swapchain created:");
-    log("\tFormat: %", surface_format.format);
-    log("\tPresent mode: %", present_mode);
-    log("\tImage count: %", image_count);
-    log("\tExtent: %", swapchain_extent);
 }
 
 create_descriptor_set_layout :: (device: VkDevice, bindings: []VkDescriptorSetLayoutBinding) -> VkDescriptorSetLayout {

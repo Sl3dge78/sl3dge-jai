@@ -25,6 +25,7 @@ File_Watcher :: #import "File_Watcher";
 #load "src/vulkan/pipelines.jai";
 #load "src/vulkan/pipeline_builder.jai";
 #load "src/vulkan/descriptor_set.jai";
+#load "src/vulkan/swapchain.jai";
 
 #load "src/renderer/text.jai";
 #load "src/renderer/immediate.jai";

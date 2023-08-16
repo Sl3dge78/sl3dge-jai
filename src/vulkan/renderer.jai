@@ -9,7 +9,6 @@ Renderer :: struct {
     
     physical_device: VkPhysicalDevice;
     physical_device_properties: VkPhysicalDeviceProperties;
-
     
     compatible_mem_types: [MemoryType.COUNT]u32;
 
@@ -17,14 +16,16 @@ Renderer :: struct {
     queue_family_index: u32;
     graphics_queue: VkQueue;
 
-    swapchain: VkSwapchainKHR;
-    swapchain_extent: VkExtent2D;
-    swapchain_images: [..]VkImage;
-    surface_format: VkSurfaceFormatKHR;
-    swapchain_image_views: [..]VkImageView;
-    framebuffers: [FRAME_COUNT]VkFramebuffer;
+    swapchain: Swapchain;
+    // swapchain: VkSwapchainKHR;
+    // swapchain_extent: VkExtent2D;
+    // swapchain_images: [..]VkImage;
+    // swapchain_format: VkSurfaceFormatKHR;
+    // swapchain_image_views: [..]VkImageView;
+    // framebuffers: [FRAME_COUNT]VkFramebuffer;
+
     depth_texture: Texture;
-    depth_format: VkFormat = .D32_SFLOAT_S8_UINT;
+    depth_format: VkFormat : .D32_SFLOAT_S8_UINT;
     
     descriptor_pool: VkDescriptorPool;
     
@@ -96,11 +97,11 @@ Renderer :: struct {
         vkGetPhysicalDeviceProperties(renderer.physical_device, *renderer.physical_device_properties);
         renderer.compatible_mem_types = get_memory_types(renderer.physical_device);
 
+        renderer.swapchain.format = Swapchain.pick_format(renderer.physical_device, renderer.surface);
+
         renderer.queue_family_index = get_queue_family_index(renderer.physical_device, renderer.surface);
         renderer.device = create_device(renderer.physical_device, renderer.queue_family_index);
         vkGetDeviceQueue(renderer.device, renderer.queue_family_index, 0, *renderer.graphics_queue);
-
-        renderer.surface_format = pick_swapchain_format(renderer.physical_device, renderer.surface);
         
         renderer.descriptor_pool = create_descriptor_pool(renderer.device);
         create_descriptor_set_layouts(renderer);
@@ -178,11 +179,11 @@ Renderer :: struct {
         renderer.ui_pipeline = create_ui_pipeline(renderer.device, renderer.render_pass);
 
         // Swapchain
-        create_or_update_swapchain();
+        Swapchain.create_or_update(*renderer.swapchain, renderer.device, renderer.physical_device, renderer.surface, renderer.window);
         log("Swapchain created");
 
         // Default projection
-        renderer.projection = make_projection_matrix(radians(45), cast(float)renderer.swapchain_extent.width/cast(float)renderer.swapchain_extent.height, 0.1, 1000);
+        renderer.projection = make_projection_matrix(radians(45), cast(float)renderer.swapchain.extent.width/cast(float)renderer.swapchain.extent.height, 0.1, 1000);
         renderer.view = Matrix4_Identity;
 
         context.vk = *renderer.frame_data[0];
@@ -225,11 +226,7 @@ Renderer :: struct {
 
         vkDestroySampler(device, sampler, null);
         Texture.destroy(*default_texture);
-
-        for swapchain_image_views {
-            vkDestroyImageView(device, it, null);
-        }
-        array_reset(*swapchain_image_views);
+        Swapchain.destroy(*swapchain, device);
 
         // Render context
         for frame_data {
@@ -239,11 +236,7 @@ Renderer :: struct {
             Buffer.destroy(*it.camera_buffer);    
         }
         vkDestroyCommandPool(device, command_pool, null);
-        for framebuffers {
-            vkDestroyFramebuffer(device, it, null);
-        }
-
-        vkDestroySwapchainKHR(device, swapchain, null);
+    
         vkDestroyDevice(device, null);
         vkDestroyDebugUtilsMessengerEXT(instance, debug_messenger, null);
         vkDestroySurfaceKHR(instance, surface, null);
@@ -316,27 +309,8 @@ debug_callback :: (severity: VkDebugUtilsMessageSeverityFlagsEXT, type: VkDebugU
     return VK_TRUE;
 }
 
-create_framebuffers :: () {
-    attachments := VkImageView.[
-        global_renderer.swapchain_image_views[0],
-        global_renderer.depth_texture.view
-    ];
-
-    framebuffer_ci := VkFramebufferCreateInfo.{
-        renderPass = global_renderer.render_pass,
-        attachmentCount = attachments.count,
-        pAttachments = attachments.data,
-        width = global_renderer.swapchain_extent.width,
-        height = global_renderer.swapchain_extent.height,
-        layers = 1,
-    };
-    vkCreateFramebuffer(global_renderer.device, *framebuffer_ci, null, *global_renderer.framebuffers[0]);
-    attachments[0] = global_renderer.swapchain_image_views[1];
-    vkCreateFramebuffer(global_renderer.device, *framebuffer_ci, null, *global_renderer.framebuffers[1]);
-}
-
 get_window_dims :: () -> Vector2i {
-    return .{global_renderer.swapchain_extent.width, global_renderer.swapchain_extent.height};
+    return .{global_renderer.swapchain.extent.width, global_renderer.swapchain.extent.height};
 }
 
 end_frame :: () {
@@ -346,7 +320,7 @@ end_frame :: () {
     // Wait for image
     vkWaitForFences(device, 1, *frame_fence, VK_TRUE, U64_MAX);
     vkResetFences(device, 1, *frame_fence);
-    Vk_Check(vkAcquireNextImageKHR(device, swapchain, U64_MAX, image_available_semaphore, VK_NULL_HANDLE, *image_index));
+    Vk_Check(vkAcquireNextImageKHR(device, swapchain.handle, U64_MAX, image_available_semaphore, VK_NULL_HANDLE, *image_index));
 
     // Commit draw data
     Draw_Data.upload(*context.immediate._2d_draw_data);
@@ -385,12 +359,12 @@ end_frame :: () {
 
     vkCmdBeginRenderPass(command_buffer, *VkRenderPassBeginInfo.{
         renderPass = render_pass,
-        framebuffer = framebuffers[image_index],
+        framebuffer = swapchain.framebuffers[image_index],
         clearValueCount = clear_values.count,
         pClearValues = clear_values.data,
         renderArea = .{
             offset = .{0, 0},
-            extent = swapchain_extent,
+            extent = swapchain.extent,
         },
     }, .INLINE);
         Immediate.draw_3d(command_buffer, .COLOR);
@@ -417,12 +391,12 @@ end_frame :: () {
         waitSemaphoreCount = 1,
         pWaitSemaphores = *context.vk.render_finished_semaphore,
         swapchainCount = 1,
-        pSwapchains = *global_renderer.swapchain,
+        pSwapchains = *global_renderer.swapchain.handle,
         pImageIndices = *context.vk.image_index
     };
     result := vkQueuePresentKHR(global_renderer.graphics_queue, *present_info);
     if result == .ERROR_OUT_OF_DATE_KHR { // Window was resized
-        create_or_update_swapchain();
+        Swapchain.create_or_update(*swapchain, device, physical_device, surface, window);
     } else {
         Vk_Check(result);
     }
@@ -452,7 +426,7 @@ set_projection_matrix :: (proj: Matrix4) {
 }
 
 set_projection_matrix :: (fov: float) {
-    set_projection_matrix(make_projection_matrix(radians(fov), cast(float)global_renderer.swapchain_extent.width/cast(float)global_renderer.swapchain_extent.height, 0.1, 1000));
+    set_projection_matrix(make_projection_matrix(radians(fov), cast(float)global_renderer.swapchain.extent.width/cast(float)global_renderer.swapchain.extent.height, 0.1, 1000));
 }
 
 set_scene :: (scene: *Scene) {
@@ -600,13 +574,6 @@ create_device :: (physical_device: VkPhysicalDevice, queue_family_index: u32) ->
     return device;
 }
 
-pick_swapchain_format :: (physical_device: VkPhysicalDevice, surface: VkSurfaceKHR) -> VkSurfaceFormatKHR {
-    result: VkSurfaceFormatKHR;
-    surface_formats := fill_array(VkSurfaceFormatKHR, vkGetPhysicalDeviceSurfaceFormatsKHR, physical_device, surface);
-    result = surface_formats[0];
-    if result.format == .UNDEFINED then result.format = .B8G8R8A8_UNORM;
-    return result;
-}
 
 create_descriptor_pool :: (device: VkDevice) -> VkDescriptorPool {
     pool_sizes := VkDescriptorPoolSize.[.{ 
