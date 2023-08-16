@@ -31,10 +31,10 @@ Console :: struct {
         if message_timer > 0 {
             text_w := size_text(current_message, font);
             alpha := ifx message_timer < 1 then message_timer else 1;
-            draw_text(current_message, get_window_dims().x / 2 - text_w / 2, 16, font, .{1, 1, 1, alpha});
+            draw_text(current_message, Renderer.get_window_dims().x / 2 - text_w / 2, 16, font, .{1, 1, 1, alpha});
         }
 
-        y := get_window_dims().y - font.line_height * 20;
+        y := Renderer.get_window_dims().y - font.line_height * 20;
         for console {
             draw_text(it, 0, y, font);
             y += font.line_height;

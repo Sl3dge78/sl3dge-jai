@@ -29,17 +29,6 @@ create_ui_pipeline :: (device: VkDevice, render_pass: VkRenderPass) -> Pipeline 
     return pipeline;
 }
 
-bind_ui_pipeline :: (command_buffer: VkCommandBuffer) {
-    pipeline := global_renderer.ui_pipeline;
-
-    // Bind pipeline, dynamic state, global descriptors and a default push constant
-    vkCmdBindPipeline(command_buffer, .GRAPHICS, pipeline.pipeline);
-    vkCmdSetViewport(command_buffer, 0, 1, *VkViewport.{0, 0, xx global_renderer.swapchain.extent.width,  (cast(float)global_renderer.swapchain.extent.height), 0, 1});
-    vkCmdSetScissor(command_buffer, 0, 1, *VkRect2D.{.{0, 0}, global_renderer.swapchain.extent});
-    vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.layout, 0, 1, *global_engine.default_font.descriptor, 0, null); 
-    
-}
-
 Material :: struct {
     shadowmap: Pipeline;
     color: Pipeline;

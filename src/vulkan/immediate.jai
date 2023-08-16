@@ -4,6 +4,13 @@ Immediate :: struct {
     _2d_draw_data: Draw_Data;
 
     draw_2d :: (command_buffer: VkCommandBuffer, pipeline: Pipeline) {
+        Draw_Data.upload(*context.immediate._2d_draw_data);
+
+        // Bind pipeline, dynamic state, global descriptors and a default push constant
+        vkCmdBindPipeline(command_buffer, .GRAPHICS, pipeline.pipeline);
+        vkCmdSetViewport(command_buffer, 0, 1, *VkViewport.{0, 0, xx global_renderer.swapchain.extent.width,  (cast(float)global_renderer.swapchain.extent.height), 0, 1});
+        vkCmdSetScissor(command_buffer, 0, 1, *VkRect2D.{.{0, 0}, global_renderer.swapchain.extent});
+        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.layout, 0, 1, *global_engine.default_font.descriptor, 0, null); 
         pc := float.[2.0 / cast(float)global_renderer.swapchain.extent.width, 2.0 / cast(float)global_renderer.swapchain.extent.height, -1, -1];
         vkCmdPushConstants(command_buffer, pipeline.layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
 
@@ -17,6 +24,7 @@ Immediate :: struct {
     }
 
     draw_3d :: (command_buffer: VkCommandBuffer, $kind: Pipeline_Kind) {
+        Draw_Data.upload(*context.immediate._3d_draw_data);
         current_material: *Material;
 
         if context.immediate._3d_draw_data.vertices.count != 0 {

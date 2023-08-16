@@ -65,7 +65,7 @@ Swapchain :: struct {
         }
 
         {   // Depth image
-            self.depth_texture = Texture.create(self.extent.width, self.extent.height, Renderer.depth_format, .DEPTH_STENCIL_ATTACHMENT_BIT, .DEPTH_BIT | .STENCIL_BIT);
+            self.depth_texture = Texture.create(self.extent.width, self.extent.height, Renderer.DEPTH_FORMAT, .DEPTH_STENCIL_ATTACHMENT_BIT, .DEPTH_BIT | .STENCIL_BIT);
             transition_image_layout(self.depth_texture.image, .UNDEFINED, .DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
         }
 
@@ -75,16 +75,16 @@ Swapchain :: struct {
         ];
 
         framebuffer_ci := VkFramebufferCreateInfo.{
-            renderPass = global_renderer.render_pass, // @Hardcoded
+            renderPass = global_renderer.standard_render_pass, // @Hardcoded
             attachmentCount = attachments.count,
             pAttachments = attachments.data,
             width = self.extent.width,
             height = self.extent.height,
             layers = 1,
         };
-        vkCreateFramebuffer(device, *framebuffer_ci, null, *self.framebuffers[0]);
+        Vk_Check(vkCreateFramebuffer(device, *framebuffer_ci, null, *self.framebuffers[0]));
         attachments[0] = self.image_views[1];
-        vkCreateFramebuffer(device, *framebuffer_ci, null, *self.framebuffers[1]);
+        Vk_Check(vkCreateFramebuffer(device, *framebuffer_ci, null, *self.framebuffers[1]));
 
         log("Swapchain created:");
         log("\tFormat: %", self.format.format);
