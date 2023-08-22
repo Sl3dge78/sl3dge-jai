@@ -8,7 +8,7 @@ Engine :: struct {
     frame_start : u64;
     frame_time: float;
 
-    init :: () {
+    create :: () {
         log("Init engine");
         path := path_strip_filename(get_path_of_running_executable());
         set_working_directory(path);
@@ -21,16 +21,15 @@ Engine :: struct {
         global_engine.renderer = Renderer.create(global_engine.window);
         global_engine.default_font = Font.from_data(default_font_data, 8);
 
-        Console.init();
-        Resources.init();
+        Console.create();
+        Resources.create();
     }
 
-    deinit :: () {
-        Renderer.wait_idle();
+    destroy :: () {
         Font.destroy(*global_engine.default_font);
-        Resources.deinit();
-        Console.deinit();
-        Renderer.destroy();
+        Resources.destroy();
+        Console.destroy();
+        Renderer.destroy(*global_engine.renderer);
         SDL_DestroyWindow(global_engine.window);
         SDL_Quit();
     }
@@ -47,6 +46,13 @@ Engine :: struct {
         if global_engine.draw_perf_overlay {
             draw_text(tprint("Frametime: %ms", global_engine.frame_time), 0, 8, *global_engine.default_font);
         }
+    }
+
+    window_dims :: () -> Vector2i {
+        x: s32 = ---;
+        y: s32 = ---;
+        SDL_GetWindowSize(global_engine.window, *x, *y);
+        return .{xx x, xx y};
     }
 }
 

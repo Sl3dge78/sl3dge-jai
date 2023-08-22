@@ -1,0 +1,13 @@
+#import,dir "../../../modules/Vulkan";
+#load "vulkan/initialization.jai";
+#load "vulkan/renderer.jai";
+#load "vulkan/utils.jai";
+#load "vulkan/buffer.jai";
+#load "vulkan/buffer_pool.jai";
+#load "vulkan/texture.jai";
+#load "vulkan/pipelines.jai";
+#load "vulkan/pipeline_builder.jai";
+#load "vulkan/descriptor_set.jai";
+#load "vulkan/swapchain.jai";
+#load "vulkan/frame_data.jai";
+#load "vulkan/text.jai";

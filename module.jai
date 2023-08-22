@@ -12,29 +12,23 @@ File_Watcher :: #import "File_Watcher";
 #import "stb_image";
 #import,dir "modules/stb_truetype";
 
+#if 1 {
+    #load "src/rendering/backends/webgpu.jai";
+} else {
+    #load "src/rendering/backends/vulkan.jai";
+}
+
 #load "src/engine.jai";
 #load "src/input.jai";
-
-#import,dir "modules/Vulkan";
-#load "src/vulkan/initialization.jai";
-#load "src/vulkan/renderer.jai";
-#load "src/vulkan/utils.jai";
-#load "src/vulkan/buffer.jai";
-#load "src/vulkan/buffer_pool.jai";
-#load "src/vulkan/texture.jai";
-#load "src/vulkan/pipelines.jai";
-#load "src/vulkan/pipeline_builder.jai";
-#load "src/vulkan/descriptor_set.jai";
-#load "src/vulkan/swapchain.jai";
-#load "src/vulkan/frame_data.jai";
-#load "src/vulkan/text.jai";
-#load "src/vulkan/immediate.jai";
 
 #load "src/camera.jai";
 #load "src/console.jai";
 #load "src/resources.jai";
-#load "src/mesh.jai";
-#load "src/skinned_mesh.jai";
+
+#load "src/rendering/text.jai";
+#load "src/rendering/immediate.jai";
+#load "src/rendering/mesh.jai";
+#load "src/rendering/skinned_mesh.jai";
 #load "src/scene.jai";
 #load "src/animation.jai";
 
