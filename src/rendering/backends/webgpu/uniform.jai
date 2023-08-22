@@ -29,3 +29,24 @@ Uniform :: struct {
         Buffer.write_data(loc.buffer, data, loc.size, loc.offset);
     }
 }
+
+Texture_Uniform :: struct {
+    bind_group: wgpu.BindGroup;
+
+    create :: (sampler: wgpu.Sampler, texture_view: wgpu.TextureView, layout: wgpu.BindGroupLayout) -> Texture_Uniform {
+        entries := wgpu.BindGroupEntry.[
+            .{binding = 0, sampler = sampler },
+            .{binding = 1, textureView = texture_view },
+        ];
+        desc := wgpu.BindGroupDescriptor.{
+            layout = layout,
+            entryCount = entries.count,
+            entries = entries.data,
+        };
+        return .{WGPU_Check(wgpu.DeviceCreateBindGroup(global_renderer.device, *desc))};
+    }
+
+    destroy :: (using self: *Texture_Uniform) {
+        wgpu.BindGroupRelease(bind_group);
+    }
+}

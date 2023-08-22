@@ -23,7 +23,7 @@ Immediate :: struct {
     draw_2d :: (render_pass: wgpu.RenderPassEncoder) {
         using context.immediate._2d_draw_data;
         wgpu.RenderPassEncoderSetPipeline(render_pass, global_renderer.ui_pipeline);
-        wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, global_engine.default_font.binding, 0, null);
+        wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, global_engine.default_font.uniform.bind_group, 0, null);
         wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 0, vertex_buffer.handle, 0, vertex_buffer.size);
         pc := float.[2.0 / cast(float)global_renderer.width, -2.0 / cast(float)global_renderer.height, -1, 1];
         wgpu.RenderPassEncoderSetPushConstants(render_pass, .Vertex, 0, size_of(type_of(pc)), *pc);

@@ -39,7 +39,7 @@ Renderer :: struct {
 
     shadowmap_matrices_uniform: Uniform;
     shadowmap_framebuffer: Texture;
-    shadowmap_texture_binding : wgpu.BindGroup;
+    shadowmap_texture_uniform : Texture_Uniform;
 
     projection := Matrix4_Identity;
     view := Matrix4_Identity;
@@ -225,33 +225,10 @@ Renderer :: struct {
 
         {   // Shadowmap Uniforms
             renderer.shadowmap_framebuffer = Texture.create(2048, 2048, .TextureBinding | .RenderAttachment, .Depth24Plus);
-            
-            entries := wgpu.BindGroupEntry.[
-                .{binding = 0, sampler = global_renderer.sampler },
-                .{binding = 1, textureView = renderer.shadowmap_framebuffer.view },
-            ];
-            desc1 := wgpu.BindGroupDescriptor.{
-                layout = global_renderer.shadowmap_texture_bind_group,
-                entryCount = entries.count,
-                entries = entries.data,
-            };
-            renderer.shadowmap_texture_binding = wgpu.DeviceCreateBindGroup(renderer.device, *desc1);
 
+            renderer.shadowmap_texture_uniform = Texture_Uniform.create(renderer.sampler, renderer.shadowmap_framebuffer.view, global_renderer.shadowmap_texture_bind_group);
             renderer.shadowmap_matrices_uniform = Uniform.create(renderer.device, *renderer.uniform_pool, size_of(Global_Matrices), renderer.global_matrices_bind_group);
             
-            // renderer.shadowmap_matrices_buffer = Buffer.create(size_of(Global_Matrices), .Uniform | .CopyDst);
-            // entry := wgpu.BindGroupEntry.{
-            //     binding = 0, 
-            //     buffer = renderer.shadowmap_matrices_buffer.handle,
-            //     offset = 0,
-            //     size = renderer.shadowmap_matrices_buffer.size
-            // };
-            // desc2 := wgpu.BindGroupDescriptor.{
-            //     layout = renderer.global_matrices_bind_group,
-            //     entryCount = 1,
-            //     entries = *entry,
-            // };
-            // renderer.shadowmap_matrices_binding = WGPU_Check(wgpu.DeviceCreateBindGroup(renderer.device, *desc2));
         }
 
         return renderer;
@@ -272,7 +249,7 @@ Renderer :: struct {
         Uniform.destroy(*shadowmap_matrices_uniform);
 
         Texture.destroy(*shadowmap_framebuffer);
-        wgpu.BindGroupRelease(shadowmap_texture_binding);
+        Texture_Uniform.destroy(*shadowmap_texture_uniform);
         
         Texture.destroy(*depth_texture);
 
@@ -613,7 +590,7 @@ Renderer :: struct {
         render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(command_encoder, *render_pass_desc));
         wgpu.RenderPassEncoderSetPipeline(render_pass, static_mesh_pipelines[1]);
         wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, global_matrices_uniform.bind_group, 0, null);
-        wgpu.RenderPassEncoderSetBindGroup(render_pass, 1, shadowmap_texture_binding, 0, null);
+        wgpu.RenderPassEncoderSetBindGroup(render_pass, 1, shadowmap_texture_uniform.bind_group, 0, null);
         Immediate.draw_3d(render_pass);
         Scene.draw_static_meshes(current_scene, render_pass);
 

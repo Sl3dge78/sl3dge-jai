@@ -4,7 +4,8 @@ Font :: struct {
     texture: Texture;
     line_height : float;
     width : float;
-    binding: wgpu.BindGroup;
+    // binding: wgpu.BindGroup;
+    uniform : Texture_Uniform;
     // descriptor: VkDescriptorSet;
 
     from_file :: (path: string, size: float) -> Font, bool {
@@ -36,19 +37,20 @@ Font :: struct {
 
         // This has nothing to do here
         // TODO : Proper material generation
-        { 
-            entries := wgpu.BindGroupEntry.[
-                .{binding = 0, sampler = global_renderer.sampler },
-                .{binding = 1, textureView = self.texture.view },
-            ];
-            desc := wgpu.BindGroupDescriptor.{
-                layout = global_renderer.single_texture_bind_group,
-                entryCount = entries.count,
-                entries = entries.data,
-            };
-            self.binding = wgpu.DeviceCreateBindGroup(global_renderer.device, *desc);
-        }
-        
+        self.uniform = Texture_Uniform.create(global_renderer.sampler, self.texture.view, global_renderer.single_texture_bind_group);
+        // { 
+        //     entries := wgpu.BindGroupEntry.[
+        //         .{binding = 0, sampler = global_renderer.sampler },
+        //         .{binding = 1, textureView = self.texture.view },
+        //     ];
+        //     desc := wgpu.BindGroupDescriptor.{
+        //         layout = global_renderer.single_texture_bind_group,
+        //         entryCount = entries.count,
+        //         entries = entries.data,
+        //     };
+        //     self.binding = wgpu.DeviceCreateBindGroup(global_renderer.device, *desc);
+        // }
+
         // Get additional font info
         info : stbtt_fontinfo = ---;
         stbtt_InitFont(*info, font_data.data, 0);
@@ -67,7 +69,7 @@ Font :: struct {
 
     destroy :: (font: *Font) {
         Texture.destroy(*font.texture);
-        wgpu.BindGroupRelease(font.binding);
+        Texture_Uniform.destroy(*font.uniform);
     }
 }
 
