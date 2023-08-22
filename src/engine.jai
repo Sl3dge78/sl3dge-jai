@@ -17,7 +17,14 @@ Engine :: struct {
 
         w := 1280;
         h := 720;
-        global_engine.window = SDL_CreateWindow("Demo", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, xx w, xx h, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+        flags := SDL_WINDOW_RESIZABLE;
+        #if OS == .MACOS {
+            SDL_WINDOW_METAL :: 0x20000000;
+            flags |= SDL_WINDOW_METAL;
+        } else #if OS == .LINUX {
+            flags |= SDL_WINDOW_VULKAN;
+        }
+        global_engine.window = SDL_CreateWindow("Demo", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, xx w, xx h, flags);
         global_engine.renderer = Renderer.create(global_engine.window);
         global_engine.default_font = Font.from_data(default_font_data, 8);
 

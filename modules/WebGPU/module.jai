@@ -2198,7 +2198,7 @@ RenderPassEncoderMultiDrawIndexedIndirectCount :: (encoder: RenderPassEncoder, b
 #if OS == .WINDOWS {
     wgpu_native :: #library,no_dll "wgpu_native";
 } else #if OS == .LINUX {
-    wgpu_native :: #library,no_dll "libwgpu_native";
-} else {
-    #assert(false);
+    wgpu_native :: #library,no_dll "linux/libwgpu_native";
+} else #if OS == .MACOS {
+    wgpu_native :: #library,no_dll "macos/libwgpu_native";
 }
