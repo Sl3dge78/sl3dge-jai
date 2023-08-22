@@ -5,18 +5,6 @@ Vertex :: struct {
     color: Vector4 = .{1, 1, 1, 1};
 }
 
-vertex_input_attribute :: #run () -> []VkVertexInputAttributeDescription {
-    offset: *Vertex = null;
-    vtx_attr := VkVertexInputAttributeDescription.[
-        .{location = 0, binding = 0, format = .R32G32B32_SFLOAT, offset = xx *offset.position},
-        .{location = 1, binding = 0, format = .R32G32B32_SFLOAT, offset = xx *offset.normal},
-        .{location = 2, binding = 0, format = .R32G32_SFLOAT, offset = xx *offset.uv},
-        .{location = 3, binding = 0, format = .R32G32B32A32_SFLOAT, offset = xx *offset.color}
-    ];
-    
-    return vtx_attr;
-}();
-
 SubMesh :: struct {
     vertices_loc: Buffer_Pool_Location;
     vertex_count: u64;

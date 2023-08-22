@@ -4,21 +4,6 @@ Skinned_Vertex :: struct {
     weights: Vector4;
 }
 
-skinned_vertex_input_attribute :: #run () -> []VkVertexInputAttributeDescription {
-    skinned: *Skinned_Vertex = null;
-    vertex: *Vertex = null;
-    vtx_attr := VkVertexInputAttributeDescription.[
-        .{location = 0, binding = 0, format = .R32G32B32_SFLOAT, offset = xx *vertex.position},
-        .{location = 1, binding = 0, format = .R32G32B32_SFLOAT, offset = xx *vertex.normal},
-        .{location = 2, binding = 0, format = .R32G32_SFLOAT, offset = xx *vertex.uv},
-        .{location = 3, binding = 0, format = .R32G32B32A32_SFLOAT, offset = xx *vertex.color},
-        .{location = 4, binding = 1, format = .R8G8B8A8_UINT, offset = xx *skinned.joints},
-        .{location = 5, binding = 1, format = .R32G32B32A32_SFLOAT, offset = xx *skinned.weights},
-    ];
-    
-    return vtx_attr;
-}();
-
 Joint :: struct {
     local_space_matrix: Matrix4;
     model_space_matrix: Matrix4;       
@@ -66,8 +51,8 @@ Skinned_Mesh :: struct {
 }
 
 Skinned_Mesh_Instance :: struct {
+    using #as skinned_mesh: *Skinned_Mesh;
     transform: Matrix4;
-    mesh: *Skinned_Mesh;
 
     current_pose: Skeleton_Pose;
     joint_descriptor: VkDescriptorSet;
@@ -193,7 +178,7 @@ upload_skeleton :: (using self: *Skinned_Mesh_Instance) {
 
     update_branch_transforms :: (using self: *Skinned_Mesh_Instance, id: int, buffer: []Matrix4) {
         joint := *current_pose[id];
-        def := self.mesh.skeleton.joints[id];
+        def := self.skinned_mesh.skeleton.joints[id];
         parent_transform : Matrix4 = ---;
         if def.parent != -1 {
             joint.model_space_matrix = current_pose[def.parent].model_space_matrix * joint.local_space_matrix;
@@ -211,20 +196,20 @@ upload_skeleton :: (using self: *Skinned_Mesh_Instance) {
 
     buffer : [] Matrix4; 
     buffer.data = joint_buffer.mapped;
-    buffer.count = mesh.skeleton.joints.count;
+    buffer.count = self.skeleton.joints.count;
 
     // Traverse the tree from the root, only updating dirty elements
     for *self.current_pose {
         if it.dirty {
-            update_branch_transforms(self, mesh.skeleton.root, buffer);
+            update_branch_transforms(self, self.skeleton.root, buffer);
         }
     }
 }
 
 set_bone_matrix :: (using self: *Skinned_Mesh_Instance, name: string, matrix: Matrix4) {
-    id, found := table_find(*mesh.skeleton.name_to_id, name);
+    id, found := table_find(*self.skeleton.name_to_id, name);
     assert(found, "No bone named % in skeleton", name);
 
-    current_pose[id].local_space_matrix = mesh.skeleton.bind_pose[id].local_space_matrix * matrix;
+    current_pose[id].local_space_matrix = self.skeleton.bind_pose[id].local_space_matrix * matrix;
     current_pose[id].dirty = true;
 }

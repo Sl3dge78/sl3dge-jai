@@ -27,15 +27,16 @@ File_Watcher :: #import "File_Watcher";
 #load "src/vulkan/descriptor_set.jai";
 #load "src/vulkan/swapchain.jai";
 #load "src/vulkan/frame_data.jai";
+#load "src/vulkan/text.jai";
+#load "src/vulkan/immediate.jai";
 
-#load "src/renderer/text.jai";
-#load "src/renderer/immediate.jai";
 #load "src/camera.jai";
 #load "src/console.jai";
 #load "src/resources.jai";
 #load "src/mesh.jai";
 #load "src/skinned_mesh.jai";
 #load "src/scene.jai";
+#load "src/animation.jai";
 
 #import,dir "modules/gltf_parser";
 
