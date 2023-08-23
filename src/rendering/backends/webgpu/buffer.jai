@@ -20,7 +20,11 @@ Buffer :: struct {
         if self.handle != null {
             Buffer.destroy(self);
         }
-        self.* = create(size, usage, map);
+        new_size : u64 = 1024;
+        while new_size < size {
+            new_size += new_size;
+        }
+        self.* = create(new_size, usage, map);
     }
 
     destroy :: (self: *Buffer) {

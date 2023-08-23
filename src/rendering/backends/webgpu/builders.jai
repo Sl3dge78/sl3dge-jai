@@ -38,8 +38,10 @@ Pipeline_Builder :: struct {
         builder.vertex.module = module;
         builder.vertex.entryPoint = temp_c_string(entry_point);
         arr := NewArray(vertex_types.count, wgpu.VertexBufferLayout, allocator = temp);
+        offset := 0;
         for vertex_types { 
-            arr[it_index] = Renderer.get_vertex_layout(it);
+            arr[it_index] = Renderer.get_vertex_layout(it, offset);
+            offset += xx arr[it_index].attributeCount;
         }
         builder.vertex.bufferCount = xx arr.count;
         builder.vertex.buffers = arr.data;

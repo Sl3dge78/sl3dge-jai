@@ -87,7 +87,7 @@ STANDARD_SHADER :: #string __WGSL
     };
 
     struct Instance_Data {
-        joint_matrices: array<mat4x4f, 64>,
+        joint_matrices: array<mat4x4f, 128>,
     };
 
     var<push_constant> push_constants : Push_Constants;
@@ -182,5 +182,5 @@ Global_Matrices :: struct {
 }
 
 Instance_Data :: struct {
-    joint_matrices: [64]Matrix4;
+    joint_matrices: [128]Matrix4;
 };

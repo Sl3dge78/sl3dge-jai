@@ -1,7 +1,6 @@
 
 Skinned_Vertex :: struct {
-    using #as v: Vertex;
-    joints: [4]u8;
+    joints: [4]u32;
     weights: Vector4;
 }
 
@@ -49,14 +48,28 @@ Skinned_Mesh :: struct {
         Mesh.destroy(*mesh);
         self.* = .{};
     }
+
+    draw :: (using self: *Skinned_Mesh, render_pass: wgpu.RenderPassEncoder) {
+        for submeshes {
+            wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 0, it.vertices.buffer, it.vertices.offset, it.vertices.size);
+            wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 0, skins[it_index].buffer, skins[it_index].offset, skins[it_index].size);
+            wgpu.RenderPassEncoderSetIndexBuffer(render_pass, it.indices.buffer, .Uint32, it.indices.offset, it.indices.size);
+            wgpu.RenderPassEncoderDrawIndexed(render_pass, it.index_count, 1, 0, 0, 0);
+        }
+    }
 }
 
 Skinned_Mesh_Instance :: struct {
-    using #as skinned_mesh: *Skinned_Mesh;
+    using skinned_mesh: *Skinned_Mesh;
     transform: Matrix4;
 
     current_pose: Skeleton_Pose;
     joint_uniform: Uniform;
+
+    destroy :: (self: *Skinned_Mesh_Instance) {
+        Uniform.destroy(*self.joint_uniform);
+        free(self.current_pose.data);
+    }
 }
 
 load_skinned_gltf :: (path: string) -> Skinned_Mesh {
@@ -142,7 +155,7 @@ load_skinned_gltf :: (path: string) -> Skinned_Mesh {
 
 instantiate :: (scene: *Scene, mesh: *Skinned_Mesh, matrix := Matrix4_Identity) -> *Skinned_Mesh_Instance {
     instance := array_add(*scene.skinned_meshes);
-    instance.mesh = mesh;
+    instance.skinned_mesh = mesh;
     instance.transform = matrix;
 
     size := size_of(Matrix4) * mesh.skeleton.joints.count;
@@ -156,12 +169,6 @@ instantiate :: (scene: *Scene, mesh: *Skinned_Mesh, matrix := Matrix4_Identity) 
     upload_skeleton(instance);
     return instance;    
 }
-
-destroy :: (self: *Skinned_Mesh_Instance) {
-    Uniform.destroy(*self.joint_uniform);
-    free(self.current_pose.data);
-}   
-
 
 upload_skeleton :: (using self: *Skinned_Mesh_Instance) {
 
@@ -183,16 +190,16 @@ upload_skeleton :: (using self: *Skinned_Mesh_Instance) {
         }
     }
 
-    buffer : [64] Matrix4; 
+    buffer : Instance_Data = ---;
     
     // Traverse the tree from the root, only updating dirty elements
     for *self.current_pose {
         if it.dirty {
-            update_branch_transforms(self, self.skeleton.root, buffer);
+            update_branch_transforms(self, self.skeleton.root, buffer.joint_matrices);
         }
     }
 
-    Uniform.write(self.joint_uniform, buffer.data);
+    Uniform.write(self.joint_uniform, *buffer);
 }
 
 set_bone_matrix :: (using self: *Skinned_Mesh_Instance, name: string, matrix: Matrix4) {

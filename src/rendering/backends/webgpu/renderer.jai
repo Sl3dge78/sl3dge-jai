@@ -332,7 +332,7 @@ Renderer :: struct {
             maxStorageBuffersPerShaderStage           = 0,
             maxStorageTexturesPerShaderStage          = 0,
             maxUniformBuffersPerShaderStage           = 1,
-            maxUniformBufferBindingSize               = 256,
+            maxUniformBufferBindingSize               = 4160,
             maxStorageBufferBindingSize               = 0,
             minUniformBufferOffsetAlignment           = supported_limits.limits.minUniformBufferOffsetAlignment,
             minStorageBufferOffsetAlignment           = supported_limits.limits.minStorageBufferOffsetAlignment,
@@ -353,7 +353,7 @@ Renderer :: struct {
         };
     }
 
-    get_vertex_layout :: (type: Type) -> wgpu.VertexBufferLayout {
+    get_vertex_layout :: (type: Type, shader_location_offset := 0) -> wgpu.VertexBufferLayout {
         info := cast(*Type_Info_Struct)type;
         attributes := NewArray(info.members.count, wgpu.VertexAttribute, allocator = temp);
 
@@ -396,7 +396,7 @@ Renderer :: struct {
                     format = .Uint32x4;
                 }
             }
-            attributes[it_index] = .{format = format, offset = xx it.offset_in_bytes, shaderLocation = xx it_index };
+            attributes[it_index] = .{format = format, offset = xx it.offset_in_bytes, shaderLocation = xx (it_index + shader_location_offset) };
         }
 
         return wgpu.VertexBufferLayout.{
@@ -440,7 +440,7 @@ Renderer :: struct {
 
         {   // Instance Data
             builder : Bindings_Builder;
-            Bindings_Builder.add_entry(*builder, wgpu.BufferBindingLayout.{type = .Uniform, hasDynamicOffset = false, minBindingSize = xx size_of(Instance_Data) }, binding = 0, .Vertex);
+            Bindings_Builder.add_entry(*builder, wgpu.BufferBindingLayout.{type = .Uniform, hasDynamicOffset = false, minBindingSize = xx size_of(Matrix4) }, binding = 0, .Vertex);
             renderer.instance_data_bind_group = Bindings_Builder.build(*builder);
         }
     }
@@ -560,6 +560,7 @@ Renderer :: struct {
         wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, shadowmap_matrices_uniform.bind_group, 0, null);
         Immediate.draw_3d(render_pass);
         Scene.draw_static_meshes(current_scene, render_pass);
+        Scene.draw_skinned_meshes(current_scene, render_pass);
         wgpu.RenderPassEncoderEnd(render_pass);
     }
 
@@ -593,7 +594,7 @@ Renderer :: struct {
         wgpu.RenderPassEncoderSetBindGroup(render_pass, 1, shadowmap_texture_uniform.bind_group, 0, null);
         Immediate.draw_3d(render_pass);
         Scene.draw_static_meshes(current_scene, render_pass);
-
+        Scene.draw_skinned_meshes(current_scene, render_pass);
         wgpu.RenderPassEncoderEnd(render_pass);
     }
 

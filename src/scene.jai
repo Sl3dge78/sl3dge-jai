@@ -21,6 +21,18 @@ Scene :: struct {
             Mesh.draw(it.mesh, render_pass);
         }
     }
+
+    draw_skinned_meshes :: (using self: *Scene, render_pass: wgpu.RenderPassEncoder) {
+        for skinned_meshes {
+             pc := Standard_Push_Constants.{
+                transform = transpose(it.transform),
+                inverse_transform = transpose(inverse(it.transform)),
+            };
+            wgpu.RenderPassEncoderSetPushConstants(render_pass, .Vertex, 0, size_of(type_of(pc)), *pc);
+            wgpu.RenderPassEncoderSetBindGroup(render_pass, 2, it.joint_uniform.bind_group, 0, null);
+            Skinned_Mesh.draw(it, render_pass);
+        }
+    }
 }
 
 Mesh_Instance :: struct {
