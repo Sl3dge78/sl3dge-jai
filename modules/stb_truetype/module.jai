@@ -554,7 +554,11 @@ STBTT_MAC_LANG :: enum s32 {
 
 #import "Basic"; // For assert
 
-stbtruetype :: #library,no_dll "./stbtruetype";
+#if OS == .LINUX {
+    stbtruetype :: #library,no_dll "linux/stbtruetype";
+} else #if OS == .MACOS {
+    stbtruetype :: #library,no_dll "macos/stbtruetype";
+}
 
 #run {
     {

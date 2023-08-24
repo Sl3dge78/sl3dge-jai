@@ -25,7 +25,7 @@ generate_bindings :: () {
 
 #run { 
     compile_lib();
-    generate_bindings();
+    // generate_bindings();
 }
 
 #import "BuildCpp";

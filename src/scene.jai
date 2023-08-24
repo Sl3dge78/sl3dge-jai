@@ -30,7 +30,7 @@ Scene :: struct {
             };
             wgpu.RenderPassEncoderSetPushConstants(render_pass, .Vertex, 0, size_of(type_of(pc)), *pc);
             wgpu.RenderPassEncoderSetBindGroup(render_pass, 2, it.joint_uniform.bind_group, 0, null);
-            Skinned_Mesh.draw(it, render_pass);
+            Skinned_Mesh.draw(it.skinned_mesh, render_pass);
         }
     }
 }

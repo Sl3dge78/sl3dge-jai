@@ -37,7 +37,7 @@ Skeleton_Definition :: struct {
 }
 
 Skinned_Mesh :: struct {
-    using #as mesh: Mesh;
+    using mesh: Mesh;
 
     skins : [..] Buffer_Location;
     skeleton: Skeleton_Definition;
@@ -49,10 +49,10 @@ Skinned_Mesh :: struct {
         self.* = .{};
     }
 
-    draw :: (using self: *Skinned_Mesh, render_pass: wgpu.RenderPassEncoder) {
+    draw :: (using self: Skinned_Mesh, render_pass: wgpu.RenderPassEncoder) {
         for submeshes {
             wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 0, it.vertices.buffer, it.vertices.offset, it.vertices.size);
-            wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 0, skins[it_index].buffer, skins[it_index].offset, skins[it_index].size);
+            wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 1, skins[it_index].buffer, skins[it_index].offset, skins[it_index].size);
             wgpu.RenderPassEncoderSetIndexBuffer(render_pass, it.indices.buffer, .Uint32, it.indices.offset, it.indices.size);
             wgpu.RenderPassEncoderDrawIndexed(render_pass, it.index_count, 1, 0, 0, 0);
         }
@@ -158,7 +158,7 @@ instantiate :: (scene: *Scene, mesh: *Skinned_Mesh, matrix := Matrix4_Identity) 
     instance.skinned_mesh = mesh;
     instance.transform = matrix;
 
-    size := size_of(Matrix4) * mesh.skeleton.joints.count;
+    size := size_of(Instance_Data);
     instance.joint_uniform = Uniform.create(global_renderer.device, *global_renderer.uniform_pool, xx size, global_renderer.instance_data_bind_group);
     
     instance.current_pose = NewArray(mesh.skeleton.joints.count, Joint);
