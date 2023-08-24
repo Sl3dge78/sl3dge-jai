@@ -12,7 +12,7 @@ Mesh :: struct {
         array_reset(*submeshes);
     }
 
-    draw :: (using self: Mesh, render_pass: wgpu.RenderPassEncoder) {
+    draw :: inline (using self: Mesh, render_pass: wgpu.RenderPassEncoder) {
         for submeshes {
             wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 0, it.vertices.buffer, it.vertices.offset, it.vertices.size);
             wgpu.RenderPassEncoderSetIndexBuffer(render_pass, it.indices.buffer, .Uint32, it.indices.offset, it.indices.size);

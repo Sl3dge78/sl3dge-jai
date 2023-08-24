@@ -11,7 +11,7 @@ Scene :: struct {
         array_reset(*skinned_meshes);
     }
 
-    draw_static_meshes :: (using self: *Scene, render_pass: wgpu.RenderPassEncoder) {
+    draw_static_meshes :: inline (using self: *Scene, render_pass: wgpu.RenderPassEncoder) {
         for static_meshes {
             pc := Standard_Push_Constants.{
                 transform = transpose(it.transform),
@@ -22,7 +22,7 @@ Scene :: struct {
         }
     }
 
-    draw_skinned_meshes :: (using self: *Scene, render_pass: wgpu.RenderPassEncoder) {
+    draw_skinned_meshes :: inline (using self: *Scene, render_pass: wgpu.RenderPassEncoder) {
         for skinned_meshes {
              pc := Standard_Push_Constants.{
                 transform = transpose(it.transform),

@@ -49,7 +49,7 @@ Skinned_Mesh :: struct {
         self.* = .{};
     }
 
-    draw :: (using self: Skinned_Mesh, render_pass: wgpu.RenderPassEncoder) {
+    draw :: inline (using self: Skinned_Mesh, render_pass: wgpu.RenderPassEncoder) {
         for submeshes {
             wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 0, it.vertices.buffer, it.vertices.offset, it.vertices.size);
             wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 1, skins[it_index].buffer, skins[it_index].offset, skins[it_index].size);

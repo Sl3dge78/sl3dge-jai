@@ -571,13 +571,16 @@ Renderer :: struct {
             depthStencilAttachment = *attachment
         };
         render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(command_encoder, *render_pass_desc));
+
         wgpu.RenderPassEncoderSetPipeline(render_pass, static_mesh_pipelines[0]);
         wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, shadowmap_matrices_uniform.bind_group, 0, null);
         Immediate.draw_3d(render_pass);
         Scene.draw_static_meshes(current_scene, render_pass);
+
         wgpu.RenderPassEncoderSetPipeline(render_pass, skinned_mesh_pipelines[0]);
         wgpu.RenderPassEncoderSetBindGroup(render_pass, 1, empty_uniform, 0, null);
         Scene.draw_skinned_meshes(current_scene, render_pass);
+
         wgpu.RenderPassEncoderEnd(render_pass);
     }
 
@@ -606,6 +609,7 @@ Renderer :: struct {
             depthStencilAttachment = *depth_attachment,
         };
         render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(command_encoder, *render_pass_desc));
+
         wgpu.RenderPassEncoderSetPipeline(render_pass, static_mesh_pipelines[1]);
         wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, global_matrices_uniform.bind_group, 0, null);
         wgpu.RenderPassEncoderSetBindGroup(render_pass, 1, shadowmap_texture_uniform.bind_group, 0, null);
@@ -614,6 +618,7 @@ Renderer :: struct {
 
         wgpu.RenderPassEncoderSetPipeline(render_pass, skinned_mesh_pipelines[1]);
         Scene.draw_skinned_meshes(current_scene, render_pass);
+        
         wgpu.RenderPassEncoderEnd(render_pass);
     }
 

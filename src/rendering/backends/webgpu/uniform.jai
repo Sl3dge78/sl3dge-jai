@@ -21,7 +21,7 @@ Uniform :: struct {
         return self;
     }
 
-    destroy :: (using self: *Uniform) {
+    destroy :: inline (using self: *Uniform) {
         wgpu.BindGroupRelease(bind_group);
     }
 
@@ -46,7 +46,7 @@ Texture_Uniform :: struct {
         return .{WGPU_Check(wgpu.DeviceCreateBindGroup(global_renderer.device, *desc))};
     }
 
-    destroy :: (using self: *Texture_Uniform) {
+    destroy :: inline (using self: *Texture_Uniform) {
         wgpu.BindGroupRelease(bind_group);
     }
 }
