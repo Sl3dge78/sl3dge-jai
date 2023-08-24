@@ -159,7 +159,7 @@ instantiate :: (scene: *Scene, mesh: *Skinned_Mesh, matrix := Matrix4_Identity) 
     instance.transform = matrix;
 
     size := size_of(Instance_Data);
-    instance.joint_uniform = Uniform.create(global_renderer.device, *global_renderer.uniform_pool, xx size, global_renderer.instance_data_bind_group);
+    instance.joint_uniform = Uniform.create(global_renderer.device, *global_renderer.uniform_pool, xx size, global_renderer.instance_data_bgl);
     
     instance.current_pose = NewArray(mesh.skeleton.joints.count, Joint);
     for *instance.current_pose {

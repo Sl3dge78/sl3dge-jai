@@ -23,11 +23,11 @@ Renderer :: struct {
 
     sampler   : wgpu.Sampler;
 
-    empty_bind_group : wgpu.BindGroupLayout;
-    single_texture_bind_group   : wgpu.BindGroupLayout;
-    global_matrices_bind_group  : wgpu.BindGroupLayout;
-    shadowmap_texture_bind_group: wgpu.BindGroupLayout;
-    instance_data_bind_group : wgpu.BindGroupLayout;
+    empty_bgl : wgpu.BindGroupLayout;
+    single_texture_bgl   : wgpu.BindGroupLayout;
+    global_matrices_bgl  : wgpu.BindGroupLayout;
+    shadowmap_texture_bgl: wgpu.BindGroupLayout;
+    instance_data_bgl : wgpu.BindGroupLayout;
 
     ui_pipeline          : wgpu.RenderPipeline;
 
@@ -211,7 +211,7 @@ Renderer :: struct {
             renderer.sampler = WGPU_Check(wgpu.DeviceCreateSampler(renderer.device, *desc));
         }
 
-        create_binding_groups(renderer);
+        create_bind_group_layouts(renderer);
       
         renderer.ui_pipeline = create_ui_pipeline(renderer);
         renderer.static_mesh_pipelines = create_static_mesh_pipeline(renderer);
@@ -219,7 +219,7 @@ Renderer :: struct {
 
         {   // Empty Uniform
             desc := wgpu.BindGroupDescriptor.{
-                layout = renderer.empty_bind_group, 
+                layout = renderer.empty_bgl, 
                 entryCount = 0,
                 entries = null,
             };
@@ -227,7 +227,7 @@ Renderer :: struct {
         }   
 
         {   // Color Uniforms
-            renderer.global_matrices_uniform = Uniform.create(renderer.device, *renderer.uniform_pool, size_of(Global_Matrices), renderer.global_matrices_bind_group);
+            renderer.global_matrices_uniform = Uniform.create(renderer.device, *renderer.uniform_pool, size_of(Global_Matrices), renderer.global_matrices_bgl);
 
             renderer.projection = make_projection_matrix(radians(45), cast(float)renderer.width/cast(float)renderer.height, 0.1, 1000);
             renderer.view = Matrix4_Identity;
@@ -237,8 +237,8 @@ Renderer :: struct {
         {   // Shadowmap Uniforms
             renderer.shadowmap_framebuffer = Texture.create(2048, 2048, .TextureBinding | .RenderAttachment, .Depth24Plus);
 
-            renderer.shadowmap_texture_uniform = Texture_Uniform.create(renderer.sampler, renderer.shadowmap_framebuffer.view, global_renderer.shadowmap_texture_bind_group);
-            renderer.shadowmap_matrices_uniform = Uniform.create(renderer.device, *renderer.uniform_pool, size_of(Global_Matrices), renderer.global_matrices_bind_group);
+            renderer.shadowmap_texture_uniform = Texture_Uniform.create(renderer.sampler, renderer.shadowmap_framebuffer.view, global_renderer.shadowmap_texture_bgl);
+            renderer.shadowmap_matrices_uniform = Uniform.create(renderer.device, *renderer.uniform_pool, size_of(Global_Matrices), renderer.global_matrices_bgl);
             
         }
 
@@ -264,11 +264,11 @@ Renderer :: struct {
         
         Texture.destroy(*depth_texture);
 
-        wgpu.BindGroupLayoutRelease(empty_bind_group);
-        wgpu.BindGroupLayoutRelease(single_texture_bind_group);
-        wgpu.BindGroupLayoutRelease(global_matrices_bind_group);
-        wgpu.BindGroupLayoutRelease(shadowmap_texture_bind_group);
-        wgpu.BindGroupLayoutRelease(instance_data_bind_group);
+        wgpu.BindGroupLayoutRelease(empty_bgl);
+        wgpu.BindGroupLayoutRelease(single_texture_bgl);
+        wgpu.BindGroupLayoutRelease(global_matrices_bgl);
+        wgpu.BindGroupLayoutRelease(shadowmap_texture_bgl);
+        wgpu.BindGroupLayoutRelease(instance_data_bgl);
 
         wgpu.SamplerRelease(sampler);
 
@@ -418,14 +418,14 @@ Renderer :: struct {
         };
     }
 
-    create_binding_groups :: (using renderer: *Renderer) {
+    create_bind_group_layouts :: (using renderer: *Renderer) {
         {   // Empty 
             desc := wgpu.BindGroupLayoutDescriptor.{
                 label = "Empty",
                 entryCount = 0,
                 entries = null
             };
-            renderer.empty_bind_group = WGPU_Check(wgpu.DeviceCreateBindGroupLayout(renderer.device, *desc));
+            renderer.empty_bgl = WGPU_Check(wgpu.DeviceCreateBindGroupLayout(renderer.device, *desc));
 
         }
 
@@ -433,26 +433,26 @@ Renderer :: struct {
             builder : Bindings_Builder;
             Bindings_Builder.add_entry(*builder, wgpu.SamplerBindingLayout.{type = .Filtering}, binding = 0, .Fragment);
             Bindings_Builder.add_entry(*builder, wgpu.TextureBindingLayout.{sampleType = .Float, viewDimension = ._2D, multisampled = false}, binding = 1, .Fragment);
-            renderer.single_texture_bind_group = Bindings_Builder.build(*builder);
+            renderer.single_texture_bgl = Bindings_Builder.build(*builder);
         }
 
         {   // Shadowmap
             builder : Bindings_Builder;
             Bindings_Builder.add_entry(*builder, wgpu.SamplerBindingLayout.{type = .Filtering}, binding = 0, .Fragment);
             Bindings_Builder.add_entry(*builder, wgpu.TextureBindingLayout.{sampleType = .Depth, viewDimension = ._2D, multisampled = false}, binding = 1, .Fragment);
-            renderer.shadowmap_texture_bind_group = Bindings_Builder.build(*builder);
+            renderer.shadowmap_texture_bgl = Bindings_Builder.build(*builder);
         }
 
         {   // Global Data
             builder : Bindings_Builder;
             Bindings_Builder.add_entry(*builder, wgpu.BufferBindingLayout.{ type = .Uniform, hasDynamicOffset = false, minBindingSize = xx size_of(Global_Matrices) }, binding = 0, .Vertex | .Fragment);
-            renderer.global_matrices_bind_group = Bindings_Builder.build(*builder);
+            renderer.global_matrices_bgl = Bindings_Builder.build(*builder);
         }
 
         {   // Instance Data
             builder : Bindings_Builder;
             Bindings_Builder.add_entry(*builder, wgpu.BufferBindingLayout.{type = .Uniform, hasDynamicOffset = false, minBindingSize = xx size_of(Instance_Data) }, binding = 0, .Vertex);
-            renderer.instance_data_bind_group = Bindings_Builder.build(*builder);
+            renderer.instance_data_bgl = Bindings_Builder.build(*builder);
         }
     }
 
@@ -463,7 +463,7 @@ Renderer :: struct {
 
         layout_builder: Pipeline_Layout_Builder;
         Pipeline_Layout_Builder.push_constants(*layout_builder, size_of(UI_Push_Constants), stages = .Vertex);
-        Pipeline_Layout_Builder.add_bind_groups(*layout_builder, single_texture_bind_group);
+        Pipeline_Layout_Builder.add_bind_groups(*layout_builder, single_texture_bgl);
         pipeline_layout := Pipeline_Layout_Builder.build(*layout_builder, device);
         defer wgpu.PipelineLayoutRelease(pipeline_layout);
 
@@ -482,7 +482,7 @@ Renderer :: struct {
         {   // Shadowmap            
             layout_builder: Pipeline_Layout_Builder;
             Pipeline_Layout_Builder.push_constants(*layout_builder, size_of(Standard_Push_Constants), stages = .Vertex);
-            Pipeline_Layout_Builder.add_bind_groups(*layout_builder, renderer.global_matrices_bind_group);
+            Pipeline_Layout_Builder.add_bind_groups(*layout_builder, renderer.global_matrices_bgl);
             pipeline_layout := Pipeline_Layout_Builder.build(*layout_builder, renderer.device);
             defer wgpu.PipelineLayoutRelease(pipeline_layout);
 
@@ -497,8 +497,8 @@ Renderer :: struct {
 
             layout_builder: Pipeline_Layout_Builder;
             Pipeline_Layout_Builder.push_constants(*layout_builder, size_of(Standard_Push_Constants), stages = .Vertex);
-            Pipeline_Layout_Builder.add_bind_groups(*layout_builder, renderer.global_matrices_bind_group);
-            Pipeline_Layout_Builder.add_bind_groups(*layout_builder, renderer.shadowmap_texture_bind_group);
+            Pipeline_Layout_Builder.add_bind_groups(*layout_builder, renderer.global_matrices_bgl);
+            Pipeline_Layout_Builder.add_bind_groups(*layout_builder, renderer.shadowmap_texture_bgl);
             pipeline_layout := Pipeline_Layout_Builder.build(*layout_builder, renderer.device);
             defer wgpu.PipelineLayoutRelease(pipeline_layout);
 
@@ -521,9 +521,9 @@ Renderer :: struct {
             layout_builder: Pipeline_Layout_Builder;
             Pipeline_Layout_Builder.push_constants(*layout_builder, size_of(Standard_Push_Constants), stages = .Vertex);
             Pipeline_Layout_Builder.add_bind_groups(*layout_builder, 
-                renderer.global_matrices_bind_group, 
-                empty_bind_group,
-                instance_data_bind_group
+                renderer.global_matrices_bgl, 
+                empty_bgl,
+                instance_data_bgl
             );
             pipeline_layout := Pipeline_Layout_Builder.build(*layout_builder, renderer.device);
             defer wgpu.PipelineLayoutRelease(pipeline_layout);
@@ -539,9 +539,9 @@ Renderer :: struct {
 
             layout_builder: Pipeline_Layout_Builder;
             Pipeline_Layout_Builder.push_constants(*layout_builder, size_of(Standard_Push_Constants), stages = .Vertex);
-            Pipeline_Layout_Builder.add_bind_groups(*layout_builder, renderer.global_matrices_bind_group);
-            Pipeline_Layout_Builder.add_bind_groups(*layout_builder, renderer.shadowmap_texture_bind_group);
-            Pipeline_Layout_Builder.add_bind_groups(*layout_builder, renderer.instance_data_bind_group);
+            Pipeline_Layout_Builder.add_bind_groups(*layout_builder, renderer.global_matrices_bgl);
+            Pipeline_Layout_Builder.add_bind_groups(*layout_builder, renderer.shadowmap_texture_bgl);
+            Pipeline_Layout_Builder.add_bind_groups(*layout_builder, renderer.instance_data_bgl);
             pipeline_layout := Pipeline_Layout_Builder.build(*layout_builder, renderer.device);
             defer wgpu.PipelineLayoutRelease(pipeline_layout);
 

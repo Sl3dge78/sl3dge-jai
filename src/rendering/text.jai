@@ -35,22 +35,8 @@ Font :: struct {
 
         self.texture = Texture.from_data(bitmap.data, 512, 512, 1, u8);
 
-        // This has nothing to do here
-        // TODO : Proper material generation
-        self.uniform = Texture_Uniform.create(global_renderer.sampler, self.texture.view, global_renderer.single_texture_bind_group);
-        // { 
-        //     entries := wgpu.BindGroupEntry.[
-        //         .{binding = 0, sampler = global_renderer.sampler },
-        //         .{binding = 1, textureView = self.texture.view },
-        //     ];
-        //     desc := wgpu.BindGroupDescriptor.{
-        //         layout = global_renderer.single_texture_bind_group,
-        //         entryCount = entries.count,
-        //         entries = entries.data,
-        //     };
-        //     self.binding = wgpu.DeviceCreateBindGroup(global_renderer.device, *desc);
-        // }
-
+        self.uniform = Texture_Uniform.create(global_renderer.sampler, self.texture.view, global_renderer.single_texture_bgl);
+       
         // Get additional font info
         info : stbtt_fontinfo = ---;
         stbtt_InitFont(*info, font_data.data, 0);
