@@ -5,9 +5,18 @@ Skinned_Vertex :: struct {
 }
 
 Joint :: struct {
-    local_space_matrix: Matrix4;
-    model_space_matrix: Matrix4;
-    dirty: bool;
+    // /!\ We may not set these 3 upon loading the gltf. 
+    // So they may not reflect the actual state of the model_space_matrix.
+    // This shouldn't be an issue because model_space_matrix gets set for sure 
+    // when loading, and when changing t, r or s you should set the dirty flag
+    // to true to recalculate the model_space_matrix.
+    translation: Vector3;
+    rotation: Quaternion;
+    scale: Vector3;
+    // Requests a recalc of model_space_matrix in upload_skeleton with the trs above
+    dirty: bool; 
+    // This is multiplied with the inverse_bind_matrix then sent to the shader
+    model_space_matrix: Matrix4; 
 }
 
 Skeleton_Pose :: []Joint;
@@ -147,7 +156,12 @@ load_skinned_gltf :: (path: string) -> Skinned_Mesh {
 
         p_joint := *result.skeleton.bind_pose[it];
         p_joint.model_space_matrix = node.world_transform;
-        p_joint.local_space_matrix = node.local_transform;
+        if node.has_translation 
+            p_joint.translation.component = node.translation;
+        if node.has_rotation 
+            p_joint.scale.component = node.scale;
+        if node.has_scale 
+            p_joint.rotation.component = node.rotation;
     }
 
     return result;
@@ -176,13 +190,17 @@ upload_skeleton :: (using self: *Skinned_Mesh_Instance) {
         joint := *current_pose[id];
         def := self.skinned_mesh.skeleton.joints[id];
         parent_transform : Matrix4 = ---;
+        local_matrix := // self.skeleton.bind_pose[id].local_space_matrix *
+                make_translation_matrix4 (joint.translation) 
+                * make_scale_matrix4 (joint.scale) 
+                * rotation_matrix(Matrix4, joint.rotation);
         if def.parent != -1 {
-            joint.model_space_matrix = current_pose[def.parent].model_space_matrix * joint.local_space_matrix;
+            joint.model_space_matrix = current_pose[def.parent].model_space_matrix * local_matrix;
         } else {
-            joint.model_space_matrix = joint.local_space_matrix;
+            joint.model_space_matrix = local_matrix;
         }
             
-        buffer[id] = transpose(joint.model_space_matrix *def.inverse_bind_matrix);
+        buffer[id] = transpose(joint.model_space_matrix * def.inverse_bind_matrix);
         joint.dirty = false;
 
         for def.children {
@@ -202,10 +220,10 @@ upload_skeleton :: (using self: *Skinned_Mesh_Instance) {
     Uniform.write(self.joint_uniform, *buffer);
 }
 
-set_bone_matrix :: (using self: *Skinned_Mesh_Instance, name: string, matrix: Matrix4) {
-    id, found := table_find(*self.skeleton.name_to_id, name);
-    assert(found, "No bone named % in skeleton", name);
+// set_bone_matrix :: (using self: *Skinned_Mesh_Instance, name: string, matrix: Matrix4) {
+//     id, found := table_find(*self.skeleton.name_to_id, name);
+//     assert(found, "No bone named % in skeleton", name);
 
-    current_pose[id].local_space_matrix = self.skeleton.bind_pose[id].local_space_matrix * matrix;
-    current_pose[id].dirty = true;
-}
+//     current_pose[id].local_space_matrix = self.skeleton.bind_pose[id].local_space_matrix * matrix;
+//     current_pose[id].dirty = true;
+// }
