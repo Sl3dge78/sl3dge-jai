@@ -38,7 +38,6 @@ load_animation_from_gltf :: (path: string, skeleton: Skeleton_Definition) -> Ani
     gltf_load_buffers(*gltf_data);
 
     assert(gltf_data.animations.count == 1, "No or multiple animations in file, this isn't handled!");
-
     src_anim := gltf_data.animations[0];
 
     self: Animation;
@@ -72,14 +71,6 @@ load_animation_from_gltf :: (path: string, skeleton: Skeleton_Definition) -> Ani
                 track.target = .ROTATION;
                 track.rotation = NewArray(output.count, Quaternion);
                 read_accessor_into_array(track.rotation.data, 0, size_of(Quaternion), gltf_data, sampler.output);
-                if track.target_node == skeleton.root {
-                    // Animation is Z up
-                    offset : Quaternion = ---;
-                    set_from_axis_and_angle(*offset, .{1, 0, 0}, PI / 2);
-                    for *track.rotation {
-                        it.* *= offset;
-                    }
-                }
             }
             case .SCALE;
                 track.target = .SCALE;

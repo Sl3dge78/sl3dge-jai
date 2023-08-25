@@ -199,6 +199,7 @@ upload_skeleton :: (using self: *Skinned_Mesh_Instance) {
         } else {
             joint.model_space_matrix = local_matrix;
         }
+        immediate_debug_matrix(self.transform * joint.model_space_matrix, 0.1);
             
         buffer[id] = transpose(joint.model_space_matrix * def.inverse_bind_matrix);
         joint.dirty = false;

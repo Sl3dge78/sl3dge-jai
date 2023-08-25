@@ -29,6 +29,7 @@ Renderer :: struct {
     shadowmap_texture_bgl: wgpu.BindGroupLayout;
     instance_data_bgl : wgpu.BindGroupLayout;
 
+    debug_pipeline       : wgpu.RenderPipeline;
     ui_pipeline          : wgpu.RenderPipeline;
 
     depth_texture : Texture;
@@ -212,7 +213,8 @@ Renderer :: struct {
         }
 
         create_bind_group_layouts(renderer);
-      
+
+        renderer.debug_pipeline = create_debug_pipeline(renderer);
         renderer.ui_pipeline = create_ui_pipeline(renderer);
         renderer.static_mesh_pipelines = create_static_mesh_pipeline(renderer);
         renderer.skinned_mesh_pipelines = create_skinned_mesh_pipeline(renderer);
@@ -249,9 +251,10 @@ Renderer :: struct {
         Buffer_Pool.reset(*mesh_buffer_pool);
         Buffer_Pool.reset(*uniform_pool);
 
-        Draw_Data.destroy(*context.immediate._2d_draw_data);
-        Draw_Data.destroy(*context.immediate._3d_draw_data);
+        destroy(*context.immediate._2d_draw_data);
+        destroy(*context.immediate._3d_draw_data);
 
+        wgpu.RenderPipelineRelease(debug_pipeline);
         wgpu.RenderPipelineRelease(ui_pipeline);
         wgpu.RenderPipelineRelease(static_mesh_pipelines[0]);
         wgpu.RenderPipelineRelease(static_mesh_pipelines[1]);
@@ -554,6 +557,25 @@ Renderer :: struct {
         return pipelines;
     }
 
+    create_debug_pipeline :: (using renderer: *Renderer) -> wgpu.RenderPipeline {
+        shader_module := create_shader_module(DEBUG_SHADER, device);
+        defer wgpu.ShaderModuleRelease(shader_module);
+
+        layout_builder: Pipeline_Layout_Builder;
+        Pipeline_Layout_Builder.push_constants(*layout_builder, size_of(Standard_Push_Constants), stages = .Vertex);
+        Pipeline_Layout_Builder.add_bind_groups(*layout_builder, renderer.global_matrices_bgl);
+        pipeline_layout := Pipeline_Layout_Builder.build(*layout_builder, renderer.device);
+        defer wgpu.PipelineLayoutRelease(pipeline_layout);
+
+        builder: Pipeline_Builder;
+        Pipeline_Builder.add_vertex_shader(*builder, shader_module, "vs_main", Debug_Vertex);
+        Pipeline_Builder.add_fragment_shader(*builder, shader_module, "fs_main");
+        Pipeline_Builder.primitive_state(*builder, .LineList);
+        pipeline := Pipeline_Builder.build(*builder, renderer.device, pipeline_layout, "Debug Pipeline");
+        return pipeline;
+
+    }
+
     shadowmap_render_pass :: (using renderer: *Renderer, command_encoder: wgpu.CommandEncoder, framebuffer: wgpu.TextureView) {
         
         attachment := wgpu.RenderPassDepthStencilAttachment.{
@@ -642,6 +664,26 @@ Renderer :: struct {
         wgpu.RenderPassEncoderEnd(render_pass);
     }
 
+    debug_render_pass :: (using renderer: *Renderer, command_encoder: wgpu.CommandEncoder, framebuffer: wgpu.TextureView) {
+        attachment := wgpu.RenderPassColorAttachment.{
+            view = framebuffer,
+            resolveTarget = null,
+            loadOp = .Load,
+            storeOp = .Store,
+        };
+        render_pass_desc := wgpu.RenderPassDescriptor.{
+            label = "Debug Pass",
+            colorAttachmentCount = 1,
+            colorAttachments = *attachment,
+            depthStencilAttachment = null,
+        };
+        render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(command_encoder, *render_pass_desc));
+
+        Immediate.draw_debug(render_pass);
+
+        wgpu.RenderPassEncoderEnd(render_pass);
+    }
+
     end_frame :: () {
         using renderer := *global_renderer;
 
@@ -649,10 +691,12 @@ Renderer :: struct {
         defer wgpu.TextureViewRelease(current_texture);
 
         // Upload data
-        Draw_Data.upload(*context.immediate._2d_draw_data);
-        defer Draw_Data.reset(*context.immediate._2d_draw_data);
-        Draw_Data.upload(*context.immediate._3d_draw_data);
-        defer Draw_Data.reset(*context.immediate._3d_draw_data);
+        upload(*context.immediate._2d_draw_data);
+        defer reset(*context.immediate._2d_draw_data);
+        upload(*context.immediate._3d_draw_data);
+        defer reset(*context.immediate._3d_draw_data);
+        upload(*context.immediate.debug_draw_data);
+        defer reset(*context.immediate.debug_draw_data);
 
         size:: 20;
         light_proj := orthographic_projection_matrix(size, -size, -size, size, -size, size, true);
@@ -678,6 +722,7 @@ Renderer :: struct {
         defer wgpu.CommandEncoderRelease(command_encoder);
         shadowmap_render_pass(renderer, command_encoder, shadowmap_framebuffer.view);
         main_render_pass(renderer, command_encoder, current_texture);
+        debug_render_pass(renderer, command_encoder, current_texture);
         ui_render_pass(renderer, command_encoder, current_texture);
         
         command_buffer_desc := wgpu.CommandBufferDescriptor.{ label = "Main Command Buffer" };

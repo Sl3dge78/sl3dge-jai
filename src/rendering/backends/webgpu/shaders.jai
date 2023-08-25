@@ -151,7 +151,6 @@ STANDARD_SHADER :: #string __WGSL
         let result = f32(total) / f32(pcf_total_texels);
         return 1.0 - result;
     }
-    
 
     @fragment
     fn fs_main (in: Vertex_Output) -> @location(0) vec4f {
@@ -184,3 +183,46 @@ Global_Matrices :: struct {
 Instance_Data :: struct {
     joint_matrices: [128]Matrix4;
 };
+
+// DEBUG
+
+DEBUG_SHADER :: #string __WGSL
+    struct Vertex_Input {
+        @location(0) position: vec3f, 
+        @location(1) color: vec4f,
+    };
+
+    struct Vertex_Output {
+        @builtin(position) position: vec4f,
+        @location(0) color: vec4f,
+    };
+
+    struct Push_Constants {
+        transform: mat4x4f,
+        inverse_transform: mat4x4f,
+    };
+
+    struct Global_Buffer {
+        projection: mat4x4f,
+        view      : mat4x4f,
+        light     : mat4x4f,
+        light_dir : vec3f,
+    };
+
+    var<push_constant> push_constants : Push_Constants;
+    @group(0) @binding(0) var<uniform> global_data: Global_Buffer;
+
+    @vertex
+    fn vs_main (in: Vertex_Input) -> Vertex_Output {
+        var out: Vertex_Output;
+        out.color = in.color;
+        let xform = global_data.projection * global_data.view * push_constants.transform;
+        out.position = xform * vec4f(in.position, 1.0);
+        return out;
+    }
+
+    @fragment
+    fn fs_main (in: Vertex_Output) -> @location(0) vec4f {
+        return in.color;
+    }
+__WGSL

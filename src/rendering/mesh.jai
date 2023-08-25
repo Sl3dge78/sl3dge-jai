@@ -41,6 +41,16 @@ load_mesh_from_data :: (gltf_data : GLTF_Data) -> Mesh {
             offset: *Vertex = null;
             read_accessor_into_array(vertices.data, xx *offset.normal, size_of(Vertex), gltf_data, normal_accessor);
         }
+
+        color: Vector4 = .{0, 0, 0, 1};
+
+        if material != -1 {
+            color.component = gltf_data.materials[material].metallic_roughness.base_color_factor;
+        }
+
+        for *vertices {
+            it.color = color;
+        }
         
         // Indices
         idx_accessor := gltf_data.accessors[indices_accessor];
