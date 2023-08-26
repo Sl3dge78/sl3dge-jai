@@ -2,15 +2,15 @@
 Animation :: struct {
     length: float;
     tracks: []Animation_Track;
+}
 
-    destroy :: (using self: *Animation) {
-        for *tracks {
-            free(it.key_times.data);
-            free(it.translation.data);
-        }
-
-        free(tracks.data);
+destroy :: (using self: *Animation) {
+    for *tracks {
+        free(it.key_times.data);
+        free(it.translation.data);
     }
+
+    free(tracks.data);
 }
 
 Animation_Target :: enum {

@@ -7,65 +7,65 @@ Font :: struct {
     // binding: wgpu.BindGroup;
     uniform : Texture_Uniform;
     // descriptor: VkDescriptorSet;
+}
 
-    from_file :: (path: string, size: float) -> Font, bool {
-        font_data, success := read_entire_file(path);
-        if !success {
-            assert(false, "Unable to load font from %", path);
-            return .{}, false;
-        }
-        result, success2 := from_data(font_data, size);
-        return result, success2;
+font_from_file :: (path: string, size: float) -> Font, bool {
+    font_data, success := read_entire_file(path);
+    if !success {
+        assert(false, "Unable to load font from %", path);
+        return .{}, false;
     }
+    result, success2 := font_from_data(font_data, size);
+    return result, success2;
+}
 
-    from_data :: (font_data: string, size: float) -> Font, bool {
-        self : Font = ---;
-        bitmap : [512*512]u8 = ---;
-        
-        pack_context : stbtt_pack_context = ---;
-        
-        if !stbtt_PackBegin(*pack_context, bitmap.data, 512, 512, 0, 1, null) {
-            assert(false, "Unable to begin font packing");
-            return .{}, false;
-        }
-        // stbtt_PackSetOversampling(*pack_context, 2, 2);
-        self.first_char = 0;
-        stbtt_PackFontRange(*pack_context, font_data.data, 0, size, xx self.first_char, 437, self.char_data.data);
-        stbtt_PackEnd(*pack_context);
-        // @HACK: We do this so that we don't need to change textures when drawing a plain color
-        x := bitmap.count - 1;
-        bitmap[x] = 255;
-        x -= 1;
-        bitmap[x] = 255;
-        x -= 512;
-        bitmap[x] = 255;
-        x += 1;
-        bitmap[x] = 255;
-
-        self.texture = Texture.from_data(bitmap.data, 512, 512, 1, u8);
-
-        self.uniform = Texture_Uniform.create(global_renderer.sampler, self.texture.view, global_renderer.single_texture_bgl);
-       
-        // Get additional font info
-        info : stbtt_fontinfo = ---;
-        stbtt_InitFont(*info, font_data.data, 0);
-        scale := stbtt_ScaleForMappingEmToPixels(*info, size);
-
-        advance_width : s32 = ---;
-        left_side_bearing : s32 = ---;
-        stbtt_GetCodepointHMetrics(*info, #char "W", *advance_width, *left_side_bearing);
-        self.width = advance_width * scale;
-
-        ascent, descent, line_gap: s32 = ---;
-        stbtt_GetFontVMetrics(*info, *ascent, *descent, *line_gap);
-        self.line_height = (ascent - descent + line_gap) * scale;
-        return self, true;
+font_from_data :: (font_data: string, size: float) -> Font, bool {
+    self : Font = ---;
+    bitmap : [512*512]u8 = ---;
+    
+    pack_context : stbtt_pack_context = ---;
+    
+    if !stbtt_PackBegin(*pack_context, bitmap.data, 512, 512, 0, 1, null) {
+        assert(false, "Unable to begin font packing");
+        return .{}, false;
     }
+    // stbtt_PackSetOversampling(*pack_context, 2, 2);
+    self.first_char = 0;
+    stbtt_PackFontRange(*pack_context, font_data.data, 0, size, xx self.first_char, 437, self.char_data.data);
+    stbtt_PackEnd(*pack_context);
+    // @HACK: We do this so that we don't need to change textures when drawing a plain color
+    x := bitmap.count - 1;
+    bitmap[x] = 255;
+    x -= 1;
+    bitmap[x] = 255;
+    x -= 512;
+    bitmap[x] = 255;
+    x += 1;
+    bitmap[x] = 255;
 
-    destroy :: (font: *Font) {
-        Texture.destroy(*font.texture);
-        Texture_Uniform.destroy(*font.uniform);
-    }
+    self.texture = texture_from_data(bitmap.data, 512, 512, 1, u8);
+
+    self.uniform = texture_uniform_create(global_renderer.sampler, self.texture.view, global_renderer.single_texture_bgl);
+    
+    // Get additional font info
+    info : stbtt_fontinfo = ---;
+    stbtt_InitFont(*info, font_data.data, 0);
+    scale := stbtt_ScaleForMappingEmToPixels(*info, size);
+
+    advance_width : s32 = ---;
+    left_side_bearing : s32 = ---;
+    stbtt_GetCodepointHMetrics(*info, #char "W", *advance_width, *left_side_bearing);
+    self.width = advance_width * scale;
+
+    ascent, descent, line_gap: s32 = ---;
+    stbtt_GetFontVMetrics(*info, *ascent, *descent, *line_gap);
+    self.line_height = (ascent - descent + line_gap) * scale;
+    return self, true;
+}
+
+destroy :: (font: *Font) {
+    destroy(*font.texture);
+    destroy(*font.uniform);
 }
 
 size_text :: (text: string, font: *Font) -> float {

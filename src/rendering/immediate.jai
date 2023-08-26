@@ -165,7 +165,7 @@ Draw_Data :: struct(vertex_type: Type) {
 destroy :: (dd: *Draw_Data) {
     array_reset(*dd.draw_cmds);
     array_reset(*dd.vertices);
-    Buffer.destroy(*dd.vertex_buffer);
+    destroy(*dd.vertex_buffer);
 }
 
 reset :: (dd: *Draw_Data) {
@@ -177,8 +177,8 @@ reset :: (dd: *Draw_Data) {
 upload :: (dd: *Draw_Data) {
     if dd.vertices.count == 0 then return; 
     size : u64 = xx (dd.vertices.count * size_of(Vertex));
-    Buffer.create_or_update(*dd.vertex_buffer, size, .Vertex | .CopyDst);
-    Buffer.write_data(dd.vertex_buffer, dd.vertices.data, size);
+    buffer_create_or_update(*dd.vertex_buffer, size, .Vertex | .CopyDst);
+    buffer_write_data(dd.vertex_buffer, dd.vertices.data, size);
 }
 
 Draw_Cmd :: struct {

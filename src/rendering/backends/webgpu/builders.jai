@@ -33,152 +33,153 @@ Pipeline_Builder :: struct {
         targetCount =    0,    // build 
         targets =        null, // build
     };
+}
 
-    add_vertex_shader :: (builder: *Pipeline_Builder, module: wgpu.ShaderModule, entry_point: string, $vertex_types: ..Type) {
-        builder.vertex.module = module;
-        builder.vertex.entryPoint = temp_c_string(entry_point);
-        arr := NewArray(vertex_types.count, wgpu.VertexBufferLayout, allocator = temp);
-        offset := 0;
-        for vertex_types { 
-            arr[it_index] = get_vertex_layout(it, offset);
-            offset += xx arr[it_index].attributeCount;
-        }
-        builder.vertex.bufferCount = xx arr.count;
-        builder.vertex.buffers = arr.data;
+add_vertex_shader :: (builder: *Pipeline_Builder, module: wgpu.ShaderModule, entry_point: string, $vertex_types: ..Type) {
+    builder.vertex.module = module;
+    builder.vertex.entryPoint = temp_c_string(entry_point);
+    arr := NewArray(vertex_types.count, wgpu.VertexBufferLayout, allocator = temp);
+    offset := 0;
+    for vertex_types { 
+        arr[it_index] = get_vertex_layout(it, offset);
+        offset += xx arr[it_index].attributeCount;
     }
+    builder.vertex.bufferCount = xx arr.count;
+    builder.vertex.buffers = arr.data;
+}
 
-    get_vertex_layout :: (type: Type, shader_location_offset := 0) -> wgpu.VertexBufferLayout {
-        info := cast(*Type_Info_Struct)type;
-        attributes := NewArray(info.members.count, wgpu.VertexAttribute, allocator = temp);
+get_vertex_layout :: (type: Type, shader_location_offset := 0) -> wgpu.VertexBufferLayout {
+    info := cast(*Type_Info_Struct)type;
+    attributes := NewArray(info.members.count, wgpu.VertexAttribute, allocator = temp);
 
-        for info.members {
-            // .{ format = .Float32x2, offset = 0, shaderLocation = 0 },
-            format: wgpu.VertexFormat;
+    for info.members {
+        // .{ format = .Float32x2, offset = 0, shaderLocation = 0 },
+        format: wgpu.VertexFormat;
 
-            if it.type.type == {
-                case .BOOL; {
+        if it.type.type == {
+            case .BOOL; {
+                format = .Sint32;
+            }
+            case .INTEGER; {
+                int_type_info := cast(*Type_Info_Integer) it.type;
+
+                if int_type_info.signed {
                     format = .Sint32;
-                }
-                case .INTEGER; {
-                    int_type_info := cast(*Type_Info_Integer) it.type;
-
-                    if int_type_info.signed {
-                        format = .Sint32;
-                    } else {
-                        format = .Uint32;
-                    }
-                }
-                case .FLOAT; {
-                    assert(it.type.runtime_size <= 4, "Only float32 is supported in Vertex Attribute Data.");
-                    format = .Float32;
-                }
-                case .STRUCT; {
-                    struct_type_info := cast(*Type_Info_Struct) it.type;
-
-                    if struct_type_info.name == {
-                        case "Vector4"; format = .Float32x4;
-                        case "Vector3"; format = .Float32x3;
-                        case "Vector2"; format = .Float32x2;
-                        case; assert(false, "Unsupported struct type. Only Vector2, Vector3, Vector4 are supported");
-                    }
-                }
-                case .ARRAY; {
-                    array_type_info := cast(*Type_Info_Array) it.type;
-                    assert(array_type_info.array_count == 4, "Unhandled!");
-                    elem_type_info := array_type_info.element_type;
-                    assert(elem_type_info.type == .INTEGER, "Unhandled!");
-                    if elem_type_info.runtime_size == {
-                        case 1; format = .Uint8x4;
-                        case; assert(false, "runtime size unhandled!");
-                    }
+                } else {
+                    format = .Uint32;
                 }
             }
-            attributes[it_index] = .{format = format, offset = xx it.offset_in_bytes, shaderLocation = xx (it_index + shader_location_offset) };
+            case .FLOAT; {
+                assert(it.type.runtime_size <= 4, "Only float32 is supported in Vertex Attribute Data.");
+                format = .Float32;
+            }
+            case .STRUCT; {
+                struct_type_info := cast(*Type_Info_Struct) it.type;
+
+                if struct_type_info.name == {
+                    case "Vector4"; format = .Float32x4;
+                    case "Vector3"; format = .Float32x3;
+                    case "Vector2"; format = .Float32x2;
+                    case; assert(false, "Unsupported struct type. Only Vector2, Vector3, Vector4 are supported");
+                }
+            }
+            case .ARRAY; {
+                array_type_info := cast(*Type_Info_Array) it.type;
+                assert(array_type_info.array_count == 4, "Unhandled!");
+                elem_type_info := array_type_info.element_type;
+                assert(elem_type_info.type == .INTEGER, "Unhandled!");
+                if elem_type_info.runtime_size == {
+                    case 1; format = .Uint8x4;
+                    case; assert(false, "runtime size unhandled!");
+                }
+            }
         }
-
-        return wgpu.VertexBufferLayout.{
-            arrayStride = xx info.runtime_size,
-            stepMode = .Vertex,
-            attributeCount = xx attributes.count,
-            attributes = attributes.data
-        };
+        attributes[it_index] = .{format = format, offset = xx it.offset_in_bytes, shaderLocation = xx (it_index + shader_location_offset) };
     }
 
-    add_fragment_shader :: (using builder: *Pipeline_Builder, module: wgpu.ShaderModule, entry_point: string) {
-        fragment.module = module;
-        fragment.entryPoint = temp_c_string(entry_point);
-    }
-
-    primitive_state :: (using builder: *Pipeline_Builder, topology : wgpu.PrimitiveTopology, front_face: wgpu.FrontFace = .CCW, cull_mode: wgpu.CullMode = .None) {
-            primitive = wgpu.PrimitiveState.{
-            topology =         topology,
-            stripIndexFormat = .Undefined,
-            frontFace =        front_face,
-            cullMode =         cull_mode,
-        };
-    }
-
-    depth_stencil_state :: (using builder: *Pipeline_Builder, format: wgpu.TextureFormat) {
-        builder.depth_stencil = wgpu.DepthStencilState.{
-            format = format, 
-            depthWriteEnabled = true, 
-            depthCompare = .Less,
-            stencilFront = .{},
-            stencilBack = .{},
-            stencilReadMask = 0xFFFFFFFF,
-            stencilWriteMask = 0xFFFFFFFF,
-            depthBias = 0,
-            depthBiasSlopeScale = 0,
-            depthBiasClamp = 0,
-        };
-        builder.has_depth = true;
-    }
-
-    build :: (using builder: *Pipeline_Builder, device: wgpu.Device, layout: wgpu.PipelineLayout, label := "") -> wgpu.RenderPipeline {
-        assert(vertex.module != null, "No vertex shader specified when building pipeline");
-        
-        desc := wgpu.RenderPipelineDescriptor.{
-            label = temp_c_string(label),
-            layout = layout,
-            vertex = vertex,
-            primitive = primitive,
-            depthStencil = null,       // Set below
-            multisample = multisample,
-            fragment = null,           // Set below
-        };
-
-        // Fragment
-        if fragment.module != null {
-            color_target := wgpu.ColorTargetState.{
-                format = global_renderer.swapchain_format, // @Hardcoded
-                blend = *wgpu.BlendState.{
-                    color = .{
-                        operation = .Add, 
-                        srcFactor = .SrcAlpha,
-                        dstFactor = .OneMinusSrcAlpha,
-                    },
-                    alpha = .{
-                        operation = .Add,
-                        srcFactor = .SrcAlpha,
-                        dstFactor = .OneMinusSrcAlpha,
-                    },
-                },
-                writeMask = xx wgpu.ColorWriteMask.All,
-            };
-            fragment.targetCount = 1;
-            fragment.targets = *color_target;
-        }
-        desc.fragment = ifx fragment.module == null then null else *fragment;
-
-        // Depth
-        if has_depth {
-            desc.depthStencil = *depth_stencil;
-        }
-
-        pipeline := WGPU_Check(wgpu.DeviceCreateRenderPipeline(device, *desc));
-        return pipeline;
-    }
+    return wgpu.VertexBufferLayout.{
+        arrayStride = xx info.runtime_size,
+        stepMode = .Vertex,
+        attributeCount = xx attributes.count,
+        attributes = attributes.data
+    };
 }
+
+add_fragment_shader :: (using builder: *Pipeline_Builder, module: wgpu.ShaderModule, entry_point: string) {
+    fragment.module = module;
+    fragment.entryPoint = temp_c_string(entry_point);
+}
+
+primitive_state :: (using builder: *Pipeline_Builder, topology : wgpu.PrimitiveTopology, front_face: wgpu.FrontFace = .CCW, cull_mode: wgpu.CullMode = .None) {
+        primitive = wgpu.PrimitiveState.{
+        topology =         topology,
+        stripIndexFormat = .Undefined,
+        frontFace =        front_face,
+        cullMode =         cull_mode,
+    };
+}
+
+depth_stencil_state :: (using builder: *Pipeline_Builder, format: wgpu.TextureFormat) {
+    builder.depth_stencil = wgpu.DepthStencilState.{
+        format = format, 
+        depthWriteEnabled = true, 
+        depthCompare = .Less,
+        stencilFront = .{},
+        stencilBack = .{},
+        stencilReadMask = 0xFFFFFFFF,
+        stencilWriteMask = 0xFFFFFFFF,
+        depthBias = 0,
+        depthBiasSlopeScale = 0,
+        depthBiasClamp = 0,
+    };
+    builder.has_depth = true;
+}
+
+pipeline_builder_build :: (using builder: *Pipeline_Builder, device: wgpu.Device, layout: wgpu.PipelineLayout, label := "") -> wgpu.RenderPipeline {
+    assert(vertex.module != null, "No vertex shader specified when building pipeline");
+    
+    desc := wgpu.RenderPipelineDescriptor.{
+        label = temp_c_string(label),
+        layout = layout,
+        vertex = vertex,
+        primitive = primitive,
+        depthStencil = null,       // Set below
+        multisample = multisample,
+        fragment = null,           // Set below
+    };
+
+    // Fragment
+    if fragment.module != null {
+        color_target := wgpu.ColorTargetState.{
+            format = global_renderer.swapchain_format, // @Hardcoded
+            blend = *wgpu.BlendState.{
+                color = .{
+                    operation = .Add, 
+                    srcFactor = .SrcAlpha,
+                    dstFactor = .OneMinusSrcAlpha,
+                },
+                alpha = .{
+                    operation = .Add,
+                    srcFactor = .SrcAlpha,
+                    dstFactor = .OneMinusSrcAlpha,
+                },
+            },
+            writeMask = xx wgpu.ColorWriteMask.All,
+        };
+        fragment.targetCount = 1;
+        fragment.targets = *color_target;
+    }
+    desc.fragment = ifx fragment.module == null then null else *fragment;
+
+    // Depth
+    if has_depth {
+        desc.depthStencil = *depth_stencil;
+    }
+
+    pipeline := WGPU_Check(wgpu.DeviceCreateRenderPipeline(device, *desc));
+    return pipeline;
+}
+
 
 Pipeline_Layout_Builder :: struct {
     push_constant_range := wgpu.PushConstantRange.{
@@ -187,72 +188,72 @@ Pipeline_Layout_Builder :: struct {
         end = size_of(Vector2) * 2,
     };
     bind_groups : [..] wgpu.BindGroupLayout;
-
-    push_constants :: (using builder: *Pipeline_Layout_Builder, size: u32, stages: wgpu.ShaderStageFlags = .Vertex, start : u32 = 0) {
-        push_constant_range.stages = stages;
-        push_constant_range.start = start;
-        push_constant_range.end = size;
-    }
-
-    add_bind_groups :: (using builder: *Pipeline_Layout_Builder, bind_group_layouts: ..wgpu.BindGroupLayout) {
-        bind_groups.allocator = temp;
-        array_add(*bind_groups, ..bind_group_layouts);
-    }
-
-    build :: (using builder: *Pipeline_Layout_Builder, device: wgpu.Device) -> wgpu.PipelineLayout {
-        extras := wgpu.PipelineLayoutExtras.{
-            pushConstantRangeCount = 1,
-            pushConstantRanges = *push_constant_range
-        };
-
-        layout_desc := wgpu.PipelineLayoutDescriptor.{
-            nextInChain = *extras.chain,
-            bindGroupLayoutCount = xx bind_groups.count,
-            bindGroupLayouts     = bind_groups.data,
-        };
-
-        pipeline_layout := WGPU_Check(wgpu.DeviceCreatePipelineLayout(device, *layout_desc));
-        return pipeline_layout;
-    }
 }
+
+set_push_constants :: (using builder: *Pipeline_Layout_Builder, size: u32, stages: wgpu.ShaderStageFlags = .Vertex, start : u32 = 0) {
+    push_constant_range.stages = stages;
+    push_constant_range.start = start;
+    push_constant_range.end = size;
+}
+
+add_bind_groups :: (using builder: *Pipeline_Layout_Builder, bind_group_layouts: ..wgpu.BindGroupLayout) {
+    bind_groups.allocator = temp;
+    array_add(*bind_groups, ..bind_group_layouts);
+}
+
+pipeline_layout_builder_build :: (using builder: *Pipeline_Layout_Builder, device: wgpu.Device) -> wgpu.PipelineLayout {
+    extras := wgpu.PipelineLayoutExtras.{
+        pushConstantRangeCount = 1,
+        pushConstantRanges = *push_constant_range
+    };
+
+    layout_desc := wgpu.PipelineLayoutDescriptor.{
+        nextInChain = *extras.chain,
+        bindGroupLayoutCount = xx bind_groups.count,
+        bindGroupLayouts     = bind_groups.data,
+    };
+
+    pipeline_layout := WGPU_Check(wgpu.DeviceCreatePipelineLayout(device, *layout_desc));
+    return pipeline_layout;
+}
+
 
 Bindings_Builder :: struct {
-
     entries: [..] wgpu.BindGroupLayoutEntry;
-
-    add_entry :: (using builder: *Bindings_Builder, entry: $T, binding: u32, visibility: wgpu.ShaderStageFlags) {
-        
-        group_entry := wgpu.BindGroupLayoutEntry.{
-            binding = binding,
-            visibility = visibility
-        };
-        #if T == wgpu.BufferBindingLayout {
-            group_entry.buffer = entry;
-        } else #if T == wgpu.SamplerBindingLayout {
-            group_entry.sampler = entry;
-        } else #if wgpu.TextureBindingLayout {
-            group_entry.texture = entry;
-        } else #if wgpu.StorageTextureBindingLayout {
-            group_entry.storageTexture = entry;
-        } else { #assert(false); }
-
-        array_add(*entries, group_entry);
-    }
-
-    build :: (using builder: *Bindings_Builder) -> wgpu.BindGroupLayout {
-        
-        desc := wgpu.BindGroupLayoutDescriptor.{
-            entryCount = xx entries.count,
-            entries = entries.data,
-        };
-        group_layout := WGPU_Check(wgpu.DeviceCreateBindGroupLayout(global_renderer.device, *desc));
-        
-        array_reset(*entries);
-        return group_layout;
-    }
 }
 
-create_shader_module :: (code: string, device: wgpu.Device) -> wgpu.ShaderModule {
+add_entry :: (using builder: *Bindings_Builder, entry: $T, binding: u32, visibility: wgpu.ShaderStageFlags) {
+    
+    group_entry := wgpu.BindGroupLayoutEntry.{
+        binding = binding,
+        visibility = visibility
+    };
+    #if T == wgpu.BufferBindingLayout {
+        group_entry.buffer = entry;
+    } else #if T == wgpu.SamplerBindingLayout {
+        group_entry.sampler = entry;
+    } else #if wgpu.TextureBindingLayout {
+        group_entry.texture = entry;
+    } else #if wgpu.StorageTextureBindingLayout {
+        group_entry.storageTexture = entry;
+    } else { #assert(false); }
+
+    array_add(*entries, group_entry);
+}
+
+bindings_builder_build :: (using builder: *Bindings_Builder) -> wgpu.BindGroupLayout {
+    
+    desc := wgpu.BindGroupLayoutDescriptor.{
+        entryCount = xx entries.count,
+        entries = entries.data,
+    };
+    group_layout := WGPU_Check(wgpu.DeviceCreateBindGroupLayout(global_renderer.device, *desc));
+    
+    array_reset(*entries);
+    return group_layout;
+}
+
+shader_module_create :: (code: string, device: wgpu.Device) -> wgpu.ShaderModule {
     wgsl_desc := wgpu.ShaderModuleWGSLDescriptor.{
         code = code.data,
     };

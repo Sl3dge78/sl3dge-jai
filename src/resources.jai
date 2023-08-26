@@ -204,12 +204,12 @@ unload_var :: (info: *Resource_Info) {
 
 // .ttf files
 load_font_file :: (info: *Resource_Info) -> bool {
-    (cast(*Font)info.pointer).* = Font.from_file(info.path, 8); // @Todo: Find a way to specify a font size
+    (cast(*Font)info.pointer).* = font_from_file(info.path, 8); // @Todo: Find a way to specify a font size
     return true;
 }
 
 unload_font :: (info :*Resource_Info) {
-    Font.destroy(xx info.pointer);
+    destroy(cast(*Font)info.pointer);
 }
 
 get_font_type :: (path: string) -> string {
@@ -233,12 +233,12 @@ get_shader_type :: (path: string) -> string {
 
 // .png files
 load_image :: (info: *Resource_Info) -> bool {
-    (cast(*Texture)info.pointer).* = Texture.from_file(info.path);
+    (cast(*Texture)info.pointer).* = texture_from_file(info.path);
     return true;
 }
 
 unload_image :: (info: *Resource_Info) {
-    Texture.destroy(xx info.pointer);
+    destroy(cast(*Texture) info.pointer);
 }
 
 get_image_type :: (path: string) -> string {

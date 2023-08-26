@@ -7,60 +7,60 @@ Engine :: struct {
     draw_perf_overlay := true;
     frame_start : u64;
     frame_time: float;
+}
 
-    create :: () {
-        log("Init engine");
-        path := path_strip_filename(get_path_of_running_executable());
-        set_working_directory(path);
+engine_create :: () {
+    log("Init engine");
+    path := path_strip_filename(get_path_of_running_executable());
+    set_working_directory(path);
 
-        SDL_Init(SDL_INIT_EVERYTHING);
+    SDL_Init(SDL_INIT_EVERYTHING);
 
-        w := 1280;
-        h := 720;
-        flags := SDL_WINDOW_RESIZABLE;
-        #if OS == .MACOS {
-            SDL_WINDOW_METAL :: 0x20000000;
-            flags |= SDL_WINDOW_METAL;
-        } else #if OS == .LINUX {
-            flags |= SDL_WINDOW_VULKAN;
-        }
-        global_engine.window = SDL_CreateWindow("Demo", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, xx w, xx h, flags);
-        global_engine.renderer = Renderer.create(global_engine.window);
-        global_engine.default_font = Font.from_data(default_font_data, 8);
-
-        Console.create();
-        Resources.create();
+    w := 1280;
+    h := 720;
+    flags := SDL_WINDOW_RESIZABLE;
+    #if OS == .MACOS {
+        SDL_WINDOW_METAL :: 0x20000000;
+        flags |= SDL_WINDOW_METAL;
+    } else #if OS == .LINUX {
+        flags |= SDL_WINDOW_VULKAN;
     }
+    global_engine.window = SDL_CreateWindow("Demo", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, xx w, xx h, flags);
+    global_engine.renderer = renderer_create(global_engine.window);
+    global_engine.default_font = font_from_data(default_font_data, 8);
 
-    destroy :: () {
-        Font.destroy(*global_engine.default_font);
-        Resources.destroy();
-        Console.destroy();
-        Renderer.destroy(*global_engine.renderer);
-        SDL_DestroyWindow(global_engine.window);
-        SDL_Quit();
-    }
+    console_create();
+    Resources.create();
+}
 
-    update :: (delta_time: float) {
-        Input.update();
-        Console.update(delta_time);
-        Resources.update();
-        update_tweens(delta_time);
-    }
+engine_destroy :: () {
+    destroy(*global_engine.default_font);
+    Resources.destroy();
+    console_destroy();
+    renderer_destroy(*global_engine.renderer);
+    SDL_DestroyWindow(global_engine.window);
+    SDL_Quit();
+}
 
-    draw :: () {
-        Console.draw(*global_engine.default_font);
-        if global_engine.draw_perf_overlay {
-            draw_text(tprint("Frametime: %ms", global_engine.frame_time), 0, 8, *global_engine.default_font);
-        }
-    }
+engine_update :: (delta_time: float) {
+    input_update();
+    console_update(delta_time);
+    Resources.update();
+    update_tweens(delta_time);
+}
 
-    window_dims :: () -> Vector2i {
-        x: s32 = ---;
-        y: s32 = ---;
-        SDL_GetWindowSize(global_engine.window, *x, *y);
-        return .{xx x, xx y};
+engine_draw :: () {
+    console_draw(*global_engine.default_font);
+    if global_engine.draw_perf_overlay {
+        draw_text(tprint("Frametime: %ms", global_engine.frame_time), 0, 8, *global_engine.default_font);
     }
+}
+
+window_dims :: () -> Vector2i {
+    x: s32 = ---;
+    y: s32 = ---;
+    SDL_GetWindowSize(global_engine.window, *x, *y);
+    return .{xx x, xx y};
 }
 
 global_engine: Engine;

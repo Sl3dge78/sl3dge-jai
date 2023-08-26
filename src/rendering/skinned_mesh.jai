@@ -31,18 +31,18 @@ Skeleton_Definition :: struct {
     joints : [] Joint_Definition;
     root: int;
     name_to_id : Table(string, int);
+}
 
-    destroy :: (using self: *Skeleton_Definition) {
-        for joints {
-            free(it.children.data);
-        }
-        free(joints.data);
-        free(bind_pose.data);
-        for *name_to_id {
-            free(it_index);
-        }
-        deinit(*name_to_id);
+destroy :: (using self: *Skeleton_Definition) {
+    for joints {
+        free(it.children.data);
     }
+    free(joints.data);
+    free(bind_pose.data);
+    for *name_to_id {
+        free(it_index);
+    }
+    deinit(*name_to_id);
 }
 
 Skinned_Mesh :: struct {
@@ -50,21 +50,21 @@ Skinned_Mesh :: struct {
 
     skins : [..] Buffer_Location;
     skeleton: Skeleton_Definition;
+}
 
-    destroy :: (using self : *Skinned_Mesh) {
-        Skeleton_Definition.destroy(*skeleton);
-        array_reset(*skins);
-        Mesh.destroy(*mesh);
-        self.* = .{};
-    }
+destroy :: (using self : *Skinned_Mesh) {
+    destroy(*skeleton);
+    array_reset(*skins);
+    destroy(*mesh);
+    self.* = .{};
+}
 
-    draw :: inline (using self: Skinned_Mesh, render_pass: wgpu.RenderPassEncoder) {
-        for submeshes {
-            wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 0, it.vertices.buffer, it.vertices.offset, it.vertices.size);
-            wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 1, skins[it_index].buffer, skins[it_index].offset, skins[it_index].size);
-            wgpu.RenderPassEncoderSetIndexBuffer(render_pass, it.indices.buffer, .Uint32, it.indices.offset, it.indices.size);
-            wgpu.RenderPassEncoderDrawIndexed(render_pass, it.index_count, 1, 0, 0, 0);
-        }
+draw :: inline (using self: Skinned_Mesh, render_pass: wgpu.RenderPassEncoder) {
+    for submeshes {
+        wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 0, it.vertices.buffer, it.vertices.offset, it.vertices.size);
+        wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 1, skins[it_index].buffer, skins[it_index].offset, skins[it_index].size);
+        wgpu.RenderPassEncoderSetIndexBuffer(render_pass, it.indices.buffer, .Uint32, it.indices.offset, it.indices.size);
+        wgpu.RenderPassEncoderDrawIndexed(render_pass, it.index_count, 1, 0, 0, 0);
     }
 }
 
@@ -74,11 +74,11 @@ Skinned_Mesh_Instance :: struct {
 
     current_pose: Skeleton_Pose;
     joint_uniform: Uniform;
+}
 
-    destroy :: (self: *Skinned_Mesh_Instance) {
-        Uniform.destroy(*self.joint_uniform);
-        free(self.current_pose.data);
-    }
+destroy :: (self: *Skinned_Mesh_Instance) {
+    destroy(*self.joint_uniform);
+    free(self.current_pose.data);
 }
 
 load_skinned_gltf :: (path: string) -> Skinned_Mesh {
@@ -113,7 +113,7 @@ load_skinned_gltf :: (path: string) -> Skinned_Mesh {
             read_accessor_into_array(vertices.data, xx *offset.weights, size_of(Skinned_Vertex), gltf_data, primitive.weights_accessor);
         }
 
-        skinned_loc := Buffer_Pool.load_data(*global_renderer.mesh_buffer_pool, vertices);
+        skinned_loc := buffer_pool_load_data(*global_renderer.mesh_buffer_pool, vertices);
         array_add(*result.skins, skinned_loc);
     }
     assert(gltf_data.skins.count == 1, "No or multiple skins found in gltf, this isn't supported"); // @TODO
@@ -174,7 +174,7 @@ instantiate :: (scene: *Scene, mesh: *Skinned_Mesh, matrix := Matrix4_Identity) 
     instance.transform = matrix;
 
     size := size_of(Instance_Data);
-    instance.joint_uniform = Uniform.create(global_renderer.device, *global_renderer.uniform_pool, xx size, global_renderer.instance_data_bgl);
+    instance.joint_uniform = uniform_create(global_renderer.device, *global_renderer.uniform_pool, xx size, global_renderer.instance_data_bgl);
     
     instance.current_pose = NewArray(mesh.skeleton.joints.count, Joint);
     for *instance.current_pose {
@@ -219,7 +219,7 @@ upload_skeleton :: (using self: *Skinned_Mesh_Instance) {
         }
     }
 
-    Uniform.write(self.joint_uniform, *buffer);
+    uniform_write(self.joint_uniform, *buffer);
 }
 
 // set_bone_matrix :: (using self: *Skinned_Mesh_Instance, name: string, matrix: Matrix4) {
