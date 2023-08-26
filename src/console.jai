@@ -27,6 +27,12 @@ Console :: struct {
     draw :: (font: *Font) {
         using global_console;
 
+        win := Engine.window_dims();
+
+        y := win.y - font.line_height * 20;
+
+        immediate_2d_rect(.{0, y - font.line_height}, .{ win.x / 2.0, xx win.y}, .{0, 0, 0, 0.75});
+
         // Message
         if message_timer > 0 {
             text_w := size_text(current_message, font);
@@ -34,7 +40,6 @@ Console :: struct {
             draw_text(current_message, Engine.window_dims().x / 2 - text_w / 2, 16, font, .{1, 1, 1, alpha});
         }
 
-        y := Engine.window_dims().y - font.line_height * 20;
         for console {
             draw_text(it, 0, y, font);
             y += font.line_height;

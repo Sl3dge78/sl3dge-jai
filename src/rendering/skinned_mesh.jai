@@ -1,6 +1,6 @@
 
 Skinned_Vertex :: struct {
-    joints: [4]u32;
+    joints: [4]u8;
     weights: Vector4;
 }
 
@@ -102,6 +102,7 @@ load_skinned_gltf :: (path: string) -> Skinned_Mesh {
 
         if primitive.joints_accessor != -1 {
             assert(gltf_data.accessors[primitive.joints_accessor].count == xx vtx_count, "The amount of joint data != the amount of vertices!");
+            assert(gltf_data.accessors[primitive.joints_accessor].component_type == .UNSIGNED_BYTE, "Unsupported: The joint index accessor should be an unsigned byte");
 
             read_accessor_into_array(vertices.data, xx *offset.joints, size_of(Skinned_Vertex), gltf_data, primitive.joints_accessor);
         }

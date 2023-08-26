@@ -40,11 +40,68 @@ Pipeline_Builder :: struct {
         arr := NewArray(vertex_types.count, wgpu.VertexBufferLayout, allocator = temp);
         offset := 0;
         for vertex_types { 
-            arr[it_index] = Renderer.get_vertex_layout(it, offset);
+            arr[it_index] = get_vertex_layout(it, offset);
             offset += xx arr[it_index].attributeCount;
         }
         builder.vertex.bufferCount = xx arr.count;
         builder.vertex.buffers = arr.data;
+    }
+
+    get_vertex_layout :: (type: Type, shader_location_offset := 0) -> wgpu.VertexBufferLayout {
+        info := cast(*Type_Info_Struct)type;
+        attributes := NewArray(info.members.count, wgpu.VertexAttribute, allocator = temp);
+
+        for info.members {
+            // .{ format = .Float32x2, offset = 0, shaderLocation = 0 },
+            format: wgpu.VertexFormat;
+
+            if it.type.type == {
+                case .BOOL; {
+                    format = .Sint32;
+                }
+                case .INTEGER; {
+                    int_type_info := cast(*Type_Info_Integer) it.type;
+
+                    if int_type_info.signed {
+                        format = .Sint32;
+                    } else {
+                        format = .Uint32;
+                    }
+                }
+                case .FLOAT; {
+                    assert(it.type.runtime_size <= 4, "Only float32 is supported in Vertex Attribute Data.");
+                    format = .Float32;
+                }
+                case .STRUCT; {
+                    struct_type_info := cast(*Type_Info_Struct) it.type;
+
+                    if struct_type_info.name == {
+                        case "Vector4"; format = .Float32x4;
+                        case "Vector3"; format = .Float32x3;
+                        case "Vector2"; format = .Float32x2;
+                        case; assert(false, "Unsupported struct type. Only Vector2, Vector3, Vector4 are supported");
+                    }
+                }
+                case .ARRAY; {
+                    array_type_info := cast(*Type_Info_Array) it.type;
+                    assert(array_type_info.array_count == 4, "Unhandled!");
+                    elem_type_info := array_type_info.element_type;
+                    assert(elem_type_info.type == .INTEGER, "Unhandled!");
+                    if elem_type_info.runtime_size == {
+                        case 1; format = .Uint8x4;
+                        case; assert(false, "runtime size unhandled!");
+                    }
+                }
+            }
+            attributes[it_index] = .{format = format, offset = xx it.offset_in_bytes, shaderLocation = xx (it_index + shader_location_offset) };
+        }
+
+        return wgpu.VertexBufferLayout.{
+            arrayStride = xx info.runtime_size,
+            stepMode = .Vertex,
+            attributeCount = xx attributes.count,
+            attributes = attributes.data
+        };
     }
 
     add_fragment_shader :: (using builder: *Pipeline_Builder, module: wgpu.ShaderModule, entry_point: string) {

@@ -41,20 +41,25 @@ load_animation_from_gltf :: (path: string, skeleton: Skeleton_Definition) -> Ani
     src_anim := gltf_data.animations[0];
 
     self: Animation;
-    self.tracks = NewArray(src_anim.channels.count, Animation_Track);
+    tracks : [..]Animation_Track;
 
     for *channel: src_anim.channels {
-        track := *self.tracks[it_index];
+        
         sampler := src_anim.samplers[channel.sampler];
         input := gltf_data.accessors[sampler.input];
         output := gltf_data.accessors[sampler.output];
 
         assert(channel.target.node != -1, "Animation channel %'s target isn't a node");
         assert(input.count == output.count, "Key times count != Key values count");
-        success: bool;
         bone_name := gltf_data.nodes[channel.target.node].name;
-        track.target_node, success = table_find(*skeleton.name_to_id, bone_name);
-        assert(success, "Bone % couldn't be found in reference skeleton", bone_name);
+        target_node, success := table_find(*skeleton.name_to_id, bone_name);
+        if !success {
+            log_error("Bone % couldn't be found in reference skeleton", bone_name);
+            continue;
+        }
+
+        track := array_add(*tracks);
+        track.target_node = target_node;
         
         track.key_times = NewArray(input.count, float);
         read_accessor_into_array(track.key_times.data, 0, size_of(float), gltf_data, sampler.input);
@@ -64,9 +69,9 @@ load_animation_from_gltf :: (path: string, skeleton: Skeleton_Definition) -> Ani
                 track.target = .TRANSLATION;
                 track.translation = NewArray(output.count, Vector3);
                 read_accessor_into_array(track.translation.data, 0, size_of(Vector3), gltf_data, sampler.output);
-                for *track.translation { // Animation is in cm
-                    it.* /= 100.0;
-                }
+                // for *track.translation { // Animation is in cm
+                //     it.* /= 100.0;
+                // }
             case .ROTATION; {
                 track.target = .ROTATION;
                 track.rotation = NewArray(output.count, Quaternion);
@@ -83,6 +88,9 @@ load_animation_from_gltf :: (path: string, skeleton: Skeleton_Definition) -> Ani
             self.length = track.key_times[track.key_times.count - 1];
         }
     }
+
+    self.tracks.data = tracks.data;
+    self.tracks.count = tracks.count;
 
     return self;
 }

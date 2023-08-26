@@ -84,3 +84,4 @@ read_accessor_into_array :: (dst: *void, dst_offset: u64, dst_stride: u64, gltf_
         dst_data += dst_stride;
     }
 }
+

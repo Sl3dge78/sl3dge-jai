@@ -120,6 +120,18 @@ prepare_vertices :: (using dd : *Draw_Data, nb: u32) -> *Vertex {
     return ptr;
 }
 
+immediate_2d_rect :: (p0: Vector2, p1: Vector2, color: Vector4) {
+    v := prepare_2d_vertices(6);
+    n := Vector3.{0, 0, 1};
+    v[0] = .{ xyz(p0, 0), n, .{1, 1}, color};
+    v[1] = .{ xyz(p0.x, p1.y, 0), n, .{1, 1}, color};
+    v[2] = .{ xyz(p1, 0), n, .{1, 1}, color};
+    
+    v[3] = .{ xyz(p0, 0), n, .{1, 1}, color};
+    v[4] = .{ xyz(p1, 0), n, .{1, 1}, color};
+    v[5] = .{ xyz(p1.x, p0.y, 0), n, .{1, 1} , color};
+}
+
 
 immediate_debug_line :: (p0: Vector3, p1: Vector3, color: Vector4) {
     v := prepare_debug_vertices(2);
@@ -175,9 +187,3 @@ Draw_Cmd :: struct {
     xform: Matrix4;
 }
 
-immediate_triangle :: () {
-    v := prepare_vertices(3);
-    v[0] = .{.{0.0, 0.0, 0.0}, .{1, 0, 0, 1}};
-    v[1] = .{.{100.0, 100.0, 0.0}, .{0, 1, 0, 1}};
-    v[2] = .{.{0.0, 100.0, 0}, .{0, 0, 1, 1}};
-}

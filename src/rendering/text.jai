@@ -32,6 +32,15 @@ Font :: struct {
         self.first_char = 0;
         stbtt_PackFontRange(*pack_context, font_data.data, 0, size, xx self.first_char, 437, self.char_data.data);
         stbtt_PackEnd(*pack_context);
+        // @HACK: We do this so that we don't need to change textures when drawing a plain color
+        x := bitmap.count - 1;
+        bitmap[x] = 255;
+        x -= 1;
+        bitmap[x] = 255;
+        x -= 512;
+        bitmap[x] = 255;
+        x += 1;
+        bitmap[x] = 255;
 
         self.texture = Texture.from_data(bitmap.data, 512, 512, 1, u8);
 
