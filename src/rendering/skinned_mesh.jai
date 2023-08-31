@@ -33,6 +33,21 @@ Skeleton_Definition :: struct {
     name_to_id : Table(string, int);
 }
 
+Skinned_Mesh :: struct {
+    using mesh: Mesh;
+
+    skins : [..] Buffer_Location;
+    skeleton: Skeleton_Definition;
+}
+
+Skinned_Mesh_Instance :: struct {
+    using skinned_mesh: *Skinned_Mesh;
+    transform: Matrix4;
+
+    current_pose: Skeleton_Pose;
+    joint_uniform: Uniform;
+}
+
 destroy :: (using self: *Skeleton_Definition) {
     for joints {
         free(it.children.data);
@@ -45,12 +60,6 @@ destroy :: (using self: *Skeleton_Definition) {
     deinit(*name_to_id);
 }
 
-Skinned_Mesh :: struct {
-    using mesh: Mesh;
-
-    skins : [..] Buffer_Location;
-    skeleton: Skeleton_Definition;
-}
 
 destroy :: (using self : *Skinned_Mesh) {
     destroy(*skeleton);
@@ -66,14 +75,6 @@ draw :: inline (using self: Skinned_Mesh, render_pass: wgpu.RenderPassEncoder) {
         wgpu.RenderPassEncoderSetIndexBuffer(render_pass, it.indices.buffer, .Uint32, it.indices.offset, it.indices.size);
         wgpu.RenderPassEncoderDrawIndexed(render_pass, it.index_count, 1, 0, 0, 0);
     }
-}
-
-Skinned_Mesh_Instance :: struct {
-    using skinned_mesh: *Skinned_Mesh;
-    transform: Matrix4;
-
-    current_pose: Skeleton_Pose;
-    joint_uniform: Uniform;
 }
 
 destroy :: (self: *Skinned_Mesh_Instance) {
