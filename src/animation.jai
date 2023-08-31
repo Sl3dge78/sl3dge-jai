@@ -2,6 +2,7 @@
 Animation :: struct {
     length: float;
     tracks: []Animation_Track;
+    root_transform: Matrix4;
 }
 
 destroy :: (using self: *Animation) {
@@ -31,7 +32,7 @@ Animation_Track :: struct {
     scale: []Vector3;
 }
 
-load_animation_from_gltf :: (path: string, skeleton: Skeleton_Definition) -> Animation {
+load_animation_from_gltf :: (path: string, skeleton: Skeleton_Definition, scale_factor : float = 1) -> Animation {
     gltf_data := gltf_parse_file(path);
     defer gltf_free(*gltf_data);
 
@@ -69,6 +70,11 @@ load_animation_from_gltf :: (path: string, skeleton: Skeleton_Definition) -> Ani
                 track.target = .TRANSLATION;
                 track.translation = NewArray(output.count, Vector3);
                 read_accessor_into_array(track.translation.data, 0, size_of(Vector3), gltf_data, sampler.output);
+                // Because in fucking blender you can't reset the scale of the skeleton without destroying your whole animation
+                // And I don't want to have to apply its xform matrix to each bone for each frame...
+                for *track.translation {
+                    it.* = it.* * scale_factor;
+                }
             }
             case .ROTATION; {
                 track.target = .ROTATION;

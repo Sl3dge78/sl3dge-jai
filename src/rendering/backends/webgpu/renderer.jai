@@ -56,6 +56,8 @@ Renderer :: struct {
     uniform_pool: Buffer_Pool = .{
         kind =  .Uniform | .CopyDst
     };
+
+    show_debug := false;
 }
 
 global_renderer : Renderer;
@@ -297,12 +299,12 @@ end_frame :: () {
 
     // Upload data
     upload(*context.immediate._2d_draw_data);
-    defer reset(*context.immediate._2d_draw_data);
     upload(*context.immediate._3d_draw_data);
-    defer reset(*context.immediate._3d_draw_data);
-    upload(*context.immediate.debug_draw_data);
-    defer reset(*context.immediate.debug_draw_data);
 
+    if show_debug {
+        upload(*context.immediate.debug_draw_data);
+    }    
+    
     size:: 20;
     light_proj := orthographic_projection_matrix(size, -size, -size, size, -size, size, true);
     light_view := make_look_at_matrix(.{0, 0, 0}, light_dir, .{0, 1, 0}, false);
@@ -327,7 +329,9 @@ end_frame :: () {
     defer wgpu.CommandEncoderRelease(command_encoder);
     shadowmap_render_pass(renderer, command_encoder, shadowmap_framebuffer.view);
     main_render_pass(renderer, command_encoder, current_texture);
-    debug_render_pass(renderer, command_encoder, current_texture);
+    if show_debug {
+        debug_render_pass(renderer, command_encoder, current_texture);
+    }
     ui_render_pass(renderer, command_encoder, current_texture);
     
     command_buffer_desc := wgpu.CommandBufferDescriptor.{ label = "Main Command Buffer" };
@@ -335,6 +339,10 @@ end_frame :: () {
     defer wgpu.CommandBufferRelease(command_buffer);
     wgpu.QueueSubmit(queue, 1, *command_buffer);
     wgpu.SwapChainPresent(swapchain);
+
+    defer reset(*context.immediate._2d_draw_data);
+    defer reset(*context.immediate._3d_draw_data);
+    defer reset(*context.immediate.debug_draw_data);
 }
 
 change_light_direction :: (dir: Vector3) {

@@ -2,8 +2,11 @@ Console :: struct {
     current_message: string;
     message_timer: float;
 
-    console: [20]string;
-    console_pos: int;
+    lines: [32]string;
+    last_line: int;
+
+    console_y_position: int;
+    console_y_target: int;
 }
 
 console_create :: () {
@@ -12,7 +15,7 @@ console_create :: () {
 
 console_destroy :: () {
     context.logger = Context.default_logger;
-    for global_console.console {
+    for global_console.lines {
         free(it);
     }
     free(global_console.current_message);
@@ -20,30 +23,42 @@ console_destroy :: () {
 
 console_update :: (delta_time: float) {
     using global_console;
+
     if message_timer >= 0 {
         message_timer -= delta_time;
+    }
+
+    if key_just_pressed(SDL_SCANCODE_GRAVE) {
+        console_y_target = ifx console_y_target == 0 then 200 else 0;
+    }
+
+    if console_y_position < console_y_target {
+        console_y_position += 20;
+    } else if console_y_position > console_y_target {
+        console_y_position -= 20;
     }
 }
 
 console_draw :: (font: *Font) {
     using global_console;
 
-    win := window_dims();
+    if console_y_position > 0 {
+        win := window_dims();
 
-    y := win.y - font.line_height * 20;
+        immediate_2d_rect(.{0, 0}, .{ xx win.x, xx console_y_position }, .{0, 0, 0, 0.75});
 
-    immediate_2d_rect(.{0, y - font.line_height}, .{ win.x / 2.0, xx win.y}, .{0, 0, 0, 0.75});
+        // Message
+        if message_timer > 0 {
+            text_w := size_text(current_message, font);
+            alpha := ifx message_timer < 1 then message_timer else 1;
+            draw_text(current_message, window_dims().x / 2 - text_w / 2, 16, font, .{1, 1, 1, alpha});
+        }
 
-    // Message
-    if message_timer > 0 {
-        text_w := size_text(current_message, font);
-        alpha := ifx message_timer < 1 then message_timer else 1;
-        draw_text(current_message, window_dims().x / 2 - text_w / 2, 16, font, .{1, 1, 1, alpha});
-    }
-
-    for console {
-        draw_text(it, 0, y, font);
-        y += font.line_height;
+        y : float = xx (console_y_position - last_line * font.line_height);
+        for lines {
+            draw_text(it, 0, xx y, font);
+            y += font.line_height;
+        }
     }
 }
 
@@ -61,22 +76,22 @@ console_clear_message :: () {
 
 console_print :: (msg: string, args: .. Any) {
     using global_console;
-    if console_pos >= console.count {
-        console_pos = console.count - 1;
+    if last_line >= lines.count {
+        last_line = lines.count - 1;
         
-        free(console[0].data);
-        for i : 0..console.count-2 {
-            console[i] = console[i+1];
+        free(lines[0].data);
+        for i : 0..lines.count-2 {
+            lines[i] = lines[i+1];
         }
     }
-    console[console_pos] = sprint(msg, .. args);
-    console_pos += 1;
+    lines[last_line] = sprint(msg, .. args);
+    last_line += 1;
 }
 
 console_log :: (message: string, data: *void, info: Log_Info) {
     if !message then return;
     
-    print(message);
+    console_print(message);
     context.default_logger(message, data, info);
 }
 
