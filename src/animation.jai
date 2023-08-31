@@ -65,22 +65,21 @@ load_animation_from_gltf :: (path: string, skeleton: Skeleton_Definition) -> Ani
         read_accessor_into_array(track.key_times.data, 0, size_of(float), gltf_data, sampler.input);
 
         if channel.target.property == {
-            case .TRANSLATION;
+            case .TRANSLATION; {
                 track.target = .TRANSLATION;
                 track.translation = NewArray(output.count, Vector3);
                 read_accessor_into_array(track.translation.data, 0, size_of(Vector3), gltf_data, sampler.output);
-                // for *track.translation { // Animation is in cm
-                //     it.* /= 100.0;
-                // }
+            }
             case .ROTATION; {
                 track.target = .ROTATION;
                 track.rotation = NewArray(output.count, Quaternion);
                 read_accessor_into_array(track.rotation.data, 0, size_of(Quaternion), gltf_data, sampler.output);
             }
-            case .SCALE;
+            case .SCALE; {
                 track.target = .SCALE;
                 track.scale = NewArray(output.count, Vector3);
                 read_accessor_into_array(track.scale.data, 0, size_of(Vector3), gltf_data, sampler.output);
+            }
             case; assert(false, "Unhandled track type");
         }
 

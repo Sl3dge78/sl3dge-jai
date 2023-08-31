@@ -177,11 +177,13 @@ instantiate :: (scene: *Scene, mesh: *Skinned_Mesh, matrix := Matrix4_Identity) 
     instance.joint_uniform = uniform_create(global_renderer.device, *global_renderer.uniform_pool, xx size, global_renderer.instance_data_bgl);
     
     instance.current_pose = NewArray(mesh.skeleton.joints.count, Joint);
+    
+    buffer : Instance_Data = ---;
     for *instance.current_pose {
         it.* = mesh.skeleton.bind_pose[it_index];
-        it.dirty = true;
+        buffer.joint_matrices[it_index] = transpose(it.model_space_matrix * mesh.skeleton.joints[it_index].inverse_bind_matrix);
     }
-    upload_skeleton(instance);
+    uniform_write(instance.joint_uniform, *buffer);
     return instance;    
 }
 
