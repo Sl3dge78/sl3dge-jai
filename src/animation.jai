@@ -20,6 +20,15 @@ Animation_Target :: enum {
     SCALE;
 }
 
+Animation_Track_Data :: struct {
+    target: Animation_Target;
+    translation: []Vector3;
+    #place translation;
+    rotation: []Quaternion;
+    #place translation;
+    scale: []Vector3;
+}
+
 Animation_Track :: struct {
     target: Animation_Target;
     target_node: int;
@@ -100,35 +109,84 @@ load_animation_from_gltf :: (path: string, skeleton: Skeleton_Definition, scale_
     return self;
 }
 
-sample_animation :: (using self: Animation, skeleton: Skeleton_Definition, time: float, result: Skeleton_Pose) {
+animation_track_sample :: (using self: Animation_Track, time_in_samples: float, joint: *Joint) {
+    first_key := cast(int) time_in_samples;
+    second_key := (first_key + 1) % self.key_times.count;
+
+    t := time_in_samples - cast(float)first_key;
+
+    if #complete self.target == { 
+        case .TRANSLATION; {
+            joint.translation = lerp(self.translation[first_key], self.translation[second_key], t);
+        }
+        case .ROTATION; {
+            a := self.rotation[first_key];
+            b := self.rotation[second_key];
+            if dot(a, b) < 0 then b = -b;
+            rx := nlerp(a, b, t);
+            joint.rotation = rx;
+        }
+        case .SCALE; {
+            sx := lerp(self.scale[first_key], self.scale[second_key], t);
+            joint.scale = sx;
+        }
+    }
+}
+
+animation_sample :: (using self: Animation, skeleton: Skeleton_Definition, time: float, result: Skeleton_Pose) {
     time = clamp(time, 0, length);
     
     for tracks {
         time_in_samples := (time / length * it.key_times.count);
-        first_key := cast(int) time_in_samples;
-        second_key := (first_key + 1) % it.key_times.count;
-
-        t := time_in_samples - cast(float)first_key;
-
+        
         joint : *Joint = *result[it.target_node];
+        animation_track_sample(it, time_in_samples, joint);
+        joint.dirty = true;
+    }
+}
 
-        if #complete it.target == { 
+// Blends from anim1 to anim2
+animation_blend :: (anim1: Animation, anim2: Animation, anim1_time: float, anim2_time: float, blend_normalized_time: float, skeleton: Skeleton_Definition, result: Skeleton_Pose) {
+    anim1_time = clamp(anim1_time, 0, anim1.length);
+    anim2_time = clamp(anim2_time, 0, anim2.length);
+
+    assert(anim1.tracks.count == anim2.tracks.count, "UNIMPLEMENTED: Different no of tracks in animations to blend!");
+    
+    // @TODO @Robustness We should go through each track in anim1, find the equivalent in anim2 
+    // and blend from there
+    for it : 0..anim1.tracks.count - 1 {
+        t1 := anim1.tracks[it];
+        t2 := anim2.tracks[it];
+
+        assert(t1.target_node == t2.target_node, "UNIMPLEMENTED: Tracks target different nodes");
+        assert(t1.target == t2.target, "UNIMPLEMENTED: Tracks target different components");
+
+        time_in_samples1 := ((anim1_time / anim1.length) * t1.key_times.count);
+        time_in_samples2 := ((anim2_time / anim2.length) * t2.key_times.count);
+        
+        j1: Joint;
+        animation_track_sample(t1, time_in_samples1, *j1);
+        j2: Joint;
+        animation_track_sample(t2, time_in_samples2, *j2);
+
+        joint : *Joint = *result[t1.target_node];
+        if #complete t1.target == { 
             case .TRANSLATION; {
-                tx := lerp(it.translation[first_key], it.translation[second_key], t);
-                joint.translation = tx;
+                joint.translation = lerp(j1.translation, j2.translation, blend_normalized_time);
             }
             case .ROTATION; {
-                a := it.rotation[first_key];
-                b := it.rotation[second_key];
+                a := j1.rotation;
+                b := j2.rotation;
                 if dot(a, b) < 0 then b = -b;
-                rx := nlerp(a, b, t);
+                rx := nlerp(a, b, blend_normalized_time);
                 joint.rotation = rx;
             }
             case .SCALE; {
-                sx := lerp(it.scale[first_key], it.scale[second_key], t);
+                sx := lerp(j1.scale, j2.scale, blend_normalized_time);
                 joint.scale = sx;
             }
         }
+
         joint.dirty = true;
     }
 }
