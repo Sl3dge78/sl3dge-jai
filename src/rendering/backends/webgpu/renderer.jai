@@ -620,11 +620,14 @@ shadowmap_render_pass :: (using renderer: *Renderer, command_encoder: wgpu.Comma
     wgpu.RenderPassEncoderSetPipeline(render_pass, static_mesh_pipelines[0]);
     wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, shadowmap_matrices_uniform.bind_group, 0, null);
     Immediate.draw_3d(render_pass);
-    draw_static_meshes(current_scene, render_pass);
+    if current_scene {
+        draw_static_meshes(current_scene, render_pass);
+    
 
-    wgpu.RenderPassEncoderSetPipeline(render_pass, skinned_mesh_pipelines[0]);
-    wgpu.RenderPassEncoderSetBindGroup(render_pass, 1, empty_uniform, 0, null);
-    draw_skinned_meshes(current_scene, render_pass);
+        wgpu.RenderPassEncoderSetPipeline(render_pass, skinned_mesh_pipelines[0]);
+        wgpu.RenderPassEncoderSetBindGroup(render_pass, 1, empty_uniform, 0, null);
+        draw_skinned_meshes(current_scene, render_pass);
+    }
 
     wgpu.RenderPassEncoderEnd(render_pass);
 }
@@ -659,10 +662,12 @@ main_render_pass :: (using renderer: *Renderer, command_encoder: wgpu.CommandEnc
     wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, global_matrices_uniform.bind_group, 0, null);
     wgpu.RenderPassEncoderSetBindGroup(render_pass, 1, shadowmap_texture_uniform.bind_group, 0, null);
     Immediate.draw_3d(render_pass);
-    draw_static_meshes(current_scene, render_pass);
-
-    wgpu.RenderPassEncoderSetPipeline(render_pass, skinned_mesh_pipelines[1]);
-    draw_skinned_meshes(current_scene, render_pass);
+    if current_scene {
+        draw_static_meshes(current_scene, render_pass);
+    
+        wgpu.RenderPassEncoderSetPipeline(render_pass, skinned_mesh_pipelines[1]);
+        draw_skinned_meshes(current_scene, render_pass);
+    }
     
     wgpu.RenderPassEncoderEnd(render_pass);
 }

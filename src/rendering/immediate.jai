@@ -49,28 +49,32 @@ Immediate :: struct {
             wgpu.RenderPassEncoderDraw(render_pass, it.count, 1, it.id, 0);
         }
     }
+}
 
-    quad :: (p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, normal: Vector3, color := Vector4.{1, 1, 1, 1}) {
-        v := prepare_3d_vertices(6);
-        v[0] = .{p0, normal, .{0, 0}, color};
-        v[1] = .{p1, normal, .{1, 0}, color};
-        v[2] = .{p2, normal, .{1, 1}, color};
+immediate_quad :: (p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, normal: Vector3, color := Vector4.{1, 1, 1, 1}) {
+    v := prepare_3d_vertices(6);
+    v[0] = .{p0, normal, .{0, 0}, color};
+    v[1] = .{p1, normal, .{1, 0}, color};
+    v[2] = .{p2, normal, .{1, 1}, color};
 
-        v[3] = .{p0, normal, .{0, 0}, color};
-        v[4] = .{p2, normal, .{1, 1}, color};
-        v[5] = .{p3, normal, .{0, 1}, color};
-    }
+    v[3] = .{p0, normal, .{0, 0}, color};
+    v[4] = .{p2, normal, .{1, 1}, color};
+    v[5] = .{p3, normal, .{0, 1}, color};
+}
 
-    cube :: (offset: Vector3 = .{0, 0, 0}, color: Vector4 = .{1, 1, 1, 1}) {
-        quad(xyz(-.5, -.5, -.5) + offset, xyz(.5, -.5, -.5) + offset, xyz(.5, -.5, .5) + offset, xyz(-.5, -.5, .5) + offset, DOWN, color); 
-        quad(xyz(-.5, .5, -.5) + offset, xyz(-.5, .5, .5) + offset,  xyz(.5, .5, .5) + offset, xyz(.5, .5, -.5) + offset, UP, color);
+immediate_cube :: (offset: Vector3 = .{0, 0, 0}, color: Vector4 = .{1, 1, 1, 1}) {
+    immediate_quad(xyz(-.5, -.5, -.5) + offset, xyz(.5, -.5, -.5) + offset, xyz(.5, -.5, .5) + offset, xyz(-.5, -.5, .5) + offset, DOWN, color); 
+    immediate_quad(xyz(-.5, .5, -.5) + offset, xyz(-.5, .5, .5) + offset,  xyz(.5, .5, .5) + offset, xyz(.5, .5, -.5) + offset, UP, color);
 
-        quad(xyz(-.5, -.5, -.5) + offset, xyz(-.5, -.5, .5) + offset, xyz(-.5, .5, .5) + offset, xyz(-.5, .5, -.5) + offset, RIGHT, color); 
-        quad(xyz(.5, -.5, -.5) + offset, xyz(.5, .5, -.5) + offset, xyz(.5, .5, .5) + offset, xyz(.5, -.5, .5) + offset, LEFT, color); 
+    immediate_quad(xyz(-.5, -.5, -.5) + offset, xyz(-.5, -.5, .5) + offset, xyz(-.5, .5, .5) + offset, xyz(-.5, .5, -.5) + offset, RIGHT, color); 
+    immediate_quad(xyz(.5, -.5, -.5) + offset, xyz(.5, .5, -.5) + offset, xyz(.5, .5, .5) + offset, xyz(.5, -.5, .5) + offset, LEFT, color); 
 
-        quad(xyz(-.5, -.5, -.5) + offset, xyz(-.5, .5, -.5) + offset, xyz(.5, .5, -.5) + offset, xyz(.5, -.5, -.5) + offset, BACK, color); 
-        quad(xyz(-.5, -.5, .5) + offset, xyz(.5, -.5, .5) + offset, xyz(.5, .5, .5) + offset, xyz(-.5, .5, .5) + offset, FORWARD, color); 
-    }
+    immediate_quad(xyz(-.5, -.5, -.5) + offset, xyz(-.5, .5, -.5) + offset, xyz(.5, .5, -.5) + offset, xyz(.5, -.5, -.5) + offset, BACK, color); 
+    immediate_quad(xyz(-.5, -.5, .5) + offset, xyz(.5, -.5, .5) + offset, xyz(.5, .5, .5) + offset, xyz(-.5, .5, .5) + offset, FORWARD, color); 
+}
+
+immediate_set_transform :: (xform: Matrix4) {
+    context.immediate._3d_draw_data.transform = xform;
 }
 
 
@@ -102,7 +106,6 @@ prepare_debug_vertices :: inline (nb: u32) ->*Debug_Vertex {
 }
 
 prepare_vertices :: (using dd : *Draw_Data, nb: u32) -> *Vertex {
-
     array_reserve(*vertices, vertices.count + nb);
     if draw_cmds.count == 0 {
         array_add(*draw_cmds, Draw_Cmd.{xx vertices.count, nb, transform});
