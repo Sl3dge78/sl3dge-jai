@@ -1,53 +1,56 @@
-Vertex :: struct {
-    position: Vector3;
-    normal: Vector3;
-    uv: Vector2;
-    color: Vector4 = .{1, 1, 1, 1};
-}
-
-Debug_Vertex :: struct {
-    position: Vector3;
-    color: Vector4 = .{1, 1, 1, 1};
-}
-
 Immediate :: struct {
     _3d_draw_data: Draw_Data(Vertex);
     _2d_draw_data: Draw_Data(Vertex);
     debug_draw_data: Draw_Data(Debug_Vertex);
+}
 
-    draw_3d :: (render_pass: wgpu.RenderPassEncoder) {
-        using context.immediate._3d_draw_data;
-        
-        wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 0, vertex_buffer.handle, 0, vertex_buffer.size);
-        for draw_cmds {
-            pc := Standard_Push_Constants.{transpose(it.xform), transpose(inverse(it.xform))};
-            wgpu.RenderPassEncoderSetPushConstants(render_pass, .Vertex, 0, size_of(type_of(pc)), *pc);
-            wgpu.RenderPassEncoderDraw(render_pass, it.count, 1, it.id, 0);
-        }
-    }
+#add_context immediate : Immediate;
 
-    draw_2d :: (render_pass: wgpu.RenderPassEncoder) {
-        using context.immediate._2d_draw_data;
-        wgpu.RenderPassEncoderSetPipeline(render_pass, global_renderer.ui_pipeline);
-        wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, global_engine.default_font.uniform.bind_group, 0, null);
-        wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 0, vertex_buffer.handle, 0, vertex_buffer.size);
-        pc := float.[2.0 / cast(float)global_renderer.width, -2.0 / cast(float)global_renderer.height, -1, 1];
+Draw_Data :: struct(vertex_type: Type) {
+    vertex_buffer: Buffer;
+    vertices: [..]vertex_type;
+    draw_cmds : [..]Draw_Cmd;
+    transform: Matrix4 = Matrix4_Identity;
+}
+
+Draw_Cmd :: struct {
+    id: u32;
+    count: u32;
+    xform: Matrix4;
+}
+
+immediate_draw_3d :: (render_pass: wgpu.RenderPassEncoder) {
+    using context.immediate._3d_draw_data;
+    
+    wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 0, vertex_buffer.handle, 0, vertex_buffer.size);
+    for draw_cmds {
+        pc := Standard_Push_Constants.{transpose(it.xform), transpose(inverse(it.xform))};
         wgpu.RenderPassEncoderSetPushConstants(render_pass, .Vertex, 0, size_of(type_of(pc)), *pc);
-        for context.immediate._2d_draw_data.draw_cmds {
-            wgpu.RenderPassEncoderDraw(render_pass, it.count, 1, it.id, 0);
-        }
+        wgpu.RenderPassEncoderDraw(render_pass, it.count, 1, it.id, 0);
     }
+}
 
-    draw_debug :: (render_pass: wgpu.RenderPassEncoder) {
-        using context.immediate.debug_draw_data;
-        wgpu.RenderPassEncoderSetPipeline(render_pass, global_renderer.debug_pipeline);
-        wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, global_renderer.global_matrices_uniform.bind_group, 0, null);
-        wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 0, vertex_buffer.handle, 0, vertex_buffer.size);
-        for draw_cmds {
-            pc := Standard_Push_Constants.{transpose(it.xform), transpose(inverse(it.xform))};
-            wgpu.RenderPassEncoderSetPushConstants(render_pass, .Vertex, 0, size_of(type_of(pc)), *pc);
-            wgpu.RenderPassEncoderDraw(render_pass, it.count, 1, it.id, 0);
-        }
+immediate_draw_2d :: (render_pass: wgpu.RenderPassEncoder) {
+    using context.immediate._2d_draw_data;
+    wgpu.RenderPassEncoderSetPipeline(render_pass, global_renderer.ui_pipeline);
+    wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, global_engine.default_font.uniform.bind_group, 0, null);
+    wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 0, vertex_buffer.handle, 0, vertex_buffer.size);
+    pc := float.[2.0 / cast(float)global_renderer.width, -2.0 / cast(float)global_renderer.height, -1, 1];
+    wgpu.RenderPassEncoderSetPushConstants(render_pass, .Vertex, 0, size_of(type_of(pc)), *pc);
+    for context.immediate._2d_draw_data.draw_cmds {
+        wgpu.RenderPassEncoderDraw(render_pass, it.count, 1, it.id, 0);
+    }
+}
+
+immediate_draw_debug :: (render_pass: wgpu.RenderPassEncoder) {
+    using context.immediate.debug_draw_data;
+    wgpu.RenderPassEncoderSetPipeline(render_pass, global_renderer.debug_pipeline);
+    wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, global_renderer.global_matrices_uniform.bind_group, 0, null);
+    wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 0, vertex_buffer.handle, 0, vertex_buffer.size);
+    for draw_cmds {
+        pc := Standard_Push_Constants.{transpose(it.xform), transpose(inverse(it.xform))};
+        wgpu.RenderPassEncoderSetPushConstants(render_pass, .Vertex, 0, size_of(type_of(pc)), *pc);
+        wgpu.RenderPassEncoderDraw(render_pass, it.count, 1, it.id, 0);
     }
 }
 
@@ -156,15 +159,6 @@ immediate_debug_matrix :: (mat: Matrix4, line_length : float = 1) {
     v[5] = .{z, BLUE};
 }
 
-#add_context immediate : Immediate;
-
-Draw_Data :: struct(vertex_type: Type) {
-    vertex_buffer: Buffer;
-    vertices: [..]vertex_type;
-    draw_cmds : [..]Draw_Cmd;
-    transform: Matrix4 = Matrix4_Identity;
-}
-
 destroy :: (dd: *Draw_Data) {
     array_reset(*dd.draw_cmds);
     array_reset(*dd.vertices);
@@ -183,10 +177,3 @@ upload :: (dd: *Draw_Data) {
     buffer_create_or_update(*dd.vertex_buffer, size, .Vertex | .CopyDst);
     buffer_write_data(dd.vertex_buffer, dd.vertices.data, size);
 }
-
-Draw_Cmd :: struct {
-    id: u32;
-    count: u32;
-    xform: Matrix4;
-}
-
