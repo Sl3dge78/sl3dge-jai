@@ -188,30 +188,30 @@ instantiate :: (scene: *Scene, mesh: *Skinned_Mesh, matrix := Matrix4_Identity) 
     return instance;    
 }
 
-upload_skeleton :: (using self: *Skinned_Mesh_Instance) {
-
-    update_branch_transforms :: (using self: *Skinned_Mesh_Instance, id: int, buffer: []Matrix4) {
-        joint := *current_pose[id];
-        def := self.skinned_mesh.skeleton.joints[id];
-        parent_transform : Matrix4 = ---;
-        local_matrix := // self.skeleton.bind_pose[id].local_space_matrix *
-                make_translation_matrix4 (joint.translation) 
-                * make_scale_matrix4 (joint.scale) 
-                * rotation_matrix(Matrix4, joint.rotation);
-        if def.parent != -1 {
-            joint.model_space_matrix = current_pose[def.parent].model_space_matrix * local_matrix;
-        } else {
-            joint.model_space_matrix = local_matrix;
-        }
-        immediate_debug_matrix(self.transform * joint.model_space_matrix, 0.1);
-            
-        buffer[id] = transpose(joint.model_space_matrix * def.inverse_bind_matrix);
-        joint.dirty = false;
-
-        for def.children {
-            update_branch_transforms(self, it, buffer);
-        }
+update_branch_transforms :: (using self: *Skinned_Mesh_Instance, id: int, buffer: []Matrix4) {
+    joint := *current_pose[id];
+    def := self.skinned_mesh.skeleton.joints[id];
+    parent_transform : Matrix4 = ---;
+    local_matrix := // self.skeleton.bind_pose[id].local_space_matrix *
+            make_translation_matrix4 (joint.translation) 
+            * make_scale_matrix4 (joint.scale) 
+            * rotation_matrix(Matrix4, joint.rotation);
+    if def.parent != -1 {
+        joint.model_space_matrix = current_pose[def.parent].model_space_matrix * local_matrix;
+    } else {
+        joint.model_space_matrix = local_matrix;
     }
+    immediate_debug_matrix(self.transform * joint.model_space_matrix, 0.1);
+        
+    buffer[id] = transpose(joint.model_space_matrix * def.inverse_bind_matrix);
+    joint.dirty = false;
+
+    for def.children {
+        update_branch_transforms(self, it, buffer);
+    }
+}
+
+upload_skeleton :: (using self: *Skinned_Mesh_Instance) {
 
     buffer : Instance_Data = ---;
     

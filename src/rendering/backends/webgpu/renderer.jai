@@ -62,6 +62,22 @@ Renderer :: struct {
 
 global_renderer : Renderer;
 
+adapter_cb :: (status: wgpu.RequestAdapterStatus, adapter: wgpu.Adapter, message: *u8, userdata: *void) -> void #c_call {
+    if status != .Success {
+        c_print("%\n", message);
+        return;
+    }
+    (cast(*wgpu.Adapter) userdata).* = adapter;
+}
+
+device_cb :: (status: wgpu.RequestDeviceStatus, device: wgpu.Device, message: *u8, userdata: *void) #c_call {
+    if status != .Success {
+        c_print("%\n", message);
+        return;
+    }
+    (cast(*wgpu.Device) userdata).* = device;
+}
+
 renderer_create :: (window: *SDL_Window) -> Renderer {
     renderer := *global_renderer;
 
@@ -107,14 +123,6 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
     }
     
     {   // Adapter
-        adapter_cb :: (status: wgpu.RequestAdapterStatus, adapter: wgpu.Adapter, message: *u8, userdata: *void) -> void #c_call {
-            if status != .Success {
-                c_print("%\n", message);
-                return;
-            }
-            (cast(*wgpu.Adapter) userdata).* = adapter;
-        }
-
         options := wgpu.RequestAdapterOptions.{
             compatibleSurface = renderer.surface,
             powerPreference = .HighPerformance,
@@ -133,14 +141,6 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
     }
 
     {   // Device
-        device_cb :: (status: wgpu.RequestDeviceStatus, device: wgpu.Device, message: *u8, userdata: *void) #c_call {
-            if status != .Success {
-                c_print("%\n", message);
-                return;
-            }
-            (cast(*wgpu.Device) userdata).* = device;
-        }
-
         limits := get_required_limits(renderer.adapter);
 
         extras := wgpu.RequiredLimitsExtras.{

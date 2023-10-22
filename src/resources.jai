@@ -157,7 +157,7 @@ get_var_type :: (file: string) -> string {
     contents := read_entire_file(file);
     defer free(contents);
     lines := split(contents, "\n");
-    print_to_builder(*builder, "struct {\n", path_basename(file));
+    print_to_builder(*builder, "struct {\n");
     for line: lines {
         decomp := split(trim(line), "=");
         if decomp.count != 2 then continue;
