@@ -1,5 +1,4 @@
 
-
 UI_SHADER :: #string __WGSL
 
     struct Vertex_Input {
@@ -41,6 +40,13 @@ UI_SHADER :: #string __WGSL
     }
 
 __WGSL
+
+Vertex :: struct {
+    position: Vector3;
+    normal: Vector3;
+    uv: Vector2;
+    color: Vector4 = .{1, 1, 1, 1};
+}
 
 UI_Push_Constants :: struct {
     scale: Vector2;
@@ -226,3 +232,8 @@ DEBUG_SHADER :: #string __WGSL
         return in.color;
     }
 __WGSL
+
+Debug_Vertex :: struct {
+    position: Vector3;
+    color: Vector4 = .{1, 1, 1, 1};
+}
