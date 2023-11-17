@@ -29,6 +29,7 @@ buffer_create_or_update :: (self: *Buffer, size: u64, usage: wgpu.BufferUsageFla
 }
 
 destroy :: (self: *Buffer) {
+    if self.handle == null then return;
     wgpu.BufferRelease(self.handle);
     self.handle = null;
 }

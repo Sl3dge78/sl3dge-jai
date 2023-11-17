@@ -15,6 +15,8 @@ Renderer :: struct {
     swapchain_format : wgpu.TextureFormat;
 
     depth_format :: wgpu.TextureFormat.Depth24Plus;
+    window_framebuffer: wgpu.TextureView;
+    command_buffers: [..]wgpu.CommandBuffer;
 
     limits: wgpu.Limits;
     uniform_buffer_alignement: u64;
@@ -39,6 +41,8 @@ Renderer :: struct {
     empty_uniform: wgpu.BindGroup;
 
     global_matrices_uniform: Uniform;
+    empty_texture: Texture;
+    empty_texture_uniform: Texture_Uniform;
 
     shadowmap_matrices_uniform: Uniform;
     shadowmap_framebuffer: Texture;
@@ -55,6 +59,10 @@ Renderer :: struct {
 
     uniform_pool: Buffer_Pool = .{
         kind =  .Uniform | .CopyDst
+    };
+
+    immediate_pool: Buffer_Pool = .{
+        kind =  .Vertex | .CopyDst
     };
 
     show_debug := false;
@@ -231,6 +239,10 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
             entries = null,
         };
         renderer.empty_uniform = WGPU_Check(wgpu.DeviceCreateBindGroup(renderer.device, *desc));
+
+        data := u8.[255, 255, 255, 255];
+        renderer.empty_texture = texture_from_data(data.data, 2, 2, 1, u8);
+        renderer.empty_texture_uniform = texture_uniform_create(renderer.sampler, renderer.empty_texture.view, global_renderer.single_texture_bgl);
     }   
 
     {   // Color Uniforms
@@ -249,6 +261,7 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
         
     }
 
+    renderer.window_framebuffer = WGPU_Check(wgpu.SwapChainGetCurrentTextureView(renderer.swapchain));
     return renderer;
 }
 
@@ -256,8 +269,8 @@ renderer_destroy :: (using renderer: *Renderer) {
     buffer_pool_reset(*mesh_buffer_pool);
     buffer_pool_reset(*uniform_pool);
 
-    destroy(*context.immediate._2d_draw_data);
-    destroy(*context.immediate._3d_draw_data);
+    // destroy(*context.immediate._2d_draw_data);
+    // destroy(*context.immediate._3d_draw_data);
 
     wgpu.RenderPipelineRelease(debug_pipeline);
     wgpu.RenderPipelineRelease(ui_pipeline);
@@ -291,19 +304,21 @@ renderer_destroy :: (using renderer: *Renderer) {
     wgpu.InstanceRelease(instance);
 }
 
+renderer_push_command_encoder :: (encoder: *wgpu.CommandEncoder, label := "") {
+    command_buffer := WGPU_Check(wgpu.CommandEncoderFinish(encoder.*, *wgpu.CommandBufferDescriptor.{ label = temp_c_string(label)}));
+    array_add(*global_renderer.command_buffers, command_buffer);
+    encoder.* = null;
+}
+
 end_frame :: () {
     using renderer := *global_renderer;
 
-    current_texture := WGPU_Check(wgpu.SwapChainGetCurrentTextureView(swapchain));
-    defer wgpu.TextureViewRelease(current_texture);
-
     // Upload data
-    upload(*context.immediate._2d_draw_data);
-    upload(*context.immediate._3d_draw_data);
-
-    if show_debug {
-        upload(*context.immediate.debug_draw_data);
-    }    
+    // upload(*context.immediate._2d_draw_data);
+    // upload(*context.immediate._3d_draw_data);
+    // if show_debug {
+    //     upload(*context.immediate.debug_draw_data);
+    // }    
     
     size:: 20;
     light_proj := orthographic_projection_matrix(size, -size, -size, size, -size, size, true);
@@ -328,21 +343,31 @@ end_frame :: () {
     command_encoder := WGPU_Check(wgpu.DeviceCreateCommandEncoder(device, *encoder_desc));
     defer wgpu.CommandEncoderRelease(command_encoder);
     shadowmap_render_pass(renderer, command_encoder, shadowmap_framebuffer.view);
-    main_render_pass(renderer, command_encoder, current_texture);
+    main_render_pass(renderer, command_encoder, global_renderer.window_framebuffer);
     if show_debug {
-        debug_render_pass(renderer, command_encoder, current_texture);
+        debug_render_pass(renderer, command_encoder, global_renderer.window_framebuffer);
     }
-    ui_render_pass(renderer, command_encoder, current_texture);
+    ui_render_pass(renderer, command_encoder, global_renderer.window_framebuffer);
     
-    command_buffer_desc := wgpu.CommandBufferDescriptor.{ label = "Main Command Buffer" };
-    command_buffer := WGPU_Check(wgpu.CommandEncoderFinish(command_encoder, *command_buffer_desc));
-    defer wgpu.CommandBufferRelease(command_buffer);
-    wgpu.QueueSubmit(queue, 1, *command_buffer);
+    command_buffer := WGPU_Check(wgpu.CommandEncoderFinish(command_encoder, *wgpu.CommandBufferDescriptor.{ label = "Main Command Buffer" }));
+    array_add(*renderer.command_buffers, command_buffer);
+
+    wgpu.QueueSubmit(queue, xx renderer.command_buffers.count, renderer.command_buffers.data);
     wgpu.SwapChainPresent(swapchain);
 
-    defer reset(*context.immediate._2d_draw_data);
-    defer reset(*context.immediate._3d_draw_data);
-    defer reset(*context.immediate.debug_draw_data);
+    for renderer.command_buffers {
+        defer wgpu.CommandBufferRelease(it);
+    }
+    renderer.command_buffers.count = 0;
+
+    wgpu.TextureViewRelease(global_renderer.window_framebuffer);
+    renderer.window_framebuffer = WGPU_Check(wgpu.SwapChainGetCurrentTextureView(renderer.swapchain));
+    
+    buffer_pool_reset(*global_renderer.immediate_pool);
+
+    // defer reset(*context.immediate._2d_draw_data);
+    // defer reset(*context.immediate._3d_draw_data);
+    // defer reset(*context.immediate.debug_draw_data);
 }
 
 change_light_direction :: (dir: Vector3) {
@@ -430,7 +455,7 @@ get_required_limits :: (adapter: wgpu.Adapter) -> wgpu.Limits {
         maxVertexBuffers                          = 2,
         maxBufferSize                             = 32 * 1024 * 1024,
         maxVertexAttributes                       = 6,
-        maxVertexBufferArrayStride                = size_of(Vertex) + size_of(Skinned_Vertex),
+        maxVertexBufferArrayStride                = size_of(Standard_Vertex) + size_of(Skinned_Vertex),
         maxInterStageShaderComponents             = 16,
         maxInterStageShaderVariables              = 0,
         maxColorAttachments                       = 0,
@@ -494,7 +519,7 @@ create_ui_pipeline :: (using renderer: *Renderer) -> wgpu.RenderPipeline {
     defer wgpu.PipelineLayoutRelease(pipeline_layout);
 
     builder: Pipeline_Builder;
-    add_vertex_shader(*builder, shader_module, "vs_main", Vertex);
+    add_vertex_shader(*builder, shader_module, "vs_main", UI_Vertex);
     add_fragment_shader(*builder, shader_module, "fs_main");
     return pipeline_builder_build(*builder, device, pipeline_layout, "UI Pipeline");
 }
@@ -513,7 +538,7 @@ create_static_mesh_pipeline :: (using renderer: *Renderer) -> [2]wgpu.RenderPipe
         defer wgpu.PipelineLayoutRelease(pipeline_layout);
 
         builder: Pipeline_Builder;
-        add_vertex_shader(*builder, shader_module, "static_vs", Vertex);
+        add_vertex_shader(*builder, shader_module, "static_vs", Standard_Vertex);
         depth_stencil_state(*builder, renderer.depth_format);
         pipelines[0] = pipeline_builder_build(*builder, renderer.device, pipeline_layout, "Static Mesh Color Pipeline");
     }
@@ -529,7 +554,7 @@ create_static_mesh_pipeline :: (using renderer: *Renderer) -> [2]wgpu.RenderPipe
         defer wgpu.PipelineLayoutRelease(pipeline_layout);
 
         builder: Pipeline_Builder;
-        add_vertex_shader(*builder, shader_module, "static_vs", Vertex);
+        add_vertex_shader(*builder, shader_module, "static_vs", Standard_Vertex);
         add_fragment_shader(*builder, shader_module, "fs_main");
         depth_stencil_state(*builder, renderer.depth_format);
         pipelines[1] = pipeline_builder_build(*builder, renderer.device, pipeline_layout, "Static Mesh Color Pipeline");
@@ -555,7 +580,7 @@ create_skinned_mesh_pipeline :: (using renderer: *Renderer) -> [2]wgpu.RenderPip
         defer wgpu.PipelineLayoutRelease(pipeline_layout);
 
         builder: Pipeline_Builder;
-        add_vertex_shader(*builder, shader_module, "skinned_vs", Vertex, Skinned_Vertex);
+        add_vertex_shader(*builder, shader_module, "skinned_vs", Standard_Vertex, Skinned_Vertex);
         depth_stencil_state(*builder, renderer.depth_format);
         pipelines[0] = pipeline_builder_build(*builder, renderer.device, pipeline_layout, "Skinned Mesh Color Pipeline");
     }
@@ -572,7 +597,7 @@ create_skinned_mesh_pipeline :: (using renderer: *Renderer) -> [2]wgpu.RenderPip
         defer wgpu.PipelineLayoutRelease(pipeline_layout);
 
         builder: Pipeline_Builder;
-        add_vertex_shader(*builder, shader_module, "skinned_vs", Vertex, Skinned_Vertex);
+        add_vertex_shader(*builder, shader_module, "skinned_vs", Standard_Vertex, Skinned_Vertex);
         add_fragment_shader(*builder, shader_module, "fs_main");
         depth_stencil_state(*builder, renderer.depth_format);
         pipelines[1] = pipeline_builder_build(*builder, renderer.device, pipeline_layout, "Skinned Mesh Color Pipeline");
@@ -619,7 +644,7 @@ shadowmap_render_pass :: (using renderer: *Renderer, command_encoder: wgpu.Comma
 
     wgpu.RenderPassEncoderSetPipeline(render_pass, static_mesh_pipelines[0]);
     wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, shadowmap_matrices_uniform.bind_group, 0, null);
-    immediate_draw_3d(render_pass);
+    // immediate_draw_3d(render_pass);
     if current_scene {
         draw_static_meshes(current_scene, render_pass);
     
@@ -636,9 +661,9 @@ main_render_pass :: (using renderer: *Renderer, command_encoder: wgpu.CommandEnc
     color_attachment := wgpu.RenderPassColorAttachment.{
         view = framebuffer,
         resolveTarget = null,
-        loadOp = .Clear,
+        loadOp = .Load,
         storeOp = .Store,
-        clearValue = .{0.529, 0.808, 0.922, 1.0}
+        // clearValue = .{0.529, 0.808, 0.922, 1.0}
     };
     depth_attachment := wgpu.RenderPassDepthStencilAttachment.{
         view = renderer.depth_texture.view,
@@ -661,7 +686,7 @@ main_render_pass :: (using renderer: *Renderer, command_encoder: wgpu.CommandEnc
     wgpu.RenderPassEncoderSetPipeline(render_pass, static_mesh_pipelines[1]);
     wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, global_matrices_uniform.bind_group, 0, null);
     wgpu.RenderPassEncoderSetBindGroup(render_pass, 1, shadowmap_texture_uniform.bind_group, 0, null);
-    immediate_draw_3d(render_pass);
+    // immediate_draw_3d(render_pass);
     if current_scene {
         draw_static_meshes(current_scene, render_pass);
     
@@ -687,7 +712,7 @@ ui_render_pass :: (using renderer: *Renderer, command_encoder: wgpu.CommandEncod
     };
     render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(command_encoder, *render_pass_desc));
 
-    immediate_draw_2d(render_pass);
+    // immediate_draw_2d(render_pass);
 
     wgpu.RenderPassEncoderEnd(render_pass);
 }
@@ -707,7 +732,7 @@ debug_render_pass :: (using renderer: *Renderer, command_encoder: wgpu.CommandEn
     };
     render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(command_encoder, *render_pass_desc));
 
-    immediate_draw_debug(render_pass);
+    // immediate_draw_debug(render_pass);
 
     wgpu.RenderPassEncoderEnd(render_pass);
 }

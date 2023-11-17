@@ -2,10 +2,9 @@
 UI_SHADER :: #string __WGSL
 
     struct Vertex_Input {
-        @location(0) position: vec3f, 
-        @location(1) normal: vec3f,
-        @location(2) uv: vec2f,
-        @location(3) color: vec4f,
+        @location(0) position: vec2f, 
+        @location(1) uv: vec2f,
+        @location(2) color: vec4f,
     };
 
     struct Vertex_Output {
@@ -41,9 +40,8 @@ UI_SHADER :: #string __WGSL
 
 __WGSL
 
-Vertex :: struct {
-    position: Vector3;
-    normal: Vector3;
+UI_Vertex :: struct {
+    position: Vector2;
     uv: Vector2;
     color: Vector4 = .{1, 1, 1, 1};
 }
@@ -52,6 +50,7 @@ UI_Push_Constants :: struct {
     scale: Vector2;
     translation: Vector2;
 }
+
 
 // Standard
 
@@ -172,6 +171,18 @@ STANDARD_SHADER :: #string __WGSL
     }
 
 __WGSL
+
+Standard_Vertex :: struct {
+    position: Vector3;
+    normal: Vector3;
+    uv: Vector2;
+    color: Vector4 = .{1, 1, 1, 1};
+}
+
+Skinned_Vertex :: struct {
+    joints: [4]u8;
+    weights: Vector4;
+}
 
 Standard_Push_Constants :: struct {
     transform: Matrix4;

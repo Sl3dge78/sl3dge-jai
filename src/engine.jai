@@ -14,6 +14,7 @@ engine_create :: () {
     path := path_strip_filename(get_path_of_running_executable());
     set_working_directory(path);
 
+    console_create();
     SDL_Init(SDL_INIT_EVERYTHING);
 
     w := 1280;
@@ -29,7 +30,6 @@ engine_create :: () {
     global_engine.renderer = renderer_create(global_engine.window);
     global_engine.default_font = font_from_data(default_font_data, 8);
 
-    console_create();
     Resources.create();
 }
 
@@ -50,10 +50,12 @@ engine_update :: (delta_time: float) {
 }
 
 engine_draw :: () {
-    console_draw(*global_engine.default_font);
+    imm := immediate_begin();
+    console_draw(*imm, *global_engine.default_font);
     if global_engine.draw_perf_overlay {
-        draw_text(tprint("Frametime: %ms", global_engine.frame_time), 0, 8, *global_engine.default_font);
+        draw_text(*imm, tprint("Frametime: %ms", global_engine.frame_time), 0, 8, *global_engine.default_font);
     }
+    immediate_end(*imm);
 }
 
 window_dims :: () -> Vector2i {

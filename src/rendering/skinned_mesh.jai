@@ -1,9 +1,4 @@
 
-Skinned_Vertex :: struct {
-    joints: [4]u8;
-    weights: Vector4;
-}
-
 Joint :: struct {
     // /!\ We may not set these 3 upon loading the gltf. 
     // So they may not reflect the actual state of the model_space_matrix.

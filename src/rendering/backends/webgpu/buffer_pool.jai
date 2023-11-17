@@ -46,6 +46,7 @@ buffer_pool_load_mesh :: (using buffer_pool: *Buffer_Pool, vertices: []$T, indic
     return mesh;
 }
 
+// @Todo @Speed: Maybe don't destroy the buffers ? 
 buffer_pool_reset :: (using buffer_pool: *Buffer_Pool) {
     for *buffers {
         destroy(it);
