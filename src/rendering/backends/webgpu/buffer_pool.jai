@@ -8,13 +8,22 @@ Buffer_Pool :: struct {
     MIN_BUFFER_SIZE :: 32 * 1024 * 1024;
 
     buffers: [..] Buffer;
+    current_buffer: u64;
     current_position_in_buffer: u64;
     kind: wgpu.BufferUsageFlags; 
 }
 
 buffer_pool_maybe_grow :: (using buffer_pool: *Buffer_Pool, size: u64) {
-    if buffers.count == 0 || size > (buffers[buffers.count - 1].size - current_position_in_buffer) {
+    if buffers.count == 0 {
         array_add(*buffers, buffer_create(max(size, MIN_BUFFER_SIZE), kind));
+        return;
+    } 
+    
+    while size > (buffers[current_buffer].size - current_position_in_buffer) {
+        if buffers.count - 1 == (xx current_buffer) {
+            array_add(*buffers, buffer_create(max(size, MIN_BUFFER_SIZE), kind));
+        } 
+        current_buffer += 1;
         current_position_in_buffer = 0;
     }
 }
@@ -23,7 +32,7 @@ buffer_pool_get :: (using buffer_pool: *Buffer_Pool, size: u64) -> Buffer_Locati
     loc : Buffer_Location;
     aligned := aligned_size(size, global_renderer.uniform_buffer_alignement);
     buffer_pool_maybe_grow(buffer_pool, xx aligned);
-    loc.buffer = *buffers[buffers.count - 1];
+    loc.buffer = *buffers[current_buffer];
     loc.offset = current_position_in_buffer;
     loc.size = size;
     current_position_in_buffer += aligned;
@@ -46,11 +55,15 @@ buffer_pool_load_mesh :: (using buffer_pool: *Buffer_Pool, vertices: []$T, indic
     return mesh;
 }
 
-// @Todo @Speed: Maybe don't destroy the buffers ? 
 buffer_pool_reset :: (using buffer_pool: *Buffer_Pool) {
     for *buffers {
         destroy(it);
     }
     array_reset(*buffers);
     current_position_in_buffer = 0;
+    current_buffer = 0;
+}
+
+buffer_pool_reset_keeping_memory :: (using buffer_pool: *Buffer_Pool) {
+    current_buffer = 0;
 }

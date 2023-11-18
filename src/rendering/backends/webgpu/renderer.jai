@@ -363,7 +363,7 @@ end_frame :: () {
     wgpu.TextureViewRelease(global_renderer.window_framebuffer);
     renderer.window_framebuffer = WGPU_Check(wgpu.SwapChainGetCurrentTextureView(renderer.swapchain));
     
-    buffer_pool_reset(*global_renderer.immediate_pool);
+    buffer_pool_reset_keeping_memory(*global_renderer.immediate_pool);
 
     // defer reset(*context.immediate._2d_draw_data);
     // defer reset(*context.immediate._3d_draw_data);
