@@ -43,7 +43,7 @@ Resources :: struct {
 
         builders : [3]String_Builder;
 
-        set_working_directory("bin");
+        set_working_directory("../bin");
         defer set_working_directory("../");
 
         // Prepare the get_res_ptr function

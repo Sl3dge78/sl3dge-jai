@@ -34,16 +34,19 @@ immediate_begin :: (render_target: *Texture = null) -> Immediate {
         colorAttachments = *color_attachment,
     };
     render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(command_encoder, *render_pass_desc));
-    wgpu.RenderPassEncoderSetPipeline(render_pass, global_renderer.ui_pipeline);
-    wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, global_renderer.empty_texture_uniform.bind_group, 0, null);
-    
-    
+    wgpu.RenderPassEncoderSetPipeline(render_pass, global_renderer.ui_pipeline);    
     wgpu.RenderPassEncoderSetPushConstants(render_pass, .Vertex, 0, size_of(type_of(pc)), *pc);
+
+    wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, global_renderer.empty_texture_uniform.bind_group, 0, null);
 
     return Immediate.{
         command_encoder = command_encoder,
         render_pass = render_pass
     };
+}
+
+immediate_default_texture :: (using immediate: *Immediate) {
+    wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, global_renderer.empty_texture_uniform.bind_group, 0, null);
 }
 
 immediate_end :: (using immediate: *Immediate) {
@@ -87,7 +90,14 @@ prepare_vertices :: (using immediate: *Immediate, nb: u32) -> *UI_Vertex #must {
     return ptr;
 }
 
-draw_2d_rect :: (immediate: *Immediate, p0: Vector2, p1: Vector2, color: Vector4) {
+push_vertices :: (imm: *Immediate, vertices: []$T) {
+    loc := maybe_grow(imm, xx vertices.count);
+    wgpu.RenderPassEncoderDraw(imm.render_pass, xx vertices.count, 1, xx imm.vertices.count, 0);
+
+    array_add(*imm.vertices, ..vertices);
+}
+
+draw_2d_rect :: (immediate: *Immediate, p0: Vector2, p1: Vector2, color: Vector4 = . {1, 1, 1, 1}) {
     v := prepare_vertices(immediate, 6);
     n := Vector3.{0, 0, 1};
     v[0] = .{ p0, .{1, 1}, color};

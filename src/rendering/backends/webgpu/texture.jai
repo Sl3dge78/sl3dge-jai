@@ -1,6 +1,8 @@
 Texture :: struct {
     #as handle: wgpu.Texture;
     view : wgpu.TextureView;
+    w: u32;
+    h: u32;
 }
 
 texture_from_data :: (data: *void, w: u32, h: u32, channels: int, $data_type: Type) -> Texture {
@@ -45,6 +47,8 @@ texture_from_file :: (path: string) -> Texture {
 
 texture_create :: (w: u32, h: u32, usage: wgpu.TextureUsage, format: wgpu.TextureFormat) -> Texture {
     result : Texture;
+    result.w = w;
+    result.h = h;
     desc := wgpu.TextureDescriptor.{
         usage = xx usage,
         dimension = ._2D,
@@ -74,6 +78,10 @@ texture_create :: (w: u32, h: u32, usage: wgpu.TextureUsage, format: wgpu.Textur
     }
     result.view = WGPU_Check(wgpu.TextureCreateView(result.handle, *view_desc));
     return result;
+}
+
+render_texture_create :: (w: u32, h: u32) -> Texture {
+    return texture_create(w, h, .TextureBinding | .RenderAttachment, global_renderer.swapchain_format);
 }
 
 destroy :: (texture: *Texture) {

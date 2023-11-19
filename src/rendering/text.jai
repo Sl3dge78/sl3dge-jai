@@ -86,13 +86,14 @@ draw_char :: (immediate: *Immediate, it: u8, font: *Font, line_start: float, x: 
     
     q : stbtt_aligned_quad = ---;
     stbtt_GetPackedQuad(font.char_data.data, 512, 512, xx(it - font.first_char), x, y, *q, 0);
-    v := prepare_vertices(immediate, 6);
+    v : [6] UI_Vertex = ---; // = prepare_vertices(immediate, 6);
     v[0] = UI_Vertex.{ .{q.x0, q.y0}, Vector2.{q.s0, q.t0}, color };
     v[1] = UI_Vertex.{ .{q.x1, q.y1}, Vector2.{q.s1, q.t1}, color };
     v[2] = UI_Vertex.{ .{q.x1, q.y0}, Vector2.{q.s1, q.t0}, color };
     v[3] = UI_Vertex.{ .{q.x0, q.y0}, Vector2.{q.s0, q.t0}, color };
     v[4] = UI_Vertex.{ .{q.x0, q.y1}, Vector2.{q.s0, q.t1}, color };
     v[5] = UI_Vertex.{ .{q.x1, q.y1}, Vector2.{q.s1, q.t1}, color };
+    push_vertices(immediate, v);
 }
 
 draw_text :: (immediate: *Immediate, text: string, x: float, y: float, font: *Font, color: Vector4 = .{1, 1, 1, 1}) -> x: float, y: float{
