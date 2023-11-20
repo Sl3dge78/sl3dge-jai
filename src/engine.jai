@@ -50,7 +50,7 @@ engine_update :: (delta_time: float) {
 }
 
 engine_draw :: () {
-    imm := immediate_begin();
+    imm := immediate_2d();
     console_draw(*imm, *global_engine.default_font);
     if global_engine.draw_perf_overlay {
         draw_text(*imm, tprint("Frametime: %ms", global_engine.frame_time), 0, 8, *global_engine.default_font);

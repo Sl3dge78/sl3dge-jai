@@ -1,22 +1,22 @@
-Immediate :: struct {
+Immediate :: struct(Vertex_Type: Type)  {
     command_encoder : wgpu.CommandEncoder;
     render_pass : wgpu.RenderPassEncoder;
     
     locs : [..]Buffer_Location;
     current_position_in_buffer : u32; // in bytes
-    vertices : [..]UI_Vertex;
+    vertices : [..]Vertex_Type;
     BUFFER_SIZE :: 1024 * 1024;
 }
 
-immediate_begin :: (render_target: *Texture = null) -> Immediate {
-    pc : UI_Push_Constants = ---;
+immediate_2d :: #bake_arguments immediate_begin(vertex_type = UI_Vertex);
+immediate_3d :: #bake_arguments immediate_begin(vertex_type = Standard_Vertex);
+
+immediate_begin :: (render_target: *Texture = null, $vertex_type: Type) -> Immediate(vertex_type) {
     view: wgpu.TextureView = ---;
     if render_target == null {
         view = global_renderer.window_framebuffer;
-        pc = UI_Push_Constants.{.{2.0 / cast(float)global_renderer.width, -2.0 / cast(float)global_renderer.height}, .{-1, 1}};
     } else {
         view = render_target.view;
-        pc = UI_Push_Constants.{.{2.0 / cast(float)wgpu.TextureGetWidth(render_target), -2.0 / cast(float)wgpu.TextureGetHeight(render_target)}, .{-1, 1}};
     }
 
     command_encoder := WGPU_Check(wgpu.DeviceCreateCommandEncoder(global_renderer.device, *wgpu.CommandEncoderDescriptor.{ label = "Immediate Command Encoder" }));
@@ -34,12 +34,23 @@ immediate_begin :: (render_target: *Texture = null) -> Immediate {
         colorAttachments = *color_attachment,
     };
     render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(command_encoder, *render_pass_desc));
-    wgpu.RenderPassEncoderSetPipeline(render_pass, global_renderer.ui_pipeline);    
-    wgpu.RenderPassEncoderSetPushConstants(render_pass, .Vertex, 0, size_of(type_of(pc)), *pc);
-
-    wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, global_renderer.empty_texture_uniform.bind_group, 0, null);
-
-    return Immediate.{
+    
+    #if vertex_type == UI_Vertex {
+        wgpu.RenderPassEncoderSetPipeline(render_pass, global_renderer.ui_pipeline);    
+        pc : UI_Push_Constants = ---;
+        if render_target == null {
+            pc = UI_Push_Constants.{.{2.0 / cast(float)global_renderer.width, -2.0 / cast(float)global_renderer.height}, .{-1, 1}};
+        } else {
+            pc = UI_Push_Constants.{.{2.0 / cast(float)wgpu.TextureGetWidth(render_target), -2.0 / cast(float)wgpu.TextureGetHeight(render_target)}, .{-1, 1}};
+        }
+        wgpu.RenderPassEncoderSetPushConstants(render_pass, .Vertex, 0, size_of(type_of(pc)), *pc);
+        wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, global_renderer.empty_texture_uniform.bind_group, 0, null);
+    } else #if vertex_type == Standard_Vertex {
+        
+    } else {
+        #assert(false, "Unsupported vertex type %", vertex_type);
+    }
+    return Immediate(vertex_type).{
         command_encoder = command_encoder,
         render_pass = render_pass
     };
@@ -53,7 +64,6 @@ immediate_end :: (using immediate: *Immediate) {
     flush(immediate);
     wgpu.RenderPassEncoderEnd(render_pass);
     renderer_push_command_encoder(*immediate.command_encoder, "Immediate Command Buffer");
-    
 }
 
 flush :: (using immediate: *Immediate) {
