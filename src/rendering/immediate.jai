@@ -50,15 +50,18 @@ immediate_default_texture :: (using immediate: *Immediate) {
 }
 
 immediate_end :: (using immediate: *Immediate) {
+    flush(immediate);
     wgpu.RenderPassEncoderEnd(render_pass);
     renderer_push_command_encoder(*immediate.command_encoder, "Immediate Command Buffer");
-    flush(immediate);
+    
 }
 
 flush :: (using immediate: *Immediate) {
     if vertices.count > 0 {
-        l := locs[locs.count - 1];
-        buffer_write_data(l.buffer, vertices.data, xx (vertices.count * size_of(UI_Vertex)), l.offset);
+        loc := locs[locs.count - 1];
+        buffer_write_data(loc.buffer, vertices.data, xx (vertices.count * size_of(UI_Vertex)), loc.offset);
+        wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 0, loc.buffer.handle, loc.offset, loc.size);
+        wgpu.RenderPassEncoderDraw(render_pass, xx vertices.count, 1, 0, 0);
         vertices.count = 0;
     }
 }
@@ -74,31 +77,16 @@ maybe_grow :: (using immediate: *Immediate, nb: u32) -> Buffer_Location {
         
     }
     loc := locs[locs.count - 1];
-    wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 0, loc.buffer.handle, loc.offset, loc.size);
     return loc;
-}
-
-prepare_vertices :: (using immediate: *Immediate, nb: u32) -> *UI_Vertex #must {
-    loc := maybe_grow(immediate, nb);
-    array_reserve(*vertices, vertices.count + nb);
-    ptr := vertices.data + vertices.count;
-
-    wgpu.RenderPassEncoderDraw(render_pass, nb, 1, xx vertices.count, 0);
-
-    vertices.count += nb;
-
-    return ptr;
 }
 
 push_vertices :: (imm: *Immediate, vertices: []$T) {
     loc := maybe_grow(imm, xx vertices.count);
-    wgpu.RenderPassEncoderDraw(imm.render_pass, xx vertices.count, 1, xx imm.vertices.count, 0);
-
     array_add(*imm.vertices, ..vertices);
 }
 
 draw_2d_rect :: (immediate: *Immediate, p0: Vector2, p1: Vector2, color: Vector4 = . {1, 1, 1, 1}) {
-    v := prepare_vertices(immediate, 6);
+    v : [6]UI_Vertex; 
     n := Vector3.{0, 0, 1};
     v[0] = .{ p0, .{1, 1}, color};
     v[1] = .{ xy(p0.x, p1.y), .{1, 1}, color};
@@ -107,6 +95,7 @@ draw_2d_rect :: (immediate: *Immediate, p0: Vector2, p1: Vector2, color: Vector4
     v[3] = .{ p0, .{1, 1}, color};
     v[4] = .{ p1, .{1, 1}, color};
     v[5] = .{ xy(p1.x, p0.y), .{1, 1} , color};
+    push_vertices(immediate, v);
 }
 
 // Immediate :: struct {
