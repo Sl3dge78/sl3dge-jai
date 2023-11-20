@@ -558,6 +558,8 @@ STBTT_MAC_LANG :: enum s32 {
     stbtruetype :: #library,no_dll "linux/stbtruetype";
 } else #if OS == .MACOS {
     stbtruetype :: #library,no_dll "macos/stbtruetype";
+} else #if OS == .WINDOWS {
+    stbtruetype :: #library,no_dll "windows/stbtruetype";
 }
 
 #run {

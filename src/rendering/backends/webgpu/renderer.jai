@@ -123,6 +123,11 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
                 layer = metal_layer,
             };
             desc.nextInChain = xx *surface_desc_from_metal_layer;
+        } else #if OS == .WINDOWS {
+            surface_desc := wgpu.SurfaceDescriptorFromWindowsHWND.{
+                hinstance = xx sdl_info.info.win.hinstance,
+                hwnd = xx sdl_info.info.win.window,
+            };
         } else {
             #assert(false);
         }
