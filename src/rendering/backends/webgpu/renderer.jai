@@ -128,6 +128,7 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
                 hinstance = xx sdl_info.info.win.hinstance,
                 hwnd = xx sdl_info.info.win.window,
             };
+            desc.nextInChain = xx *surface_desc;
         } else {
             #assert(false);
         }
