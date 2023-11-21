@@ -97,9 +97,14 @@ STANDARD_SHADER :: #string __WGSL
 
     var<push_constant> push_constants : Push_Constants;
     @group(0) @binding(0) var<uniform> global_data: Global_Buffer;
+
     @group(1) @binding(0) var shadow_sampler: sampler;
     @group(1) @binding(1) var shadow_texture: texture_depth_2d;
+
     @group(2) @binding(0) var<uniform> instance_data: Instance_Data;
+
+    @group(3) @binding(0) var diff_sampler: sampler;
+    @group(3) @binding(1) var diff_texture: texture_2d<f32>;
 
     @vertex
     fn static_vs (in: Static_Vertex_Input) -> Vertex_Output {
@@ -165,7 +170,7 @@ STANDARD_SHADER :: #string __WGSL
         let shadow = shadow(in.pos_light_space / in.pos_light_space.w, in.normal);
         let ambient = vec3(0.529, 0.808, 0.922) * 0.1;
         let factor = max(min(shadow, sqrt(NdotL)), 0.2);
-        iterated_color = ambient * (1.0 - factor) + iterated_color * factor;
+        iterated_color = /*textureSample(diff_texture, diff_sampler, in.uv).rgb **/ ambient * (1.0 - factor) + iterated_color * factor;
 
         return vec4f(iterated_color, 1.0);
     }

@@ -1,6 +1,6 @@
 Immediate :: struct(Vertex_Type: Type)  {
     command_encoder : wgpu.CommandEncoder;
-    render_pass : wgpu.RenderPassEncoder;
+    render_passes : [..]wgpu.RenderPassEncoder;
     
     locs : [..]Buffer_Location;
     current_position_in_buffer : u32; // in bytes
@@ -8,70 +8,16 @@ Immediate :: struct(Vertex_Type: Type)  {
     BUFFER_SIZE :: 1024 * 1024;
 }
 
-immediate_2d :: #bake_arguments immediate_begin(vertex_type = UI_Vertex);
-immediate_3d :: #bake_arguments immediate_begin(vertex_type = Standard_Vertex);
-
-immediate_begin :: (render_target: *Texture = null, $vertex_type: Type) -> Immediate(vertex_type) {
-    view: wgpu.TextureView = ---;
-    if render_target == null {
-        view = global_renderer.window_framebuffer;
-    } else {
-        view = render_target.view;
-    }
-
-    command_encoder := WGPU_Check(wgpu.DeviceCreateCommandEncoder(global_renderer.device, *wgpu.CommandEncoderDescriptor.{ label = "Immediate Command Encoder" }));
-
-    color_attachment := wgpu.RenderPassColorAttachment.{
-        view = view,
-        resolveTarget = null,
-        loadOp = .Clear,
-        storeOp = .Store,
-        clearValue = .{0.0, 0.0, 0.0, 1.0}
-    };
-    render_pass_desc := wgpu.RenderPassDescriptor.{
-        label = "Immediate",
-        colorAttachmentCount = 1,
-        colorAttachments = *color_attachment,
-    };
-    render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(command_encoder, *render_pass_desc));
-    
-    #if vertex_type == UI_Vertex {
-        wgpu.RenderPassEncoderSetPipeline(render_pass, global_renderer.ui_pipeline);    
-        pc : UI_Push_Constants = ---;
-        if render_target == null {
-            pc = UI_Push_Constants.{.{2.0 / cast(float)global_renderer.width, -2.0 / cast(float)global_renderer.height}, .{-1, 1}};
-        } else {
-            pc = UI_Push_Constants.{.{2.0 / cast(float)wgpu.TextureGetWidth(render_target), -2.0 / cast(float)wgpu.TextureGetHeight(render_target)}, .{-1, 1}};
-        }
-        wgpu.RenderPassEncoderSetPushConstants(render_pass, .Vertex, 0, size_of(type_of(pc)), *pc);
-        wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, global_renderer.empty_texture_uniform.bind_group, 0, null);
-    } else #if vertex_type == Standard_Vertex {
-        
-    } else {
-        #assert(false, "Unsupported vertex type %", vertex_type);
-    }
-    return Immediate(vertex_type).{
-        command_encoder = command_encoder,
-        render_pass = render_pass
-    };
-}
-
-immediate_default_texture :: (using immediate: *Immediate) {
-    wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, global_renderer.empty_texture_uniform.bind_group, 0, null);
-}
-
-immediate_end :: (using immediate: *Immediate) {
-    flush(immediate);
-    wgpu.RenderPassEncoderEnd(render_pass);
-    renderer_push_command_encoder(*immediate.command_encoder, "Immediate Command Buffer");
-}
+#scope_file
 
 flush :: (using immediate: *Immediate) {
     if vertices.count > 0 {
         loc := locs[locs.count - 1];
-        buffer_write_data(loc.buffer, vertices.data, xx (vertices.count * size_of(UI_Vertex)), loc.offset);
-        wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 0, loc.buffer.handle, loc.offset, loc.size);
-        wgpu.RenderPassEncoderDraw(render_pass, xx vertices.count, 1, 0, 0);
+        buffer_write_data(loc.buffer, vertices.data, xx (vertices.count * size_of(type_of(vertices[0]))), loc.offset);
+        for render_passes {
+            wgpu.RenderPassEncoderSetVertexBuffer(it, 0, loc.buffer.handle, loc.offset, loc.size);
+            wgpu.RenderPassEncoderDraw(it, xx vertices.count, 1, 0, 0);
+        }
         vertices.count = 0;
     }
 }
@@ -90,12 +36,167 @@ maybe_grow :: (using immediate: *Immediate, nb: u32) -> Buffer_Location {
     return loc;
 }
 
-push_vertices :: (imm: *Immediate, vertices: []$T) {
-    loc := maybe_grow(imm, xx vertices.count);
-    array_add(*imm.vertices, ..vertices);
+#scope_export
+
+Immediate2D :: Immediate(UI_Vertex);
+Immediate3D :: Immediate(Standard_Vertex);
+
+immediate_2d :: #bake_arguments immediate_begin(vertex_type = UI_Vertex);
+immediate_3d :: #bake_arguments immediate_begin(vertex_type = Standard_Vertex);
+
+immediate_begin :: (render_target: *Texture = null, $vertex_type: Type) -> Immediate(vertex_type) {
+    view: wgpu.TextureView = ---;
+    load_op : wgpu.LoadOp;
+    if render_target == null {
+        view = global_renderer.window_framebuffer;
+        load_op = .Load;
+    } else {
+        view = render_target.view;
+        load_op = .Clear;
+    }
+
+    command_encoder := WGPU_Check(wgpu.DeviceCreateCommandEncoder(global_renderer.device, *wgpu.CommandEncoderDescriptor.{ label = temp_c_string(tprint("Immediate % Command Encoder", vertex_type)) }));
+
+    render_passes : [..]wgpu.RenderPassEncoder;
+
+    #if vertex_type == UI_Vertex {
+        color_attachment := wgpu.RenderPassColorAttachment.{
+            view = view,
+            resolveTarget = null,
+            loadOp = load_op,
+            storeOp = .Store,
+            clearValue = .{0.0, 0.0, 0.0, 1.0}
+        };
+        render_pass_desc := wgpu.RenderPassDescriptor.{
+            label = "Immediate",
+            colorAttachmentCount = 1,
+            colorAttachments = *color_attachment,
+        };
+        render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(command_encoder, *render_pass_desc));
+
+        wgpu.RenderPassEncoderSetPipeline(render_pass, global_renderer.ui_pipeline);    
+        pc : UI_Push_Constants = ---;
+        if render_target == null {
+            pc = UI_Push_Constants.{.{2.0 / cast(float)global_renderer.width, -2.0 / cast(float)global_renderer.height}, .{-1, 1}};
+        } else {
+            pc = UI_Push_Constants.{.{2.0 / cast(float)wgpu.TextureGetWidth(render_target), -2.0 / cast(float)wgpu.TextureGetHeight(render_target)}, .{-1, 1}};
+        }
+        wgpu.RenderPassEncoderSetPushConstants(render_pass, .Vertex, 0, size_of(type_of(pc)), *pc);
+        wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, global_renderer.empty_texture_uniform.bind_group, 0, null);
+        array_add(*render_passes, render_pass);
+
+    } else #if vertex_type == Standard_Vertex {
+        { // Shadow
+            attachment := wgpu.RenderPassDepthStencilAttachment.{
+                view = global_renderer.shadowmap_framebuffer.view,
+                depthLoadOp = .Clear,
+                depthStoreOp = .Store,
+                depthClearValue = 1,
+                stencilLoadOp = .Clear,
+                stencilStoreOp = .Discard,
+                stencilClearValue = 0,
+                stencilReadOnly = true,
+            };
+            render_pass_desc := wgpu.RenderPassDescriptor.{
+                label = "Shadow Map",
+                depthStencilAttachment = *attachment
+            };
+            shadow_render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(command_encoder, *render_pass_desc));
+
+            wgpu.RenderPassEncoderSetPipeline(shadow_render_pass, global_renderer.static_mesh_pipelines[0]);
+            wgpu.RenderPassEncoderSetBindGroup(shadow_render_pass, 0, global_renderer.shadowmap_matrices_uniform.bind_group, 0, null);
+            array_add(*render_passes, shadow_render_pass);
+        }
+
+        { // Color
+            color_attachment := wgpu.RenderPassColorAttachment.{
+                view = global_renderer.window_framebuffer,
+                resolveTarget = null,
+                loadOp = .Load,
+                storeOp = .Store,
+                // clearValue = .{0.529, 0.808, 0.922, 1.0}
+            };
+            depth_attachment := wgpu.RenderPassDepthStencilAttachment.{
+                view = global_renderer.depth_texture.view,
+                depthLoadOp = .Clear,
+                depthStoreOp = .Store,
+                depthClearValue = 1,
+                stencilLoadOp = .Clear,
+                stencilStoreOp = .Discard,
+                stencilClearValue = 0,
+                stencilReadOnly = true,
+            };
+            render_pass_desc := wgpu.RenderPassDescriptor.{
+                label = "Main Pass",
+                colorAttachmentCount = 1,
+                colorAttachments = *color_attachment,
+                depthStencilAttachment = *depth_attachment,
+            };
+            color_render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(command_encoder, *render_pass_desc));
+
+            wgpu.RenderPassEncoderSetPipeline(color_render_pass, global_renderer.static_mesh_pipelines[1]);
+            wgpu.RenderPassEncoderSetBindGroup(color_render_pass, 0, global_renderer.global_matrices_uniform.bind_group, 0, null);
+            wgpu.RenderPassEncoderSetBindGroup(color_render_pass, 1, global_renderer.shadowmap_texture_uniform.bind_group, 0, null);
+            wgpu.RenderPassEncoderSetBindGroup(color_render_pass, 2, global_renderer.empty_uniform, 0, null);
+            wgpu.RenderPassEncoderSetBindGroup(color_render_pass, 3, global_renderer.empty_texture_uniform.bind_group, 0, null);
+            array_add(*render_passes, color_render_pass);
+        }
+    } else {
+        #assert false, "Unsupported vertex type %", vertex_type;
+    }
+    return Immediate(vertex_type).{
+        command_encoder = command_encoder,
+        render_passes = render_passes
+    };
 }
 
-draw_2d_rect :: (immediate: *Immediate, p0: Vector2, p1: Vector2, color: Vector4 = . {1, 1, 1, 1}) {
+immediate_default_texture :: (using immediate: *Immediate2D) {
+    immediate_bind_texture(immediate, global_renderer.empty_texture_uniform);
+}
+
+immediate_bind_texture :: (using immediate: *Immediate2D, texture: Texture_Uniform) {
+    flush(immediate);
+    wgpu.RenderPassEncoderSetBindGroup(render_passes[0], 0, texture.bind_group, 0, null);
+}
+
+immediate_default_texture :: (using immediate: *Immediate3D) {
+    immediate_bind_texture(immediate, global_renderer.empty_texture_uniform);
+}
+
+immediate_bind_texture :: (using immediate: *Immediate3D, texture: Texture_Uniform) {
+    flush(immediate);
+    wgpu.RenderPassEncoderSetBindGroup(render_passes[1], 3, texture.bind_group, 0, null);
+}
+
+set_model_matrix :: (immediate: *Immediate3D, mat: Matrix4) {
+    flush(immediate);
+    pc := Standard_Push_Constants.{
+        transform = transpose(mat),
+        inverse_transform = transpose(inverse(mat)),
+    };
+    for immediate.render_passes {
+        wgpu.RenderPassEncoderSetPushConstants(it, .Vertex, 0, size_of(type_of(pc)), *pc);
+    }
+}
+
+immediate_end :: (using immediate: *Immediate) {
+    flush(immediate);
+    for render_passes {
+        wgpu.RenderPassEncoderEnd(it);
+    }
+    renderer_push_command_encoder(*immediate.command_encoder, "Immediate Command Buffer");
+}
+
+push_vertices :: (imm: *Immediate, vertices: []$T) {
+    loc := maybe_grow(imm, xx vertices.count);
+    if imm.vertices.allocated < vertices.count + imm.vertices.count {
+        array_reserve(*imm.vertices, vertices.count + imm.vertices.count);
+    }
+    memcpy(imm.vertices.data + imm.vertices.count, vertices.data, size_of(T) * vertices.count);
+    imm.vertices.count += vertices.count;
+}
+
+draw_2d_rect :: (immediate: *Immediate2D, p0: Vector2, p1: Vector2, color: Vector4 = . {1, 1, 1, 1}) {
     v : [6]UI_Vertex; 
     n := Vector3.{0, 0, 1};
     v[0] = .{ p0, .{1, 1}, color};
@@ -107,6 +208,57 @@ draw_2d_rect :: (immediate: *Immediate, p0: Vector2, p1: Vector2, color: Vector4
     v[5] = .{ xy(p1.x, p0.y), .{1, 1} , color};
     push_vertices(immediate, v);
 }
+
+draw_quad :: (immediate: *Immediate3D, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, normal: Vector3, color := Vector4.{1, 1, 1, 1}) {
+    v : [6]Standard_Vertex; 
+
+    v[0] = .{p0, normal, .{0, 0}, color};
+    v[1] = .{p1, normal, .{1, 0}, color};
+    v[2] = .{p2, normal, .{1, 1}, color};
+
+    v[3] = .{p0, normal, .{0, 0}, color};
+    v[4] = .{p2, normal, .{1, 1}, color};
+    v[5] = .{p3, normal, .{0, 1}, color};
+
+    push_vertices(immediate, v);
+}
+
+draw_plane :: (immediate: *Immediate3D, center: Vector3, size: Vector2) {
+    v : [4]Standard_Vertex; 
+    hs := size / 2.0;
+    draw_quad(
+        immediate, 
+        .{center.x - hs.x, center.y, center.z - hs.y},
+        .{center.x - hs.x, center.y, center.z + hs.y},
+        .{center.x + hs.x, center.y, center.z + hs.y},
+        .{center.x + hs.x, center.y, center.z - hs.y},
+        UP);
+    
+}
+
+draw_cylinder :: (immediate: *Immediate3D) {
+        NB_ITERATIONS :: 20;
+        iter_size :: 2 * PI / (NB_ITERATIONS);
+        radius :: 1;
+        height :: 1;
+
+        for 0..NB_ITERATIONS {
+            angle := iter_size * it;
+            x1 := cos(angle) * radius;
+            x2 := cos(angle + iter_size) * radius;
+            z1 := sin(angle) * radius;
+            z2 := sin(angle + iter_size) * radius;
+            p0 := xyz(x1, 0, z1);
+            p3 := xyz(x2, 0, z2);
+            draw_quad(immediate, p0, xyz(x1, height, z1), xyz(x2, height, z2), p3, 
+            normal = cross(normalize(p3 - p0), UP));
+        }
+
+        // Draw floor & ceiling as simple quad
+        draw_quad(immediate, xyz(-radius, 0, -radius), xyz(radius, 0, -radius), xyz(radius, 0, radius), xyz(-radius, 0, radius), UP); 
+        draw_quad(immediate, xyz(-radius, height, -radius), xyz(radius, height, -radius), xyz(radius, height, radius), xyz(-radius, height, radius), DOWN); 
+    }
+
 
 // Immediate :: struct {
 //     _3d_draw_data: Draw_Data(Vertex);

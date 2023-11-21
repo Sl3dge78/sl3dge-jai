@@ -96,8 +96,8 @@ draw_char :: (immediate: *Immediate, it: u8, font: *Font, line_start: float, x: 
     push_vertices(immediate, v);
 }
 
-draw_text :: (immediate: *Immediate, text: string, x: float, y: float, font: *Font, color: Vector4 = .{1, 1, 1, 1}) -> x: float, y: float{
-    wgpu.RenderPassEncoderSetBindGroup(immediate.render_pass, 0, font.uniform.bind_group, 0, null);
+draw_text :: (immediate: *Immediate2D, text: string, x: float, y: float, font: *Font, color: Vector4 = .{1, 1, 1, 1}) -> x: float, y: float{
+    wgpu.RenderPassEncoderSetBindGroup(immediate.render_passes[0], 0, font.uniform.bind_group, 0, null);
     i := 0;
     start_x := x;
     while(i < text.count) {
@@ -109,8 +109,8 @@ draw_text :: (immediate: *Immediate, text: string, x: float, y: float, font: *Fo
     return x, y;
 }
 
-draw_wrapped_text :: (immediate: *Immediate, text: string, x: float, w: float, y: float, font: *Font, color: Vector4 = .{1, 1, 1, 1}) -> x: float, y: float{
-    wgpu.RenderPassEncoderSetBindGroup(immediate.render_pass, 0, font.uniform.bind_group, 0, null);
+draw_wrapped_text :: (immediate: *Immediate2D, text: string, x: float, w: float, y: float, font: *Font, color: Vector4 = .{1, 1, 1, 1}) -> x: float, y: float{
+    wgpu.RenderPassEncoderSetBindGroup(immediate.render_passes[0], 0, font.uniform.bind_group, 0, null);
     i := 0;
     start_x := x;
     while(i < text.count) {

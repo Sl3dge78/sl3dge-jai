@@ -445,7 +445,7 @@ get_required_limits :: (adapter: wgpu.Adapter) -> wgpu.Limits {
         maxTextureDimension2D                     = 2048,
         maxTextureDimension3D                     = 1,
         maxTextureArrayLayers                     = 1,
-        maxBindGroups                             = 3,
+        maxBindGroups                             = 4,
         maxBindingsPerBindGroup                   = 2,
         maxDynamicUniformBuffersPerPipelineLayout = 0,
         maxDynamicStorageBuffersPerPipelineLayout = 0,
@@ -509,6 +509,8 @@ create_bind_group_layouts :: (using renderer: *Renderer) {
     {   // Instance Data
         builder : Bindings_Builder;
         add_entry(*builder, wgpu.BufferBindingLayout.{type = .Uniform, hasDynamicOffset = false, minBindingSize = xx size_of(Instance_Data) }, binding = 0, .Vertex);
+        add_entry(*builder, wgpu.SamplerBindingLayout.{type = .Filtering}, binding = 1, .Fragment);
+        add_entry(*builder, wgpu.TextureBindingLayout.{sampleType = .Float, viewDimension = ._2D, multisampled = false}, binding = 2, .Fragment);
         renderer.instance_data_bgl = bindings_builder_build(*builder);
     }
 }
@@ -546,6 +548,7 @@ create_static_mesh_pipeline :: (using renderer: *Renderer) -> [2]wgpu.RenderPipe
         builder: Pipeline_Builder;
         add_vertex_shader(*builder, shader_module, "static_vs", Standard_Vertex);
         depth_stencil_state(*builder, renderer.depth_format);
+        primitive_state(*builder, .TriangleList, cull_mode = .Front);
         pipelines[0] = pipeline_builder_build(*builder, renderer.device, pipeline_layout, "Static Mesh Color Pipeline");
     }
 
@@ -556,6 +559,8 @@ create_static_mesh_pipeline :: (using renderer: *Renderer) -> [2]wgpu.RenderPipe
         set_push_constants(*layout_builder, size_of(Standard_Push_Constants), stages = .Vertex);
         add_bind_groups(*layout_builder, renderer.global_matrices_bgl);
         add_bind_groups(*layout_builder, renderer.shadowmap_texture_bgl);
+        add_bind_groups(*layout_builder, renderer.empty_bgl);
+        add_bind_groups(*layout_builder, renderer.single_texture_bgl);
         pipeline_layout := pipeline_layout_builder_build(*layout_builder, renderer.device);
         defer wgpu.PipelineLayoutRelease(pipeline_layout);
 
@@ -599,6 +604,7 @@ create_skinned_mesh_pipeline :: (using renderer: *Renderer) -> [2]wgpu.RenderPip
         add_bind_groups(*layout_builder, renderer.global_matrices_bgl);
         add_bind_groups(*layout_builder, renderer.shadowmap_texture_bgl);
         add_bind_groups(*layout_builder, renderer.instance_data_bgl);
+        add_bind_groups(*layout_builder, renderer.single_texture_bgl);
         pipeline_layout := pipeline_layout_builder_build(*layout_builder, renderer.device);
         defer wgpu.PipelineLayoutRelease(pipeline_layout);
 
