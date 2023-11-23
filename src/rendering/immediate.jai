@@ -3,7 +3,7 @@ Immediate :: struct(Vertex_Type: Type)  {
     render_passes : [..]wgpu.RenderPassEncoder;
     
     locs : [..]Buffer_Location;
-    current_position_in_buffer : u32; // in bytes
+    current_position_in_buffer : u64; // in bytes
     vertices : [..]Vertex_Type;
     BUFFER_SIZE :: 1024 * 1024;
 }
@@ -12,18 +12,20 @@ Immediate :: struct(Vertex_Type: Type)  {
 
 flush :: (using immediate: *Immediate) {
     if vertices.count > 0 {
-        loc := locs[locs.count - 1];
-        buffer_write_data(loc.buffer, vertices.data, xx (vertices.count * size_of(type_of(vertices[0]))), loc.offset);
+        loc := *locs[locs.count - 1];
+        size : u64 = xx (vertices.count * size_of(type_of(vertices[0])));
+        buffer_write_data(loc.buffer, vertices.data, size, loc.offset + current_position_in_buffer);
         for render_passes {
             wgpu.RenderPassEncoderSetVertexBuffer(it, 0, loc.buffer.handle, loc.offset, loc.size);
             wgpu.RenderPassEncoderDraw(it, xx vertices.count, 1, 0, 0);
         }
+        current_position_in_buffer += size;
         vertices.count = 0;
     }
 }
 
 maybe_grow :: (using immediate: *Immediate, nb: u32) -> Buffer_Location {
-    size := nb * size_of(UI_Vertex);
+    size := nb * size_of(type_of(vertices[0]));
     assert(size < BUFFER_SIZE, "Pushing too many vertices to immediate!!");
     if locs.count == 0 ||  size + current_position_in_buffer >= locs[locs.count - 1].size {
         flush(immediate);
@@ -228,10 +230,10 @@ draw_plane :: (immediate: *Immediate3D, center: Vector3, size: Vector2) {
     hs := size / 2.0;
     draw_quad(
         immediate, 
-        .{center.x - hs.x, center.y, center.z - hs.y},
-        .{center.x - hs.x, center.y, center.z + hs.y},
         .{center.x + hs.x, center.y, center.z + hs.y},
         .{center.x + hs.x, center.y, center.z - hs.y},
+        .{center.x - hs.x, center.y, center.z - hs.y},
+        .{center.x - hs.x, center.y, center.z + hs.y},
         UP);
     
 }

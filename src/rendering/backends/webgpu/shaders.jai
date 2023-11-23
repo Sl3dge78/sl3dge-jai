@@ -169,8 +169,9 @@ STANDARD_SHADER :: #string __WGSL
         let NdotL = max(dot(in.normal, -L), 0.0);
         let shadow = shadow(in.pos_light_space / in.pos_light_space.w, in.normal);
         let ambient = vec3(0.529, 0.808, 0.922) * 0.1;
-        let factor = max(min(shadow, sqrt(NdotL)), 0.2);
-        iterated_color = /*textureSample(diff_texture, diff_sampler, in.uv).rgb **/ ambient * (1.0 - factor) + iterated_color * factor;
+        // let factor = max(min(shadow, sqrt(NdotL)), 0.2);
+        let factor = max(sqrt(NdotL), 0.2);
+        iterated_color = textureSample(diff_texture, diff_sampler, in.uv).rgb * ambient * (1.0 - factor) + iterated_color * factor;
 
         return vec4f(iterated_color, 1.0);
     }
