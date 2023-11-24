@@ -248,6 +248,7 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
 
         data := u8.[255, 255, 255, 255];
         renderer.empty_texture = texture_from_data(data.data, 1, 1, 4, u8);
+        texture_set_label(*renderer.empty_texture, "Empty Texture");
         renderer.empty_texture_uniform = texture_uniform_create(renderer.sampler, renderer.empty_texture.view, global_renderer.single_texture_bgl);
     }   
 

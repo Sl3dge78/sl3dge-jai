@@ -44,6 +44,7 @@ font_from_data :: (font_data: string, size: float) -> Font, bool {
     bitmap[x] = 255;
 
     self.texture = texture_from_data(bitmap.data, 512, 512, 1, u8);
+    texture_set_label(*self.texture, "Font Atlas");
 
     self.uniform = texture_uniform_create(global_renderer.sampler, self.texture.view, global_renderer.single_texture_bgl);
     
@@ -97,7 +98,7 @@ draw_char :: (immediate: *Immediate, it: u8, font: *Font, line_start: float, x: 
 }
 
 draw_text :: (immediate: *Immediate2D, text: string, x: float, y: float, font: *Font, color: Vector4 = .{1, 1, 1, 1}) -> x: float, y: float{
-    wgpu.RenderPassEncoderSetBindGroup(immediate.render_passes[0], 0, font.uniform.bind_group, 0, null);
+    immediate_bind_texture(immediate, font.uniform);
     i := 0;
     start_x := x;
     while(i < text.count) {
@@ -110,7 +111,7 @@ draw_text :: (immediate: *Immediate2D, text: string, x: float, y: float, font: *
 }
 
 draw_wrapped_text :: (immediate: *Immediate2D, text: string, x: float, w: float, y: float, font: *Font, color: Vector4 = .{1, 1, 1, 1}) -> x: float, y: float{
-    wgpu.RenderPassEncoderSetBindGroup(immediate.render_passes[0], 0, font.uniform.bind_group, 0, null);
+    immediate_bind_texture(immediate, font.uniform);
     i := 0;
     start_x := x;
     while(i < text.count) {

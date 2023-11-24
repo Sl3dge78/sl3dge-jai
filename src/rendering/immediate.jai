@@ -16,7 +16,7 @@ flush :: (using immediate: *Immediate) {
         size : u64 = xx (vertices.count * size_of(type_of(vertices[0])));
         buffer_write_data(loc.buffer, vertices.data, size, loc.offset + current_position_in_buffer);
         for render_passes {
-            wgpu.RenderPassEncoderSetVertexBuffer(it, 0, loc.buffer.handle, loc.offset, loc.size);
+            wgpu.RenderPassEncoderSetVertexBuffer(it, 0, loc.buffer.handle, loc.offset + current_position_in_buffer, loc.size);
             wgpu.RenderPassEncoderDraw(it, xx vertices.count, 1, 0, 0);
         }
         current_position_in_buffer += size;
@@ -46,7 +46,7 @@ Immediate3D :: Immediate(Standard_Vertex);
 immediate_2d :: #bake_arguments immediate_begin(vertex_type = UI_Vertex);
 immediate_3d :: #bake_arguments immediate_begin(vertex_type = Standard_Vertex);
 
-immediate_begin :: (render_target: *Texture = null, $vertex_type: Type) -> Immediate(vertex_type) {
+immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : string = "") -> Immediate(vertex_type) {
     view: wgpu.TextureView = ---;
     load_op : wgpu.LoadOp;
     if render_target == null {
@@ -57,7 +57,7 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type) -> Immed
         load_op = .Clear;
     }
 
-    command_encoder := WGPU_Check(wgpu.DeviceCreateCommandEncoder(global_renderer.device, *wgpu.CommandEncoderDescriptor.{ label = temp_c_string(tprint("Immediate % Command Encoder", vertex_type)) }));
+    command_encoder := WGPU_Check(wgpu.DeviceCreateCommandEncoder(global_renderer.device, *wgpu.CommandEncoderDescriptor.{ label = temp_c_string(label) }));
 
     render_passes : [..]wgpu.RenderPassEncoder;
 
@@ -75,7 +75,7 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type) -> Immed
             colorAttachments = *color_attachment,
         };
         render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(command_encoder, *render_pass_desc));
-
+        wgpu.RenderPassEncoderInsertDebugMarker(render_pass, temp_c_string(label));
         wgpu.RenderPassEncoderSetPipeline(render_pass, global_renderer.ui_pipeline);    
         pc : UI_Push_Constants = ---;
         if render_target == null {
@@ -156,13 +156,13 @@ immediate_default_texture :: (using immediate: *Immediate2D) {
     immediate_bind_texture(immediate, global_renderer.empty_texture_uniform);
 }
 
+immediate_default_texture :: (using immediate: *Immediate3D) {
+    immediate_bind_texture(immediate, global_renderer.empty_texture_uniform);
+}
+
 immediate_bind_texture :: (using immediate: *Immediate2D, texture: Texture_Uniform) {
     flush(immediate);
     wgpu.RenderPassEncoderSetBindGroup(render_passes[0], 0, texture.bind_group, 0, null);
-}
-
-immediate_default_texture :: (using immediate: *Immediate3D) {
-    immediate_bind_texture(immediate, global_renderer.empty_texture_uniform);
 }
 
 immediate_bind_texture :: (using immediate: *Immediate3D, texture: Texture_Uniform) {
@@ -211,6 +211,19 @@ draw_2d_rect :: (immediate: *Immediate2D, p0: Vector2, p1: Vector2, color: Vecto
     push_vertices(immediate, v);
 }
 
+draw_2d_rect :: (immediate: *Immediate2D, x: float, y: float, w: float, h: float, color : Vector4 = .{1, 1, 1, 1}) {
+    v : [6]UI_Vertex; 
+    n := Vector3.{0, 0, 1};
+    v[0] = .{ .{x, y},         .{0, 0}, color};
+    v[1] = .{ .{x, y + h},     .{0, 1}, color};
+    v[2] = .{ .{x + w, y},     .{1, 0}, color};
+    
+    v[3] = .{ .{x + w, y},     .{1, 0}, color};
+    v[4] = .{ .{x, y + h},     .{0, 1}, color};
+    v[5] = .{ .{x + w, y + h}, .{1, 1}, color};
+    push_vertices(immediate, v);
+}
+
 draw_quad :: (immediate: *Immediate3D, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, normal: Vector3, color := Vector4.{1, 1, 1, 1}) {
     v : [6]Standard_Vertex; 
 
@@ -226,7 +239,6 @@ draw_quad :: (immediate: *Immediate3D, p0: Vector3, p1: Vector3, p2: Vector3, p3
 }
 
 draw_plane :: (immediate: *Immediate3D, center: Vector3, size: Vector2) {
-    v : [4]Standard_Vertex; 
     hs := size / 2.0;
     draw_quad(
         immediate, 
