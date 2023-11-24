@@ -88,7 +88,7 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type) -> Immed
         array_add(*render_passes, render_pass);
 
     } else #if vertex_type == Standard_Vertex {
-        { // Shadow
+        {   // Directionnal Shadow
             attachment := wgpu.RenderPassDepthStencilAttachment.{
                 view = global_renderer.shadowmap_framebuffer.view,
                 depthLoadOp = .Clear,
@@ -109,8 +109,8 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type) -> Immed
             wgpu.RenderPassEncoderSetBindGroup(shadow_render_pass, 0, global_renderer.shadowmap_matrices_uniform.bind_group, 0, null);
             array_add(*render_passes, shadow_render_pass);
         }
-
-        { // Color
+        
+        {   // Color
             color_attachment := wgpu.RenderPassColorAttachment.{
                 view = global_renderer.window_framebuffer,
                 resolveTarget = null,

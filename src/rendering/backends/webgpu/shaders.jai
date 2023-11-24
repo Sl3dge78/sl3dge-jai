@@ -53,7 +53,6 @@ UI_Push_Constants :: struct {
 
 
 // Standard
-
 STANDARD_SHADER :: #string __WGSL 
     struct Static_Vertex_Input {
         @location(0) position: vec3f, 
@@ -77,6 +76,7 @@ STANDARD_SHADER :: #string __WGSL
         @location(1) uv: vec2f,
         @location(2) color: vec4f,
         @location(3) pos_light_space: vec4f,
+        @location(4) world_position: vec3f,
     };
 
     struct Push_Constants {
@@ -88,7 +88,7 @@ STANDARD_SHADER :: #string __WGSL
         projection: mat4x4f,
         view      : mat4x4f,
         light     : mat4x4f,
-        light_dir : vec3f,
+        light_vec : vec3f,
     };
 
     struct Instance_Data {
@@ -106,17 +106,23 @@ STANDARD_SHADER :: #string __WGSL
     @group(3) @binding(0) var diff_sampler: sampler;
     @group(3) @binding(1) var diff_texture: texture_2d<f32>;
 
+    const constant : f32 = 1.0;
+    const linear : f32 = 0.09;
+    const quadratic : f32 = 0.002;
+
     @vertex
     fn static_vs (in: Static_Vertex_Input) -> Vertex_Output {
         var result : Vertex_Output;
-        let xform = global_data.projection * global_data.view * push_constants.transform;
-        result.position = xform * vec4f(in.position, 1.0);
+        let world_pos = push_constants.transform * vec4f(in.position, 1.0);
+
+        result.position = global_data.projection * global_data.view * world_pos;
         result.color = in.color;
         let inv_transform3 = mat3x3f(push_constants.inverse_transform[0].xyz, push_constants.inverse_transform[1].xyz, push_constants.inverse_transform[2].xyz);
         result.normal = transpose(inv_transform3) * in.normal;
         result.uv = in.uv;
         let light_xform = global_data.light * push_constants.transform;
         result.pos_light_space = light_xform * vec4f(in.position, 1.0);
+        result.world_position = world_pos.xyz;
         return result;
     }
 
@@ -135,6 +141,7 @@ STANDARD_SHADER :: #string __WGSL
         result.normal = (skin_mat * vec4f(in.normal, 0.0)).xyz;
         result.uv = in.uv;
         result.pos_light_space = global_data.light * world_pos;
+        result.world_position = world_pos.xyz;
         return result;
     }
     
@@ -147,7 +154,7 @@ STANDARD_SHADER :: #string __WGSL
         let uv : vec2f = shadow_coord.xy * vec2f(0.5, -0.5) + 0.5; // @TODO: Do depth calc in -1 to 1 range
         let current : f32 = shadow_coord.z;
         var total : i32 = 0;
-        let x = 1.0 - max(dot(normal, global_data.light_dir), 0.0);
+        let x = 1.0 - max(dot(normal, global_data.light_vec), 0.0);
         var bias = max(2.5 * x, 1.0);
         bias *= texel_size;
         for(var x = -pcf_count; x <= pcf_count; x++) {
@@ -162,16 +169,23 @@ STANDARD_SHADER :: #string __WGSL
         return 1.0 - result;
     }
 
+    fn point_light(light_pos: vec3f, frag_pos: vec3f) -> f32 {
+        let distance = length(light_pos - frag_pos);
+        let attenuation = 1.0 / (constant + linear * distance + quadratic * (distance * distance));
+        return attenuation;
+    }
+
     @fragment
     fn fs_main (in: Vertex_Output) -> @location(0) vec4f {
-        let L = global_data.light_dir;
         var iterated_color = in.color.rgb;
-        let NdotL = max(dot(in.normal, -L), 0.0);
-        let shadow = shadow(in.pos_light_space / in.pos_light_space.w, in.normal);
-        let ambient = vec3(0.529, 0.808, 0.922) * 0.1;
+        iterated_color *= point_light(global_data.light_vec, in.world_position.xyz);
+        iterated_color *= textureSample(diff_texture, diff_sampler, in.uv).rgb;
+
+        // let NdotL = max(dot(in.normal, -L), 0.0);
+        // let shadow = shadow(in.pos_light_space / in.pos_light_space.w, in.normal);
+        // let ambient = vec3(0.529, 0.808, 0.922) * 0.1;
         // let factor = max(min(shadow, sqrt(NdotL)), 0.2);
-        let factor = max(sqrt(NdotL), 0.2);
-        iterated_color = textureSample(diff_texture, diff_sampler, in.uv).rgb * ambient * (1.0 - factor) + iterated_color * factor;
+        // iterated_color = textureSample(diff_texture, diff_sampler, in.uv).rgb * ambient * (1.0 - factor) + iterated_color * factor;
 
         return vec4f(iterated_color, 1.0);
     }
@@ -199,7 +213,7 @@ Global_Matrices :: struct {
     projection: Matrix4;
     view      : Matrix4;
     light     : Matrix4;
-    light_dir : Vector3;
+    light_vec : Vector3;
     __align : float;
 }
 
@@ -229,7 +243,7 @@ DEBUG_SHADER :: #string __WGSL
         projection: mat4x4f,
         view      : mat4x4f,
         light     : mat4x4f,
-        light_dir : vec3f,
+        light_vec : vec3f,
     };
 
     var<push_constant> push_constants : Push_Constants;

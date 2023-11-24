@@ -35,8 +35,8 @@ Renderer :: struct {
     ui_pipeline          : wgpu.RenderPipeline;
 
     depth_texture : Texture;
-    static_mesh_pipelines : [2] wgpu.RenderPipeline; // 0 = shadowmap, 1 = color
-    skinned_mesh_pipelines : [2] wgpu.RenderPipeline; // 0 = shadowmap, 1 = color
+    static_mesh_pipelines : [2] wgpu.RenderPipeline; // 0 = directionnal shadowmap, 1 = color
+    skinned_mesh_pipelines : [2] wgpu.RenderPipeline; // 0 = directionnal shadowmap, 1 = color
 
     empty_uniform: wgpu.BindGroup;
 
@@ -50,7 +50,7 @@ Renderer :: struct {
 
     projection := Matrix4_Identity;
     view := Matrix4_Identity;
-    light_dir : Vector3;
+    light_vec : Vector3;            // Direction or Position if point light
 
     current_scene: *Scene;
     mesh_buffer_pool: Buffer_Pool = .{
@@ -247,7 +247,7 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
         renderer.empty_uniform = WGPU_Check(wgpu.DeviceCreateBindGroup(renderer.device, *desc));
 
         data := u8.[255, 255, 255, 255];
-        renderer.empty_texture = texture_from_data(data.data, 2, 2, 1, u8);
+        renderer.empty_texture = texture_from_data(data.data, 1, 1, 4, u8);
         renderer.empty_texture_uniform = texture_uniform_create(renderer.sampler, renderer.empty_texture.view, global_renderer.single_texture_bgl);
     }   
 
@@ -256,7 +256,7 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
 
         renderer.projection = make_projection_matrix(radians(45), cast(float)renderer.width/cast(float)renderer.height, 0.1, 1000);
         renderer.view = Matrix4_Identity;
-        renderer.light_dir = unit_vector(.{1, -2, -1});
+        renderer.light_vec = unit_vector(.{1, -2, -1});
     }
 
     {   // Shadowmap Uniforms
@@ -328,12 +328,12 @@ end_frame :: () {
     
     size:: 20;
     light_proj := orthographic_projection_matrix(size, -size, -size, size, -size, size, true);
-    light_view := make_look_at_matrix(.{0, 0, 0}, light_dir, .{0, 1, 0}, false);
+    light_view := make_look_at_matrix(.{0, 0, 0}, light_vec, .{0, 1, 0}, false);
     matrices := Global_Matrices.{
         projection = transpose(projection),
         view = transpose(view),
         light = transpose(light_proj * light_view),
-        light_dir = light_dir
+        light_vec = light_vec
     };
     uniform_write(global_matrices_uniform, *matrices);
 
@@ -341,7 +341,7 @@ end_frame :: () {
         projection = transpose(light_proj),
         view = transpose(light_view),
         light = matrices.light,
-        light_dir = matrices.light_dir
+        light_vec = matrices.light_vec
     };
     uniform_write(shadowmap_matrices_uniform, *shadowmap_matrices);
 
@@ -376,8 +376,8 @@ end_frame :: () {
     // defer reset(*context.immediate.debug_draw_data);
 }
 
-change_light_direction :: (dir: Vector3) {
-    global_renderer.light_dir = dir;
+change_light_vector :: (vec: Vector3) {
+    global_renderer.light_vec = vec;
 }
 
 set_projection_matrix :: (fov: float) {

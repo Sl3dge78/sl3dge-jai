@@ -80,6 +80,41 @@ texture_create :: (w: u32, h: u32, usage: wgpu.TextureUsage, format: wgpu.Textur
     return result;
 }
 
+cubemap_create :: (w: u32, h: u32, usage: wgpu.TextureUsage, format: wgpu.TextureFormat) -> Texture {
+    result : Texture;
+    result.w = w;
+    result.h = h;
+    desc := wgpu.TextureDescriptor.{
+        usage = xx usage,
+        dimension = ._2D,
+        size = .{w, h, 6},
+        format = format,
+        mipLevelCount = 1,
+        sampleCount = 1,
+        viewFormatCount = 0,
+        viewFormats = null,
+    };
+
+    result.handle = WGPU_Check(wgpu.DeviceCreateTexture(global_renderer.device, *desc));
+
+    view_desc := wgpu.TextureViewDescriptor.{
+        format = format,
+        dimension = ._2D,
+        baseMipLevel = 0,
+        mipLevelCount = 1,
+        baseArrayLayer = 0,
+        arrayLayerCount = 6,
+        aspect = .All,
+    };
+
+    if format == {
+        case .Depth24Plus; #through;
+        case .Depth32Float; view_desc.aspect = .DepthOnly;
+    }
+    result.view = WGPU_Check(wgpu.TextureCreateView(result.handle, *view_desc));
+    return result;
+}
+
 render_texture_create :: (w: u32, h: u32) -> Texture {
     return texture_create(w, h, .TextureBinding | .RenderAttachment, global_renderer.swapchain_format);
 }
