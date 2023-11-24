@@ -74,7 +74,7 @@ size_text :: (text: string, font: *Font) -> float {
     return text.count * font.width;
 }
 
-draw_char :: (immediate: *Immediate, it: u8, font: *Font, line_start: float, x: *float, y: *float, color: Vector4) {
+draw_char :: inline (immediate: *Immediate, it: u8, font: *Font, line_start: float, x: *float, y: *float, color: Vector4) {
     if it == #char "\n" {
         x.* = line_start;
         y.* += font.line_height;
@@ -84,9 +84,13 @@ draw_char :: (immediate: *Immediate, it: u8, font: *Font, line_start: float, x: 
         x.* += font.width * 4;
         return;
     }
-    
-    q : stbtt_aligned_quad = ---;
-    stbtt_GetPackedQuad(font.char_data.data, 512, 512, xx(it - font.first_char), x, y, *q, 0);
+
+    draw_char_raw(immediate, it, font, x, y.*, color);
+}
+
+draw_char_raw :: inline (immediate: *Immediate2D, it: u8, font: *Font, x: *float, y: float, color: Vector4) {
+     q : stbtt_aligned_quad = ---;
+    stbtt_GetPackedQuad(font.char_data.data, 512, 512, xx(it - font.first_char), x, *y, *q, 0);
     v : [6] UI_Vertex = ---; // = prepare_vertices(immediate, 6);
     v[0] = UI_Vertex.{ .{q.x0, q.y0}, Vector2.{q.s0, q.t0}, color };
     v[1] = UI_Vertex.{ .{q.x1, q.y1}, Vector2.{q.s1, q.t1}, color };
