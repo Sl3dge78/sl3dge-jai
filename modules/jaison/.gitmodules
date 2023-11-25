@@ -1,3 +1,0 @@
-[submodule "examples/modules/unicode_utils"]
-	path = examples/modules/unicode_utils
-	url = git@github.com:rluba/jai-unicode
