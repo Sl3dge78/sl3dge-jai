@@ -151,7 +151,7 @@ pipeline_builder_build :: (using builder: *Pipeline_Builder, device: wgpu.Device
     // Fragment
     if fragment.module != null {
         color_target := wgpu.ColorTargetState.{
-            format = global_renderer.swapchain_format, // @Hardcoded
+            format = global_renderer.surface_format, // @Hardcoded
             blend = *wgpu.BlendState.{
                 color = .{
                     operation = .Add, 

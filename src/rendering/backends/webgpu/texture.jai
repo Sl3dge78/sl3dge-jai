@@ -116,7 +116,7 @@ cubemap_create :: (w: u32, h: u32, usage: wgpu.TextureUsage, format: wgpu.Textur
 }
 
 render_texture_create :: (w: u32, h: u32) -> Texture {
-    return texture_create(w, h, .TextureBinding | .RenderAttachment, global_renderer.swapchain_format);
+    return texture_create(w, h, .TextureBinding | .RenderAttachment, global_renderer.surface_format);
 }
 
 texture_set_label :: (texture: *Texture, label: string) {

@@ -50,7 +50,7 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
     view: wgpu.TextureView = ---;
     load_op : wgpu.LoadOp;
     if render_target == null {
-        view = global_renderer.window_framebuffer;
+        view = global_renderer.surface_view;
         load_op = .Load;
     } else {
         view = render_target.view;
@@ -112,7 +112,7 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
         
         {   // Color
             color_attachment := wgpu.RenderPassColorAttachment.{
-                view = global_renderer.window_framebuffer,
+                view = global_renderer.surface_view,
                 resolveTarget = null,
                 loadOp = .Load,
                 storeOp = .Store,

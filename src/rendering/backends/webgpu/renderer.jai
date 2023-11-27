@@ -11,11 +11,12 @@ Renderer :: struct {
     adapter   : wgpu.Adapter;
     device    : wgpu.Device;
     queue     : wgpu.Queue;
-    swapchain : wgpu.SwapChain;
-    swapchain_format : wgpu.TextureFormat;
+
+    surface_format : wgpu.TextureFormat;
+    surface_texture: wgpu.SurfaceTexture;
+    surface_view   : wgpu.TextureView;
 
     depth_format :: wgpu.TextureFormat.Depth24Plus;
-    window_framebuffer: wgpu.TextureView;
     command_buffers: [..]wgpu.CommandBuffer;
 
     limits: wgpu.Limits;
@@ -93,8 +94,14 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
     wgpu.SetLogLevel(.Warn);
 
     {   // Instance
-        desc: wgpu.InstanceDescriptor;
-        renderer.instance = WGPU_Check(wgpu.CreateInstance(*desc));
+
+        instance_extras := wgpu.InstanceExtras.{
+            backends = .Vulkan | .GL,
+        };
+
+        desc := wgpu.InstanceDescriptor.{
+            nextInChain = cast(*wgpu.ChainedStruct)(*instance_extras),
+        };
         renderer.instance = WGPU_Check(wgpu.CreateInstance(*desc));
     }
 
@@ -134,6 +141,7 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
         }
 
         renderer.surface = WGPU_Check(wgpu.InstanceCreateSurface(renderer.instance, *desc));
+       
     }
     
     {   // Adapter
@@ -158,7 +166,9 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
         limits := get_required_limits(renderer.adapter);
 
         extras := wgpu.RequiredLimitsExtras.{
-            maxPushConstantSize = size_of(Standard_Push_Constants),
+            limits = .{
+                maxPushConstantSize = size_of(Standard_Push_Constants),
+            }
         };
 
         required_limits := wgpu.RequiredLimits.{
@@ -167,12 +177,12 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
         };
 
         required_features := wgpu.FeatureName.[
-            .PushConstants
+            xx wgpu.NativeFeature.PushConstants
         ];
 
         desc := wgpu.DeviceDescriptor.{
             label = "Main Device",
-            requiredFeaturesCount = required_features.count,
+            requiredFeatureCount = required_features.count,
             requiredFeatures =      required_features.data,
             requiredLimits = *required_limits,
             defaultQueue = . {
@@ -198,18 +208,31 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
     }
     
     {   // SwapChain
-        renderer.swapchain_format = wgpu.SurfaceGetPreferredFormat(renderer.surface, renderer.adapter);
-        desc := wgpu.SwapChainDescriptor.{
-            label = "Main SwapChain",
-            format = renderer.swapchain_format,
-            usage = xx wgpu.TextureUsage.RenderAttachment,
+        renderer.surface_format = wgpu.SurfaceGetPreferredFormat(renderer.surface, renderer.adapter);
+         config := wgpu.SurfaceConfiguration.{
+            device = renderer.device,
+            format = renderer.surface_format,
+            usage = .RenderAttachment,
+            viewFormatCount = 1,
+            viewFormats = *renderer.surface_format,
+            alphaMode = .Auto,
             width = 1280,
             height = 720,
             presentMode = .Fifo,
+
         };
-        renderer.width = desc.width;
-        renderer.height = desc.height;
-        renderer.swapchain = WGPU_Check(wgpu.DeviceCreateSwapChain(renderer.device, renderer.surface, *desc));
+        wgpu.SurfaceConfigure(renderer.surface, *config);
+        // desc := wgpu.SwapChainDescriptor.{
+        //     label = "Main SwapChain",
+        //     format = renderer.surface_format,
+        //     usage = xx wgpu.TextureUsage.RenderAttachment,
+        //     width = 1280,
+        //     height = 720,
+        //     presentMode = .Fifo,
+        // };
+        renderer.width = 1280;
+        renderer.height = 720;
+        // renderer.swapchain = WGPU_Check(wgpu.DeviceCreateSwapChain(renderer.device, renderer.surface, *desc));
     }
 
     {   // Sampler
@@ -268,7 +291,7 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
         
     }
 
-    renderer.window_framebuffer = WGPU_Check(wgpu.SwapChainGetCurrentTextureView(renderer.swapchain));
+    update_framebuffer(renderer);
     return renderer;
 }
 
@@ -300,7 +323,6 @@ renderer_destroy :: (using renderer: *Renderer) {
 
     wgpu.SamplerRelease(sampler);
 
-    wgpu.SwapChainRelease(swapchain);
     wgpu.QueueRelease(queue);
     wgpu.DeviceRelease(device);
     wgpu.AdapterRelease(adapter);
@@ -350,31 +372,26 @@ end_frame :: () {
     command_encoder := WGPU_Check(wgpu.DeviceCreateCommandEncoder(device, *encoder_desc));
     defer wgpu.CommandEncoderRelease(command_encoder);
     shadowmap_render_pass(renderer, command_encoder, shadowmap_framebuffer.view);
-    main_render_pass(renderer, command_encoder, global_renderer.window_framebuffer);
+    main_render_pass(renderer, command_encoder, global_renderer.surface_view);
     if show_debug {
-        debug_render_pass(renderer, command_encoder, global_renderer.window_framebuffer);
+        debug_render_pass(renderer, command_encoder, global_renderer.surface_view);
     }
-    ui_render_pass(renderer, command_encoder, global_renderer.window_framebuffer);
+    ui_render_pass(renderer, command_encoder, global_renderer.surface_view);
     
     command_buffer := WGPU_Check(wgpu.CommandEncoderFinish(command_encoder, *wgpu.CommandBufferDescriptor.{ label = "Main Command Buffer" }));
     array_add(*renderer.command_buffers, command_buffer);
 
     wgpu.QueueSubmit(queue, xx renderer.command_buffers.count, renderer.command_buffers.data);
-    wgpu.SwapChainPresent(swapchain);
-
+    wgpu.SurfacePresent(surface);
+    wgpu.TextureViewRelease(renderer.surface_view);
+    
     for renderer.command_buffers {
         defer wgpu.CommandBufferRelease(it);
     }
     renderer.command_buffers.count = 0;
 
-    wgpu.TextureViewRelease(global_renderer.window_framebuffer);
-    renderer.window_framebuffer = WGPU_Check(wgpu.SwapChainGetCurrentTextureView(renderer.swapchain));
-    
     buffer_pool_reset_keeping_memory(*global_renderer.immediate_pool);
-
-    // defer reset(*context.immediate._2d_draw_data);
-    // defer reset(*context.immediate._3d_draw_data);
-    // defer reset(*context.immediate.debug_draw_data);
+    update_framebuffer(*global_renderer);
 }
 
 change_light_vector :: (vec: Vector3) {
@@ -748,4 +765,19 @@ debug_render_pass :: (using renderer: *Renderer, command_encoder: wgpu.CommandEn
     // immediate_draw_debug(render_pass);
 
     wgpu.RenderPassEncoderEnd(render_pass);
+}
+
+update_framebuffer :: (using renderer: *Renderer) {
+    wgpu.SurfaceGetCurrentTexture(renderer.surface, *renderer.surface_texture);
+    desc := wgpu.TextureViewDescriptor.{
+        format = renderer.surface_format,
+        dimension =       ._2D,
+        baseMipLevel= 0,
+        mipLevelCount = 1,
+        baseArrayLayer = 0,
+        arrayLayerCount = 1,
+        aspect = .All
+    };
+    renderer.surface_view = wgpu.TextureCreateView(renderer.surface_texture.texture, *desc);
+
 }

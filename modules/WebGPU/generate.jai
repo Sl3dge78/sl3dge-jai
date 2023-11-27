@@ -1,7 +1,7 @@
 
 // if the lib path is empty system_library will be used.
 #if OS == .WINDOWS {
-    lib_path :: "win";
+    lib_path :: "windows";
 }  else {
     lib_path :: "linux";
 }
@@ -20,15 +20,12 @@ generate_bindings :: () -> bool {
         using opts;
 
         #if OS == .WINDOWS {
-            // @TODO
-            // array_add(*libnames, "vulkan-1");
-            // array_add(*extra_clang_arguments, "-x", "c", "-DWIN32_LEAN_AND_MEAN");
-            // output_filename  = "generated_windows.jai";
+            array_add(*libnames, "wgpu_native");
+            array_add(*libpaths, "windows");
         } else #if OS == .LINUX {
             array_add(*libnames, "libwgpu_native");
             array_add(*libpaths, ".");
         } else #if OS == .MACOS {
-            // @ToDo
             assert(false);
         } else {
             assert(false);
@@ -66,6 +63,7 @@ generate_bindings :: () -> bool {
 #import "Hash_Table";
 
 FOOTER :: #string END
+// Generated with wgpu-native v0.18.1.2
 #scope_file
 
 #if OS == .WINDOWS {
