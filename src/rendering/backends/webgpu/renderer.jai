@@ -257,7 +257,7 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
     create_bind_group_layouts(renderer);
 
     renderer.debug_pipeline = create_debug_pipeline(renderer);
-    renderer.ui_pipeline = create_ui_pipeline(renderer);
+    renderer.ui_pipeline = create_ui_pipeline(renderer, UI_SHADER);
     renderer.static_mesh_pipelines = create_static_mesh_pipeline(renderer);
     renderer.skinned_mesh_pipelines = create_skinned_mesh_pipeline(renderer);
 
@@ -410,8 +410,6 @@ set_scene :: (scene: *Scene) {
     global_renderer.current_scene = scene;
 }
 
-#scope_file
-
 report_gpu_leaks :: (instance: wgpu.Instance) {
     storage_report :: (s: wgpu.StorageReport, name: string, builder: *String_Builder) -> bool {
         if s.numOccupied == 0 then return false;
@@ -533,9 +531,8 @@ create_bind_group_layouts :: (using renderer: *Renderer) {
     }
 }
 
-create_ui_pipeline :: (using renderer: *Renderer) -> wgpu.RenderPipeline {
-    
-    shader_module := shader_module_create(UI_SHADER, device);
+create_ui_pipeline :: (using renderer: *Renderer, shader: string) -> wgpu.RenderPipeline {
+    shader_module := shader_module_create(shader, device);
     defer wgpu.ShaderModuleRelease(shader_module);
 
     layout_builder: Pipeline_Layout_Builder;

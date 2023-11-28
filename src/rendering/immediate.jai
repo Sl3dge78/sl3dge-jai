@@ -1,6 +1,8 @@
 Immediate :: struct(Vertex_Type: Type)  {
     command_encoder : wgpu.CommandEncoder;
     render_passes : [..]wgpu.RenderPassEncoder;
+    target_w: u32;
+    target_h: u32;
     
     locs : [..]Buffer_Location;
     current_position_in_buffer : u64; // in bytes
@@ -47,19 +49,23 @@ immediate_2d :: #bake_arguments immediate_begin(vertex_type = UI_Vertex);
 immediate_3d :: #bake_arguments immediate_begin(vertex_type = Standard_Vertex);
 
 immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : string = "") -> Immediate(vertex_type) {
+    result : Immediate(vertex_type);
+
     view: wgpu.TextureView = ---;
     load_op : wgpu.LoadOp;
     if render_target == null {
+        result.target_w = global_renderer.width;
+        result.target_h = global_renderer.height;
         view = global_renderer.surface_view;
         load_op = .Load;
     } else {
+        result.target_w = wgpu.TextureGetWidth(render_target);
+        result.target_h = wgpu.TextureGetHeight(render_target);
         view = render_target.view;
         load_op = .Clear;
     }
 
-    command_encoder := WGPU_Check(wgpu.DeviceCreateCommandEncoder(global_renderer.device, *wgpu.CommandEncoderDescriptor.{ label = temp_c_string(label) }));
-
-    render_passes : [..]wgpu.RenderPassEncoder;
+    result.command_encoder = WGPU_Check(wgpu.DeviceCreateCommandEncoder(global_renderer.device, *wgpu.CommandEncoderDescriptor.{ label = temp_c_string(label) }));
 
     #if vertex_type == UI_Vertex {
         color_attachment := wgpu.RenderPassColorAttachment.{
@@ -74,18 +80,13 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
             colorAttachmentCount = 1,
             colorAttachments = *color_attachment,
         };
-        render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(command_encoder, *render_pass_desc));
+        render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(result.command_encoder, *render_pass_desc));
         wgpu.RenderPassEncoderInsertDebugMarker(render_pass, temp_c_string(label));
         wgpu.RenderPassEncoderSetPipeline(render_pass, global_renderer.ui_pipeline);    
-        pc : UI_Push_Constants = ---;
-        if render_target == null {
-            pc = UI_Push_Constants.{.{2.0 / cast(float)global_renderer.width, -2.0 / cast(float)global_renderer.height}, .{-1, 1}};
-        } else {
-            pc = UI_Push_Constants.{.{2.0 / cast(float)wgpu.TextureGetWidth(render_target), -2.0 / cast(float)wgpu.TextureGetHeight(render_target)}, .{-1, 1}};
-        }
+        pc := UI_Push_Constants.{.{2.0 / cast(float)result.target_w, -2.0 / cast(float)result.target_h}, .{-1, 1}};
         wgpu.RenderPassEncoderSetPushConstants(render_pass, .Vertex, 0, size_of(type_of(pc)), *pc);
         wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, global_renderer.empty_texture_uniform.bind_group, 0, null);
-        array_add(*render_passes, render_pass);
+        array_add(*result.render_passes, render_pass);
 
     } else #if vertex_type == Standard_Vertex {
         {   // Directionnal Shadow
@@ -103,11 +104,11 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
                 label = "Shadow Map",
                 depthStencilAttachment = *attachment
             };
-            shadow_render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(command_encoder, *render_pass_desc));
+            shadow_render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(result.command_encoder, *render_pass_desc));
 
             wgpu.RenderPassEncoderSetPipeline(shadow_render_pass, global_renderer.static_mesh_pipelines[0]);
             wgpu.RenderPassEncoderSetBindGroup(shadow_render_pass, 0, global_renderer.shadowmap_matrices_uniform.bind_group, 0, null);
-            array_add(*render_passes, shadow_render_pass);
+            array_add(*result.render_passes, shadow_render_pass);
         }
         
         {   // Color
@@ -134,22 +135,28 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
                 colorAttachments = *color_attachment,
                 depthStencilAttachment = *depth_attachment,
             };
-            color_render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(command_encoder, *render_pass_desc));
+            color_render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(result.command_encoder, *render_pass_desc));
 
             wgpu.RenderPassEncoderSetPipeline(color_render_pass, global_renderer.static_mesh_pipelines[1]);
             wgpu.RenderPassEncoderSetBindGroup(color_render_pass, 0, global_renderer.global_matrices_uniform.bind_group, 0, null);
             wgpu.RenderPassEncoderSetBindGroup(color_render_pass, 1, global_renderer.shadowmap_texture_uniform.bind_group, 0, null);
             wgpu.RenderPassEncoderSetBindGroup(color_render_pass, 2, global_renderer.empty_uniform, 0, null);
             wgpu.RenderPassEncoderSetBindGroup(color_render_pass, 3, global_renderer.empty_texture_uniform.bind_group, 0, null);
-            array_add(*render_passes, color_render_pass);
+            array_add(*result.render_passes, color_render_pass);
         }
     } else {
         #assert false, "Unsupported vertex type %", vertex_type;
     }
-    return Immediate(vertex_type).{
-        command_encoder = command_encoder,
-        render_passes = render_passes
-    };
+    return result;
+}
+
+// Only for 2d for now...
+immediate_use_shader :: (using immediate: *Immediate2D, pipeline: wgpu.RenderPipeline) {
+    wgpu.RenderPassEncoderSetPipeline(render_passes[0], pipeline);    
+    pc := UI_Push_Constants.{.{2.0 / cast(float)target_w, -2.0 / cast(float)target_h}, .{-1, 1}};
+    wgpu.RenderPassEncoderSetPushConstants(render_passes[0], .Vertex, 0, size_of(type_of(pc)), *pc);
+    wgpu.RenderPassEncoderSetBindGroup(render_passes[0], 0, global_renderer.empty_texture_uniform.bind_group, 0, null);
+
 }
 
 immediate_default_texture :: (using immediate: *Immediate2D) {

@@ -29,6 +29,7 @@ extension_infos := Extension_Info.[
     .{"var", load_var_file, unload_var, get_var_type},
     .{"ttf", load_font_file, unload_font, get_font_type},
     // .{"glsl", load_shader, get_shader_type},
+    .{"wgsl", load_wgsl, unload_wgsl, get_wgsl_type},
     .{"png", load_image, unload_image, get_image_type},
 ];
 
@@ -243,4 +244,19 @@ unload_image :: (info: *Resource_Info) {
 
 get_image_type :: (path: string) -> string {
     return "Texture";
+}
+
+load_wgsl :: (info: *Resource_Info) -> bool {
+    file, success := read_entire_file(info.path);
+    pipeline := create_ui_pipeline(*global_renderer, file);
+    (cast(*wgpu.RenderPipeline)info.pointer).* = pipeline;
+   return true;
+}
+
+unload_wgsl :: (info: *Resource_Info) {
+    wgpu.RenderPipelineRelease((cast(*wgpu.RenderPipeline)info.pointer).*);
+}
+
+get_wgsl_type :: (path: string) -> string {
+    return "wgpu.RenderPipeline";
 }
