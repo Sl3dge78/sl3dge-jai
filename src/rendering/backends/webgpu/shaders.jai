@@ -107,8 +107,8 @@ STANDARD_SHADER :: #string __WGSL
     @group(3) @binding(1) var diff_texture: texture_2d<f32>;
 
     const constant : f32 = 1.0;
-    const linear : f32 = 0.09;
-    const quadratic : f32 = 0.002;
+    const linear : f32 = 0.5;
+    const quadratic : f32 = 0.02;
 
     @vertex
     fn static_vs (in: Static_Vertex_Input) -> Vertex_Output {

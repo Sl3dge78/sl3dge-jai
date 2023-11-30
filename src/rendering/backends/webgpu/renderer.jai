@@ -382,7 +382,13 @@ end_frame :: () {
     array_add(*renderer.command_buffers, command_buffer);
 
     wgpu.QueueSubmit(queue, xx renderer.command_buffers.count, renderer.command_buffers.data);
+
+    // Before present to have the real time
+    frame_end := SDL_GetPerformanceCounter();
+    global_engine.frame_time = cast(float)(frame_end - global_engine.frame_start) / cast(float)SDL_GetPerformanceFrequency();
     wgpu.SurfacePresent(surface);
+    global_engine.frame_start = SDL_GetPerformanceCounter();
+
     wgpu.TextureViewRelease(renderer.surface_view);
     
     for renderer.command_buffers {
