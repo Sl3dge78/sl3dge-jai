@@ -304,6 +304,10 @@ renderer_destroy :: (using renderer: *Renderer) {
     wgpu.RenderPipelineRelease(ui_pipeline);
     wgpu.RenderPipelineRelease(static_mesh_pipelines[0]);
     wgpu.RenderPipelineRelease(static_mesh_pipelines[1]);
+    wgpu.RenderPipelineRelease(skinned_mesh_pipelines[0]);
+    wgpu.RenderPipelineRelease(skinned_mesh_pipelines[1]);
+
+    wgpu.BindGroupRelease(empty_uniform);
 
     destroy(*global_matrices_uniform);
     destroy(*shadowmap_matrices_uniform);
@@ -312,6 +316,9 @@ renderer_destroy :: (using renderer: *Renderer) {
     destroy(*shadowmap_texture_uniform);
     
     destroy(*depth_texture);
+
+    destroy(*empty_texture);
+    destroy(*empty_texture_uniform);
 
     wgpu.BindGroupLayoutRelease(empty_bgl);
     wgpu.BindGroupLayoutRelease(single_texture_bgl);
