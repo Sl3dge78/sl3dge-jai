@@ -47,6 +47,10 @@ texture_uniform_create :: (sampler: wgpu.Sampler, texture_view: wgpu.TextureView
     return .{WGPU_Check(wgpu.DeviceCreateBindGroup(global_renderer.device, *desc))};
 }
 
+operator == :: (a: Texture_Uniform, b: Texture_Uniform) -> bool {
+    return a.bind_group == b.bind_group;
+}
+
 destroy :: inline (using self: *Texture_Uniform) {
     wgpu.BindGroupRelease(bind_group);
 }

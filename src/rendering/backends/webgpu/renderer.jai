@@ -298,9 +298,7 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
 renderer_destroy :: (using renderer: *Renderer) {
     buffer_pool_reset(*mesh_buffer_pool);
     buffer_pool_reset(*uniform_pool);
-
-    // destroy(*context.immediate._2d_draw_data);
-    // destroy(*context.immediate._3d_draw_data);
+    buffer_pool_reset(*immediate_pool);
 
     wgpu.RenderPipelineRelease(debug_pipeline);
     wgpu.RenderPipelineRelease(ui_pipeline);
