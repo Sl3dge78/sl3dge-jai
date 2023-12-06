@@ -113,11 +113,11 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
         
         {   // Color
             color_attachment := wgpu.RenderPassColorAttachment.{
-                view = global_renderer.surface_view,
+                view = view,
                 resolveTarget = null,
-                loadOp = .Load,
+                loadOp = load_op,
                 storeOp = .Store,
-                // clearValue = .{0.529, 0.808, 0.922, 1.0}
+                clearValue = .{0.0, 0.0, 0.0, 1.0}
             };
             depth_attachment := wgpu.RenderPassDepthStencilAttachment.{
                 view = global_renderer.depth_texture.view,
@@ -143,6 +143,8 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
             wgpu.RenderPassEncoderSetBindGroup(color_render_pass, 2, global_renderer.empty_uniform, 0, null);
             wgpu.RenderPassEncoderSetBindGroup(color_render_pass, 3, global_renderer.empty_texture_uniform.bind_group, 0, null);
             array_add(*result.render_passes, color_render_pass);
+
+            set_model_matrix(*result, Matrix4_Identity);
         }
     } else {
         #assert false, "Unsupported vertex type %", vertex_type;
@@ -208,13 +210,13 @@ push_vertices :: (imm: *Immediate, vertices: []$T) {
 draw_2d_rect :: (immediate: *Immediate2D, p0: Vector2, p1: Vector2, color: Vector4 = . {1, 1, 1, 1}) {
     v : [6]UI_Vertex; 
     n := Vector3.{0, 0, 1};
-    v[0] = .{ p0, .{1, 1}, color};
-    v[1] = .{ xy(p0.x, p1.y), .{1, 1}, color};
+    v[0] = .{ p0, .{0, 0}, color};
+    v[1] = .{ xy(p0.x, p1.y), .{0, 1}, color};
     v[2] = .{ p1, .{1, 1}, color};
     
-    v[3] = .{ p0, .{1, 1}, color};
+    v[3] = .{ p0, .{0, 0}, color};
     v[4] = .{ p1, .{1, 1}, color};
-    v[5] = .{ xy(p1.x, p0.y), .{1, 1} , color};
+    v[5] = .{ xy(p1.x, p0.y), .{1, 0} , color};
     push_vertices(immediate, v);
 }
 
@@ -258,27 +260,39 @@ draw_plane :: (immediate: *Immediate3D, center: Vector3, size: Vector2) {
 }
 
 draw_cylinder :: (immediate: *Immediate3D) {
-        NB_ITERATIONS :: 20;
-        iter_size :: 2 * PI / (NB_ITERATIONS);
-        radius :: 1;
-        height :: 1;
+    NB_ITERATIONS :: 20;
+    iter_size :: 2 * PI / (NB_ITERATIONS);
+    radius :: 1;
+    height :: 1;
 
-        for 0..NB_ITERATIONS {
-            angle := iter_size * it;
-            x1 := cos(angle) * radius;
-            x2 := cos(angle + iter_size) * radius;
-            z1 := sin(angle) * radius;
-            z2 := sin(angle + iter_size) * radius;
-            p0 := xyz(x1, 0, z1);
-            p3 := xyz(x2, 0, z2);
-            draw_quad(immediate, p0, xyz(x1, height, z1), xyz(x2, height, z2), p3, 
-            normal = cross(normalize(p3 - p0), UP));
-        }
-
-        // Draw floor & ceiling as simple quad
-        draw_quad(immediate, xyz(-radius, 0, -radius), xyz(radius, 0, -radius), xyz(radius, 0, radius), xyz(-radius, 0, radius), UP); 
-        draw_quad(immediate, xyz(-radius, height, -radius), xyz(radius, height, -radius), xyz(radius, height, radius), xyz(-radius, height, radius), DOWN); 
+    for 0..NB_ITERATIONS {
+        angle := iter_size * it;
+        x1 := cos(angle) * radius;
+        x2 := cos(angle + iter_size) * radius;
+        z1 := sin(angle) * radius;
+        z2 := sin(angle + iter_size) * radius;
+        p0 := xyz(x1, 0, z1);
+        p3 := xyz(x2, 0, z2);
+        draw_quad(immediate, p0, xyz(x1, height, z1), xyz(x2, height, z2), p3, 
+        normal = cross(normalize(p3 - p0), UP));
     }
+
+    // Draw floor & ceiling as simple quad
+    draw_quad(immediate, xyz(-radius, 0, -radius), xyz(radius, 0, -radius), xyz(radius, 0, radius), xyz(-radius, 0, radius), UP); 
+    draw_quad(immediate, xyz(-radius, height, -radius), xyz(radius, height, -radius), xyz(radius, height, radius), xyz(-radius, height, radius), DOWN); 
+}
+
+draw_cube :: (immediate: *Immediate3D, color : Vector4 = .{1, 1, 1, 1}) {
+    draw_quad(immediate, xyz(-.5, -.5, -.5), xyz(.5, -.5, -.5), xyz(.5, -.5, .5), xyz(-.5, -.5, .5), DOWN, color); 
+    draw_quad(immediate, xyz(-.5, .5, -.5), xyz(-.5, .5, .5),  xyz(.5, .5, .5), xyz(.5, .5, -.5), UP, color);
+    draw_quad(immediate, xyz(-.5, -.5, -.5), xyz(-.5, -.5, .5), xyz(-.5, .5, .5), xyz(-.5, .5, -.5), RIGHT, color); 
+    draw_quad(immediate, xyz(.5, -.5, -.5), xyz(.5, .5, -.5), xyz(.5, .5, .5), xyz(.5, -.5, .5), LEFT, color); 
+    draw_quad(immediate, xyz(-.5, -.5, -.5), xyz(-.5, .5, -.5), xyz(.5, .5, -.5), xyz(.5, -.5, -.5) , BACK, color); 
+    draw_quad(immediate, xyz(-.5, -.5, .5), xyz(.5, -.5, .5), xyz(.5, .5, .5), xyz(-.5, .5, .5) , FORWARD, color); 
+    
+}
+// immediate_cube :: (offset: Vector3 = .{0, 0, 0}, color: Vector4 = .{1, 1, 1, 1}) {
+// }
 
 
 // Immediate :: struct {
@@ -353,16 +367,6 @@ draw_cylinder :: (immediate: *Immediate3D) {
 //     v[5] = .{p3, normal, .{0, 1}, color};
 // }
 
-// immediate_cube :: (offset: Vector3 = .{0, 0, 0}, color: Vector4 = .{1, 1, 1, 1}) {
-//     immediate_quad(xyz(-.5, -.5, -.5) + offset, xyz(.5, -.5, -.5) + offset, xyz(.5, -.5, .5) + offset, xyz(-.5, -.5, .5) + offset, DOWN, color); 
-//     immediate_quad(xyz(-.5, .5, -.5) + offset, xyz(-.5, .5, .5) + offset,  xyz(.5, .5, .5) + offset, xyz(.5, .5, -.5) + offset, UP, color);
-
-//     immediate_quad(xyz(-.5, -.5, -.5) + offset, xyz(-.5, -.5, .5) + offset, xyz(-.5, .5, .5) + offset, xyz(-.5, .5, -.5) + offset, RIGHT, color); 
-//     immediate_quad(xyz(.5, -.5, -.5) + offset, xyz(.5, .5, -.5) + offset, xyz(.5, .5, .5) + offset, xyz(.5, -.5, .5) + offset, LEFT, color); 
-
-//     immediate_quad(xyz(-.5, -.5, -.5) + offset, xyz(-.5, .5, -.5) + offset, xyz(.5, .5, -.5) + offset, xyz(.5, -.5, -.5) + offset, BACK, color); 
-//     immediate_quad(xyz(-.5, -.5, .5) + offset, xyz(.5, -.5, .5) + offset, xyz(.5, .5, .5) + offset, xyz(-.5, .5, .5) + offset, FORWARD, color); 
-// }
 
 // immediate_set_transform :: (xform: Matrix4) {
 //     context.immediate._3d_draw_data.transform = xform;
