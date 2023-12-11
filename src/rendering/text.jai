@@ -4,9 +4,7 @@ Font :: struct {
     texture: Texture;
     line_height : float;
     width : float;
-    // binding: wgpu.BindGroup;
     uniform : Texture_Uniform;
-    // descriptor: VkDescriptorSet;
 }
 
 font_from_file :: (path: string, size: float) -> Font, bool {

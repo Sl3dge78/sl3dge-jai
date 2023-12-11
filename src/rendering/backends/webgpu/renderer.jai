@@ -95,12 +95,7 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
 
     {   // Instance
 
-        instance_extras := wgpu.InstanceExtras.{
-            backends = .Vulkan | .GL,
-        };
-
         desc := wgpu.InstanceDescriptor.{
-            nextInChain = cast(*wgpu.ChainedStruct)(*instance_extras),
         };
         renderer.instance = WGPU_Check(wgpu.CreateInstance(*desc));
     }
@@ -147,11 +142,14 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
     {   // Adapter
         options := wgpu.RequestAdapterOptions.{
             compatibleSurface = renderer.surface,
-            powerPreference = .HighPerformance,
         };
         wgpu.InstanceRequestAdapter(renderer.instance, *options, adapter_cb, *renderer.adapter);
         assert(renderer.adapter != null, "Unable to create Adapter");
 
+        props : wgpu.AdapterProperties = ---;
+        wgpu.AdapterGetProperties(renderer.adapter, *props);
+
+        log("%", props);
         nb := wgpu.AdapterEnumerateFeatures(renderer.adapter, null);
         features := NewArray(xx nb, wgpu.FeatureName, allocator = temp);
 
@@ -209,6 +207,19 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
     
     {   // SwapChain
         renderer.surface_format = wgpu.SurfaceGetPreferredFormat(renderer.surface, renderer.adapter);
+        {
+            caps : wgpu.SurfaceCapabilities = ---;
+            wgpu.SurfaceGetCapabilities(renderer.surface, renderer.adapter, *caps);
+            log("Surface caps: %", caps);
+            log("Present modes: ");
+            p_modes : []wgpu.PresentMode;
+            p_modes.data = caps.presentModes;
+            p_modes.count = xx caps.presentModeCount;
+            for p_modes {
+                log("%", it);
+            }
+
+        }
          config := wgpu.SurfaceConfiguration.{
             device = renderer.device,
             format = renderer.surface_format,
@@ -451,6 +462,7 @@ report_gpu_leaks :: (instance: wgpu.Instance) {
         case .Vulkan; found |= hub_report(report.vulkan, *builder);
         case .OpenGL; found |= hub_report(report.gl, *builder);
         case .Metal; found |= hub_report(report.metal, *builder);
+        case .D3D12; found |= hub_report(report.dx12, *builder);
         case; assert(false, "Memory check unimplemented for backend : %", report.backendType);
     }
     
@@ -777,6 +789,12 @@ debug_render_pass :: (using renderer: *Renderer, command_encoder: wgpu.CommandEn
 
 update_framebuffer :: (using renderer: *Renderer) {
     wgpu.SurfaceGetCurrentTexture(renderer.surface, *renderer.surface_texture);
+
+    while renderer.surface_texture.status != .Success  {
+        wgpu.SurfaceGetCurrentTexture(renderer.surface, *renderer.surface_texture);
+        // assert(renderer.surface_texture.status == .Success, "Surface status: %", renderer.surface_texture.status);
+    }
+
     desc := wgpu.TextureViewDescriptor.{
         format = renderer.surface_format,
         dimension =       ._2D,
@@ -786,6 +804,7 @@ update_framebuffer :: (using renderer: *Renderer) {
         arrayLayerCount = 1,
         aspect = .All
     };
+    log("Surface: %", renderer.surface_format);
     renderer.surface_view = wgpu.TextureCreateView(renderer.surface_texture.texture, *desc);
 
 }

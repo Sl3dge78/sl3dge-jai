@@ -44,8 +44,8 @@ create_texture_from_data :: (ptr: *void, w: u32, h: u32, channels: int, $data_ty
     texture := create_texture(w, h, format, .TRANSFER_DST_BIT | .SAMPLED_BIT);
 
     image_size: VkDeviceSize = xx(texture.w * texture.h * channels);
-    staging_buffer := create_buffer(image_size, .TRANSFER_SRC_BIT, .UPLOAD);
-    defer destroy_buffer(*staging_buffer);
+    staging_buffer := buffer_create(image_size, .TRANSFER_SRC_BIT, .UPLOAD);
+    defer destroy(*staging_buffer);
     copy_data(staging_buffer, ptr, image_size);
 
     transition_image_layout(texture.image, .UNDEFINED, .TRANSFER_DST_OPTIMAL);
@@ -55,7 +55,7 @@ create_texture_from_data :: (ptr: *void, w: u32, h: u32, channels: int, $data_ty
     return texture;
 }
 
-destroy_texture :: (texture: *Texture) {
+destroy :: (texture: *Texture) {
     vkDestroyImageView(global_renderer.device, texture.view, null);
     vkDestroyImage(global_renderer.device, texture.image, null);
     texture.image = null;

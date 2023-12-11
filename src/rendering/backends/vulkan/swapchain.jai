@@ -108,7 +108,7 @@ Swapchain :: struct {
             array_reset(*image_views);
             array_reset(*images);
         }
-        Texture.destroy(*depth_texture);
+        destroy(*depth_texture);
 
         vkDestroySwapchainKHR(device, handle, null);
     }
