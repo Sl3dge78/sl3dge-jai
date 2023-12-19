@@ -4,7 +4,7 @@ Font :: struct {
     texture: Texture;
     line_height : float;
     width : float;
-    uniform : Texture_Uniform;
+    descriptor_set: VkDescriptorSet;
 }
 
 font_from_file :: (path: string, size: float) -> Font, bool {
@@ -31,20 +31,11 @@ font_from_data :: (font_data: string, size: float) -> Font, bool {
     self.first_char = 0;
     stbtt_PackFontRange(*pack_context, font_data.data, 0, size, xx self.first_char, 437, self.char_data.data);
     stbtt_PackEnd(*pack_context);
-    // @HACK: We do this so that we don't need to change textures when drawing a plain color
-    x := bitmap.count - 1;
-    bitmap[x] = 255;
-    x -= 1;
-    bitmap[x] = 255;
-    x -= 512;
-    bitmap[x] = 255;
-    x += 1;
-    bitmap[x] = 255;
 
     self.texture = texture_from_data(bitmap.data, 512, 512, 1, u8);
-    texture_set_label(*self.texture, "Font Atlas");
 
-    self.uniform = texture_uniform_create(global_renderer.sampler, self.texture.view, global_renderer.single_texture_bgl);
+    self.descriptor_set = descriptor_set_create_texture(self.texture);
+    texture_change_layout(self.texture, .UNDEFINED, .SHADER_READ_ONLY_OPTIMAL);
     
     // Get additional font info
     info : stbtt_fontinfo = ---;
@@ -64,7 +55,6 @@ font_from_data :: (font_data: string, size: float) -> Font, bool {
 
 destroy :: (font: *Font) {
     destroy(*font.texture);
-    destroy(*font.uniform);
 }
 
 size_text :: (text: string, font: *Font) -> float {

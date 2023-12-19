@@ -2498,7 +2498,7 @@ RenderPassEncoderEndPipelineStatisticsQuery :: (renderPassEncoder: RenderPassEnc
 #if OS == .WINDOWS {
     wgpu_native :: #library,no_dll "windows/wgpu_native";
 } else #if OS == .LINUX {
-    wgpu_native :: #library,no_dll "libwgpu_native";
+    wgpu_native :: #library,no_dll "linux/libwgpu_native";
 } else {
     #assert(false);
 }

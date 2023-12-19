@@ -84,7 +84,11 @@ console_print :: (msg: string, args: .. Any) {
             lines[i] = lines[i+1];
         }
     }
-    lines[last_line] = sprint(msg, .. args);
+    builder : String_Builder;
+    builder.allocator = context.default_allocator;
+    print_to_builder(*builder, msg, ..args);
+    lines[last_line] = builder_to_string(*builder);
+
     last_line += 1;
 }
 
@@ -97,3 +101,8 @@ console_log :: (message: string, data: *void, info: Log_Info) {
 
 #scope_file
 global_console: Console;
+
+
+// I ran into something and I don't quite know what to think about it:
+// I have a custom logger that redirects output to a console. This works fairly simply, I override `context.logger` with my own function, that copies the string to a list to be displayed. 
+// Now sometimes I want to load files, only for a frame. `read_entire_file` doesn't take an allocator as param so I `push_context` with the temp allocator. If the file doesn't exists, `read_entire_file` will log it so it will make an allocation with the current allocator. `default_logger` is my console so I catch it there and basically have to force reallocate it everytime in case the current allocator is temp... 

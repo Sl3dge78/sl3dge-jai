@@ -6,7 +6,7 @@ Texture :: struct {
     h : u32;
 }
 
-create_texture :: (w: u32, h: u32, format: VkFormat, $usage: VkImageUsageFlags, aspect: VkImageAspectFlags = .COLOR_BIT) -> Texture {
+texture_create :: (w: u32, h: u32, format: VkFormat, $usage: VkImageUsageFlags, aspect: VkImageAspectFlags = .COLOR_BIT) -> Texture {
     texture: Texture;
     texture.w = w;
     texture.h = h;
@@ -29,9 +29,17 @@ create_texture :: (w: u32, h: u32, format: VkFormat, $usage: VkImageUsageFlags, 
     return texture;
 }
 
+texture_from_file :: (path: string) -> Texture {
+    channels: s32;
+    w: s32;
+    h: s32;
+    img := stbi_load(temp_c_string(path), *w, *h, *channels, 4);
+    assert(img != null, "Unable to load %.", path);
+    defer stbi_image_free(img);
+    return texture_from_data(img, xx w, xx h, channels, u8);
+}
 
-
-create_texture_from_data :: (ptr: *void, w: u32, h: u32, channels: int, $data_type: Type) -> Texture {
+texture_from_data :: (ptr: *void, w: u32, h: u32, channels: int, $data_type: Type) -> Texture {
     format : VkFormat = ---;
     #if data_type == u8 {
         if channels == {
@@ -41,15 +49,15 @@ create_texture_from_data :: (ptr: *void, w: u32, h: u32, channels: int, $data_ty
         }
     } else #assert false;
 
-    texture := create_texture(w, h, format, .TRANSFER_DST_BIT | .SAMPLED_BIT);
+    texture := texture_create(w, h, format, .TRANSFER_DST_BIT | .SAMPLED_BIT);
 
     image_size: VkDeviceSize = xx(texture.w * texture.h * channels);
     staging_buffer := buffer_create(image_size, .TRANSFER_SRC_BIT, .UPLOAD);
     defer destroy(*staging_buffer);
-    copy_data(staging_buffer, ptr, image_size);
+    buffer_write_data(staging_buffer, ptr, image_size);
 
     transition_image_layout(texture.image, .UNDEFINED, .TRANSFER_DST_OPTIMAL);
-    copy_buffer_to_image(staging_buffer.buffer, texture.image, xx texture.w, xx texture.h);
+    copy_buffer_to_image(staging_buffer.handle, texture.image, xx texture.w, xx texture.h);
     transition_image_layout(texture.image, .TRANSFER_DST_OPTIMAL, .SHADER_READ_ONLY_OPTIMAL);
 
     return texture;
@@ -61,6 +69,10 @@ destroy :: (texture: *Texture) {
     texture.image = null;
     vkFreeMemory(global_renderer.device, texture.memory, null);
     texture.memory = null;
+}
+
+texture_change_layout :: (texture: Texture, $old_layout: VkImageLayout, $new_layout: VkImageLayout, cmd: VkCommandBuffer = VK_NULL_HANDLE) {
+    transition_image_layout(texture.image, old_layout, new_layout, cmd);
 }
 
 transition_image_layout :: (image: VkImage, $old_layout: VkImageLayout, $new_layout: VkImageLayout, cmd: VkCommandBuffer = VK_NULL_HANDLE) {

@@ -13,11 +13,11 @@ destroy :: (using mesh : *Mesh) {
     array_reset(*submeshes);
 }
 
-draw :: inline (using self: Mesh, render_pass: wgpu.RenderPassEncoder) {
+draw :: inline (using self: Mesh, command_buffer: VkCommandBuffer) {
     for submeshes {
-        wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 0, it.vertices.buffer, it.vertices.offset, it.vertices.size);
-        wgpu.RenderPassEncoderSetIndexBuffer(render_pass, it.indices.buffer, .Uint32, it.indices.offset, it.indices.size);
-        wgpu.RenderPassEncoderDrawIndexed(render_pass, it.index_count, 1, 0, 0, 0);
+        vkCmdBindVertexBuffers(command_buffer, 0, 1, *it.vertices.buffer.handle, *it.vertices.offset);
+        vkCmdBindIndexBuffer(command_buffer, it.indices.buffer.handle, it.indices.offset, .UINT32);
+        vkCmdDrawIndexed(command_buffer, it.index_count, 1, 0, 0, 0);
     }
 }
 

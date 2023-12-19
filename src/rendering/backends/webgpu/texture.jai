@@ -119,10 +119,6 @@ render_texture_create :: (w: u32, h: u32) -> Texture {
     return texture_create(w, h, .TextureBinding | .RenderAttachment, global_renderer.surface_format);
 }
 
-texture_set_label :: (texture: *Texture, label: string) {
-    // wgpu.TextureSetLabel(texture, temp_c_string(label));
-}
-
 destroy :: (texture: *Texture) {
     wgpu.TextureRelease(texture.handle);
     wgpu.TextureViewRelease(texture.view);

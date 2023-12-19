@@ -1,6 +1,5 @@
 Immediate :: struct(Vertex_Type: Type)  {
-    command_encoder : wgpu.CommandEncoder;
-    render_passes : [..]wgpu.RenderPassEncoder;
+    render_passes : [..]VkCommandBuffer;
     target_w: u32;
     target_h: u32;
     
@@ -18,8 +17,8 @@ flush :: (using immediate: *Immediate) {
         size : u64 = xx (vertices.count * size_of(type_of(vertices[0])));
         buffer_write_data(loc.buffer, vertices.data, size, loc.offset + current_position_in_buffer);
         for render_passes {
-            wgpu.RenderPassEncoderSetVertexBuffer(it, 0, loc.buffer.handle, loc.offset + current_position_in_buffer, loc.size);
-            wgpu.RenderPassEncoderDraw(it, xx vertices.count, 1, 0, 0);
+            vkCmdBindVertexBuffers(it, 0, 1, *loc.buffer.handle, *(loc.offset + current_position_in_buffer));
+            vkCmdDraw(it, xx vertices.count, 1, 0, 0);
         }
         current_position_in_buffer += size;
         vertices.count = 0;
@@ -31,7 +30,7 @@ maybe_grow :: (using immediate: *Immediate, nb: u32) -> Buffer_Location {
     assert(size < BUFFER_SIZE, "Pushing too many vertices to immediate!!");
     if locs.count == 0 ||  size + current_position_in_buffer >= locs[locs.count - 1].size {
         flush(immediate);
-        loc := buffer_pool_get(*global_renderer.immediate_pool, BUFFER_SIZE);
+        loc := buffer_pool_get(*global_renderer.immediate_buffer_pool, BUFFER_SIZE);
         array_add(*locs, loc);
         current_position_in_buffer = 0;
         

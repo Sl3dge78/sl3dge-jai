@@ -40,7 +40,7 @@ Skinned_Mesh_Instance :: struct {
     transform: Matrix4;
 
     current_pose: Skeleton_Pose;
-    joint_uniform: Uniform;
+    joint_uniform: VkDescriptorSet;
 }
 
 destroy :: (using self: *Skeleton_Definition) {
@@ -63,17 +63,17 @@ destroy :: (using self : *Skinned_Mesh) {
     self.* = .{};
 }
 
-draw :: inline (using self: Skinned_Mesh, render_pass: wgpu.RenderPassEncoder) {
+draw :: inline (using self: Skinned_Mesh, command_buffer: VkCommandBuffer) {
     for submeshes {
-        wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 0, it.vertices.buffer, it.vertices.offset, it.vertices.size);
-        wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 1, skins[it_index].buffer, skins[it_index].offset, skins[it_index].size);
-        wgpu.RenderPassEncoderSetIndexBuffer(render_pass, it.indices.buffer, .Uint32, it.indices.offset, it.indices.size);
-        wgpu.RenderPassEncoderDrawIndexed(render_pass, it.index_count, 1, 0, 0, 0);
+        buffers := VkBuffer.[it.vertices.buffer.handle, skins[it_index].buffer.handle];
+        offsets := VkDeviceSize.[it.vertices.offset, skins[it_index].offset];
+        vkCmdBindVertexBuffers(command_buffer, 0, 2, buffers.data, offsets.data);
+        vkCmdBindIndexBuffer(command_buffer, it.indices.buffer.handle, it.indices.offset, .UINT32);
+        vkCmdDrawIndexed(command_buffer, it.index_count, 1, 0, 0, 0);
     }
 }
 
 destroy :: (self: *Skinned_Mesh_Instance) {
-    destroy(*self.joint_uniform);
     free(self.current_pose.data);
 }
 
@@ -217,7 +217,7 @@ upload_skeleton :: (using self: *Skinned_Mesh_Instance) {
         }
     }
 
-    uniform_write(self.joint_uniform, *buffer);
+    descriptor_set_write(self.joint_uniform, *buffer);
 }
 
 // set_bone_matrix :: (using self: *Skinned_Mesh_Instance, name: string, matrix: Matrix4) {

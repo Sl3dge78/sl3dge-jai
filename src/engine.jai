@@ -37,7 +37,7 @@ engine_destroy :: () {
     destroy(*global_engine.default_font);
     Resources.destroy();
     console_destroy();
-    renderer_destroy(*global_engine.renderer);
+    destroy(*global_engine.renderer);
     SDL_DestroyWindow(global_engine.window);
     SDL_Quit();
 }

@@ -10,3 +10,4 @@
 #load "vulkan/descriptor_set.jai";
 #load "vulkan/swapchain.jai";
 #load "vulkan/frame_data.jai";
+#load "vulkan/shaders.jai";
