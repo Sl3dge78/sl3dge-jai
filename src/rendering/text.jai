@@ -4,7 +4,7 @@ Font :: struct {
     texture: Texture;
     line_height : float;
     width : float;
-    descriptor_set: VkDescriptorSet;
+    descriptor_set: Uniform_Texture;
 }
 
 font_from_file :: (path: string, size: float) -> Font, bool {
@@ -34,7 +34,7 @@ font_from_data :: (font_data: string, size: float) -> Font, bool {
 
     self.texture = texture_from_data(bitmap.data, 512, 512, 1, u8);
 
-    self.descriptor_set = descriptor_set_create_texture(self.texture);
+    self.descriptor_set = uniform_texture_create(self.texture);
     texture_change_layout(self.texture, .UNDEFINED, .SHADER_READ_ONLY_OPTIMAL);
     
     // Get additional font info

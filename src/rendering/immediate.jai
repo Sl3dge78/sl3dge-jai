@@ -1,5 +1,5 @@
 Immediate :: struct(Vertex_Type: Type)  {
-    render_passes : [..]VkCommandBuffer;
+    command_buffers : [..]VkCommandBuffer;
     target_w: u32;
     target_h: u32;
     
@@ -50,36 +50,66 @@ immediate_3d :: #bake_arguments immediate_begin(vertex_type = Standard_Vertex);
 immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : string = "") -> Immediate(vertex_type) {
     result : Immediate(vertex_type);
 
-    view: wgpu.TextureView = ---;
-    load_op : wgpu.LoadOp;
+    view: VkImageView = ---;
+    load_op : VkAttachmentLoadOp;
     if render_target == null {
-        result.target_w = global_renderer.width;
-        result.target_h = global_renderer.height;
-        view = global_renderer.surface_view;
-        load_op = .Load;
+        result.target_w = global_renderer.swapchain.extent.width;
+        result.target_h = global_renderer.swapchain.extent.height;
+        view = global_renderer.frame_data[global_renderer.frame_index].framebuffer;
+        load_op = .LOAD;
     } else {
-        result.target_w = wgpu.TextureGetWidth(render_target);
-        result.target_h = wgpu.TextureGetHeight(render_target);
+        result.target_w = render_target.w;
+        result.target_h = render_target.h;
         view = render_target.view;
-        load_op = .Clear;
+        load_op = .CLEAR;
     }
 
-    result.command_encoder = WGPU_Check(wgpu.DeviceCreateCommandEncoder(global_renderer.device, *wgpu.CommandEncoderDescriptor.{ label = temp_c_string(label) }));
+    count : u32 = 0;
+    #if vertex_type == UI_Vertex {
+        count = 1;
+    } else #if vertex_type == Standard_Vertex {
+        count = 2;
+    }
+
+    alloc_info := VkCommandBufferAllocateInfo.{
+        commandPool = global_renderer.command_pool,
+        level = .PRIMARY,
+        commandBufferCount = count,
+    };
+
+    // @TODO: maybe look into secondary command buffers?
+    array_reserve(*result.command_buffers, count);
+    Vk_Check(vkAllocateCommandBuffers(global_renderer.device, *alloc_info, result.command_buffers.data));
+    result.command_buffers.count = 2;
+
+    begin_info := VkCommandBufferBeginInfo.{
+        flags = .ONE_TIME_SUBMIT_BIT,
+    };
+
+    for result.command_buffers {
+        Vk_Check(vkBeginCommandBuffer(it, *begin_info));
+    }
 
     #if vertex_type == UI_Vertex {
-        color_attachment := wgpu.RenderPassColorAttachment.{
-            view = view,
-            resolveTarget = null,
+        color_attachment := VkRenderingAttachmentInfo.{
+            imageView = view,
+            imageLayout = .COLOR_ATTACHMENT_OPTIMAL,
             loadOp = load_op,
-            storeOp = .Store,
-            clearValue = .{0.0, 0.0, 0.0, 1.0}
+            storeOp = .STORE,
+            clearValue = .{color = .{ _float32 = .[0, 0, 0, 1]}},
         };
-        render_pass_desc := wgpu.RenderPassDescriptor.{
-            label = "Immediate",
+
+        rendering_info := VkRenderingInfo.{
+            renderArea = .{
+                offset = .{0, 0},
+                extent = .{result.target_w, result.target_h},
+            },
+            layerCount = 1,
             colorAttachmentCount = 1,
-            colorAttachments = *color_attachment,
+            pColorAttachments = *color_attachment,
         };
-        render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(result.command_encoder, *render_pass_desc));
+        vkCmdBeginRendering(result.command_buffers[0], *rendering_info);
+
         wgpu.RenderPassEncoderInsertDebugMarker(render_pass, temp_c_string(label));
         wgpu.RenderPassEncoderSetPipeline(render_pass, global_renderer.ui_pipeline);    
         pc := UI_Push_Constants.{.{2.0 / cast(float)result.target_w, -2.0 / cast(float)result.target_h}, .{-1, 1}};
@@ -184,7 +214,7 @@ set_model_matrix :: (immediate: *Immediate3D, mat: Matrix4) {
         transform = transpose(mat),
         inverse_transform = transpose(inverse(mat)),
     };
-    for immediate.render_passes {
+    for immediate.command_buffers {
         wgpu.RenderPassEncoderSetPushConstants(it, .Vertex, 0, size_of(type_of(pc)), *pc);
     }
 }

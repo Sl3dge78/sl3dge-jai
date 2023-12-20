@@ -35,7 +35,7 @@ draw_skinned_meshes :: inline (using self: *Scene, command_buffer: VkCommandBuff
             inverse_transform = transpose(inverse(it.transform)),
         };
         vkCmdPushConstants(command_buffer, current_pipeline.layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
-        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, current_pipeline.layout, 2, 1, *it.joint_uniform, 0, null);
+        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, current_pipeline.layout, 2, 1, *it.joint_uniform.descriptor_set, 0, null);
         draw(it.skinned_mesh, command_buffer);
     }
 }

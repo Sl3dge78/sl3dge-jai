@@ -55,7 +55,7 @@ Renderer :: struct {
 
     sampler: VkSampler;
     empty_texture: Texture;
-    empty_texture_descriptor: VkDescriptorSet;
+    empty_texture_uniform: Uniform_Texture;
 
     projection: Matrix4;
     view: Matrix4;
@@ -63,6 +63,7 @@ Renderer :: struct {
 
     vertex_buffer_pool: Buffer_Pool;
     immediate_buffer_pool: Buffer_Pool;
+    uniform_buffer_pool: Buffer_Pool;
 }
 
 renderer_create :: (window: *SDL_Window) -> Renderer {
@@ -113,10 +114,10 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
     
     renderer.standard_render_pass = create_standard_renderpass(renderer.device);
     
-    renderer.static_mesh_material = create_static_mesh_material(renderer.device, renderer.shadowmap_render_pass, renderer.standard_render_pass);
-    renderer.skinned_mesh_material = create_skinned_mesh_material(renderer.device, renderer.shadowmap_render_pass, renderer.standard_render_pass);
+    renderer.static_mesh_material = create_static_mesh_material(renderer.device);
+    renderer.skinned_mesh_material = create_skinned_mesh_material(renderer.device);
 
-    renderer.ui_pipeline = create_ui_pipeline(renderer.device, renderer.standard_render_pass);
+    renderer.ui_pipeline = create_ui_pipeline(renderer.device);
 
     swapchain_create_or_update(*renderer.swapchain, renderer.device, renderer.physical_device, renderer.surface, renderer.window);
 
@@ -131,7 +132,9 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
 destroy :: (using self: *Renderer) {
     vkDeviceWaitIdle(device);
 
-    buffer_pool_reset(*buffer_pool);
+    buffer_pool_reset(*vertex_buffer_pool);
+    buffer_pool_reset(*immediate_buffer_pool);
+    buffer_pool_reset(*uniform_buffer_pool);
 
     vkDestroyDescriptorPool(device, descriptor_pool, null);
     vkDestroyDescriptorSetLayout(device, empty_set_layout, null);
@@ -178,22 +181,32 @@ end_frame :: () {
     // Wait for image
     vkWaitForFences(device, 1, *this_frame.frame_fence, VK_TRUE, U64_MAX);
     vkResetFences(device, 1, *this_frame.frame_fence);
-    Vk_Check(vkAcquireNextImageKHR(device, swapchain.handle, U64_MAX, this_frame.image_available_semaphore, VK_NULL_HANDLE, *this_frame.image_index));
+    image_index: u32 = ---;
+    Vk_Check(vkAcquireNextImageKHR(device, swapchain.handle, U64_MAX, this_frame.image_available_semaphore, VK_NULL_HANDLE, *image_index));
+
+    this_frame.framebuffer = swapchain.image_views[image_index];
 
     {   // Update uniforms
         size:: 20;
         light_proj := orthographic_projection_matrix(size, -size, -size, size, -size, size, true);
         light_view := make_look_at_matrix(.{0, 0, 0}, light_dir, .{0, 1, 0}, false);
-        
-        this_frame.camera_data.proj = transpose(projection);
-        this_frame.camera_data.view = transpose(view);
-        this_frame.camera_data.light = transpose(light_proj * light_view);
-        this_frame.camera_data.light_dir = light_dir;
 
-        this_frame.shadowmap_camera_data.proj = transpose(light_proj);
-        this_frame.shadowmap_camera_data.view = transpose(light_view);
-        this_frame.shadowmap_camera_data.light = this_frame.camera_data.light;
-        this_frame.shadowmap_camera_data.light_dir = light_dir;
+        cam := Camera_Data.{
+            proj = transpose(projection),
+            view = transpose(view),
+            light = transpose(light_proj * light_view),
+            light_dir = light_dir,
+        };
+        uniform_buffer_write(*this_frame.camera_descriptor, *cam);
+        
+        shadow_cam := Camera_Data.{
+            proj = transpose(light_proj),
+            view = transpose(light_view),
+            light = cam.light,
+            light_dir = light_dir,
+        };
+        uniform_buffer_write(*this_frame.shadowmap_camera_descriptor, *cam);
+
     }
 
     // {   // Record Command Buffer
@@ -232,7 +245,7 @@ end_frame :: () {
             pWaitSemaphores = *this_frame.render_finished_semaphore,
             swapchainCount = 1,
             pSwapchains = *global_renderer.swapchain.handle,
-            pImageIndices = *this_frame.image_index
+            pImageIndices = *image_index
         };
         result := vkQueuePresentKHR(global_renderer.graphics_queue, *present_info);
         if result == .ERROR_OUT_OF_DATE_KHR { // Window was resized
@@ -251,13 +264,9 @@ end_frame :: () {
     global_engine.frame_time = cast(float)(SDL_GetPerformanceCounter() - global_engine.frame_start) / cast(float)(SDL_GetPerformanceFrequency() / 1000);
 }
 
-// set_transform_matrix :: (mat: Matrix4) {
-//     context.immediate._3d_draw_data.transform = mat;
-// }
-
-// set_view_matrix :: (view: Matrix4) {
-//     global_renderer.view = view;
-// }
+set_view_matrix :: (view: Matrix4) {
+    global_renderer.view = view;
+}
 
 // set_projection_matrix :: (proj: Matrix4) {
 //     global_renderer.projection = proj;
@@ -271,9 +280,9 @@ end_frame :: () {
 //     global_renderer.scene = scene;
 // }
 
-// change_light_direction :: (dir: Vector3) {
-//     global_renderer.light_dir = dir;
-// }
+change_light_vector :: (dir: Vector3) {
+    global_renderer.light_dir = dir;
+}
 
 // get_window_dims :: () -> Vector2i {
 //     return .{global_renderer.swapchain.extent.width, global_renderer.swapchain.extent.height};
@@ -528,12 +537,10 @@ create_descriptor_sets :: (renderer: *Renderer) {
 
     data := u8.[255, 255, 255, 255];
     renderer.empty_texture = texture_from_data(data.data, 1, 1, 4, u8);
-    renderer.empty_texture_descriptor = descriptor_set_create(renderer.single_texture_layout);
-    descriptor_set_write(renderer.empty_texture_descriptor, global_renderer.sampler, global_renderer.empty_texture.view, .SHADER_READ_ONLY_OPTIMAL);
+    renderer.empty_texture_uniform = uniform_texture_create(renderer.empty_texture, renderer.single_texture_layout);
 
     renderer.shadowmap_texture = texture_create(Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE, Renderer.DEPTH_FORMAT, .DEPTH_STENCIL_ATTACHMENT_BIT | .SAMPLED_BIT, .DEPTH_BIT);
-    renderer.shadowmap_descriptor_set = descriptor_set_create(renderer.shadowmap_layout);
-    descriptor_set_write(renderer.shadowmap_descriptor_set, global_renderer.sampler, global_renderer.shadowmap_texture.view, .DEPTH_STENCIL_READ_ONLY_OPTIMAL);
+    renderer.empty_texture_uniform = uniform_texture_create(renderer.shadowmap_texture, renderer.single_texture_layout);
 }
 
 create_standard_renderpass :: (device: VkDevice) -> VkRenderPass {

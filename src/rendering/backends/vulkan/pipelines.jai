@@ -6,7 +6,7 @@ Pipeline :: struct {
 // --------
 // 2d/ui pipeline
 
-create_ui_pipeline :: (device: VkDevice, render_pass: VkRenderPass) -> Pipeline {
+create_ui_pipeline :: (device: VkDevice) -> Pipeline {
 
     // Pipeline
     vtx := create_shader_module(device, "shaders/ui.vert.spv");
@@ -22,8 +22,9 @@ create_ui_pipeline :: (device: VkDevice, render_pass: VkRenderPass) -> Pipeline 
     Pipeline_Builder.add_shader(*builder, .VERTEX_BIT, vtx, "main");
     Pipeline_Builder.add_shader(*builder, .FRAGMENT_BIT, frag, "main");
     Pipeline_Builder.add_dynamic_state(*builder, VkDynamicState.VIEWPORT, VkDynamicState.SCISSOR);
+    Pipeline_Builder.color_format(*builder, global_renderer.swapchain.format.format);
     builder.color_blend = true;
-    pipeline := Pipeline_Builder.build(*builder, device, render_pass);
+    pipeline := Pipeline_Builder.build(*builder, device);
     log("UI Pipeline created.");
 
     return pipeline;
@@ -42,7 +43,7 @@ Material :: struct {
     }
 }
 
-create_static_mesh_material :: (device : VkDevice, shadowmap_rp: VkRenderPass, color_rp: VkRenderPass) -> Material {
+create_static_mesh_material :: (device : VkDevice) -> Material {
     result: Material;
 
     vtx := create_shader_module(device, "shaders/static.vert.spv");
@@ -59,7 +60,8 @@ create_static_mesh_material :: (device : VkDevice, shadowmap_rp: VkRenderPass, c
         Pipeline_Builder.add_shader(*builder, .VERTEX_BIT, vtx, "main");
         Pipeline_Builder.rasterization_state_depth_bias(*builder, 1.25, 0, 1.75);
         Pipeline_Builder.viewport_state(*builder, Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE);
-        result.pipelines[Pipeline_Kind.SHADOWMAP] = Pipeline_Builder.build(*builder, device, shadowmap_rp);
+        Pipeline_Builder.depth_format(*builder, Renderer.DEPTH_FORMAT);
+        result.pipelines[Pipeline_Kind.SHADOWMAP] = Pipeline_Builder.build(*builder, device);
         log("Shadowmap pipeline created.");
     }
 
@@ -74,13 +76,15 @@ create_static_mesh_material :: (device : VkDevice, shadowmap_rp: VkRenderPass, c
         Pipeline_Builder.add_shader(*builder, .VERTEX_BIT, vtx, "main");
         Pipeline_Builder.add_shader(*builder, .FRAGMENT_BIT, frag, "main");
         Pipeline_Builder.add_dynamic_state(*builder, VkDynamicState.VIEWPORT, VkDynamicState.SCISSOR);
-        result.pipelines[Pipeline_Kind.COLOR] = Pipeline_Builder.build(*builder, device, color_rp);
+        Pipeline_Builder.color_format(*builder, global_renderer.swapchain.format.format);
+        Pipeline_Builder.depth_format(*builder, Renderer.DEPTH_FORMAT);
+        result.pipelines[Pipeline_Kind.COLOR] = Pipeline_Builder.build(*builder, device);
         log("Color pipeline created.");
     }
     return result;
 }
 
-create_skinned_mesh_material :: (device : VkDevice, shadowmap_rp: VkRenderPass, color_rp: VkRenderPass) -> Material {
+create_skinned_mesh_material :: (device : VkDevice) -> Material {
     result: Material;
 
     vtx := create_shader_module(device, "shaders/skinned.vert.spv");
@@ -102,7 +106,8 @@ create_skinned_mesh_material :: (device : VkDevice, shadowmap_rp: VkRenderPass, 
         Pipeline_Builder.add_shader(*builder, .VERTEX_BIT, vtx, "main");
         Pipeline_Builder.rasterization_state_depth_bias(*builder, 1.25, 0, 1.75);
         Pipeline_Builder.viewport_state(*builder, Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE);
-        result.pipelines[Pipeline_Kind.SHADOWMAP] = Pipeline_Builder.build(*builder, device, shadowmap_rp);
+        Pipeline_Builder.depth_format(*builder, Renderer.DEPTH_FORMAT);
+        result.pipelines[Pipeline_Kind.SHADOWMAP] = Pipeline_Builder.build(*builder, device);
         
         log("Shadowmap pipeline created.");
     }
@@ -120,7 +125,9 @@ create_skinned_mesh_material :: (device : VkDevice, shadowmap_rp: VkRenderPass, 
         Pipeline_Builder.add_shader(*builder, .VERTEX_BIT, vtx, "main");
         Pipeline_Builder.add_shader(*builder, .FRAGMENT_BIT, frag, "main");
         Pipeline_Builder.add_dynamic_state(*builder, VkDynamicState.VIEWPORT, VkDynamicState.SCISSOR);
-        result.pipelines[Pipeline_Kind.COLOR] = Pipeline_Builder.build(*builder, device, color_rp);
+        Pipeline_Builder.color_format(*builder, global_renderer.swapchain.format.format);
+        Pipeline_Builder.depth_format(*builder, Renderer.DEPTH_FORMAT);
+        result.pipelines[Pipeline_Kind.COLOR] = Pipeline_Builder.build(*builder, device);
         
         log("Color pipeline created.");
     }

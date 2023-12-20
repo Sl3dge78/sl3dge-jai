@@ -40,7 +40,7 @@ Skinned_Mesh_Instance :: struct {
     transform: Matrix4;
 
     current_pose: Skeleton_Pose;
-    joint_uniform: VkDescriptorSet;
+    joint_uniform: Uniform_Buffer;
 }
 
 destroy :: (using self: *Skeleton_Definition) {
@@ -217,7 +217,7 @@ upload_skeleton :: (using self: *Skinned_Mesh_Instance) {
         }
     }
 
-    descriptor_set_write(self.joint_uniform, *buffer);
+    uniform_buffer_write(*self.joint_uniform, *buffer);
 }
 
 // set_bone_matrix :: (using self: *Skinned_Mesh_Instance, name: string, matrix: Matrix4) {
