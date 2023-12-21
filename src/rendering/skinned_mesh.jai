@@ -109,7 +109,7 @@ load_skinned_gltf :: (path: string) -> Skinned_Mesh {
             read_accessor_into_array(vertices.data, xx *offset.weights, size_of(Skinned_Vertex), gltf_data, primitive.weights_accessor);
         }
 
-        skinned_loc := buffer_pool_load_data(*global_renderer.mesh_buffer_pool, vertices);
+        skinned_loc := buffer_pool_load_data(*global_renderer.vertex_buffer_pool, vertices);
         array_add(*result.skins, skinned_loc);
     }
     assert(gltf_data.skins.count == 1, "No or multiple skins found in gltf, this isn't supported"); // @TODO
@@ -170,7 +170,7 @@ instantiate :: (scene: *Scene, mesh: *Skinned_Mesh, matrix := Matrix4_Identity) 
     instance.transform = matrix;
 
     size := size_of(Instance_Data);
-    instance.joint_uniform = uniform_create(global_renderer.device, *global_renderer.uniform_pool, xx size, global_renderer.instance_data_bgl);
+    instance.joint_uniform = uniform_buffer_create(global_renderer.skinned_mesh_layout, xx size);
     
     instance.current_pose = NewArray(mesh.skeleton.joints.count, Joint);
     
@@ -179,7 +179,7 @@ instantiate :: (scene: *Scene, mesh: *Skinned_Mesh, matrix := Matrix4_Identity) 
         it.* = mesh.skeleton.bind_pose[it_index];
         buffer.joint_matrices[it_index] = transpose(it.model_space_matrix * mesh.skeleton.joints[it_index].inverse_bind_matrix);
     }
-    uniform_write(instance.joint_uniform, *buffer);
+    uniform_buffer_write(*instance.joint_uniform, *buffer);
     return instance;    
 }
 
@@ -196,7 +196,7 @@ update_branch_transforms :: (using self: *Skinned_Mesh_Instance, id: int, buffer
     } else {
         joint.model_space_matrix = local_matrix;
     }
-    immediate_debug_matrix(self.transform * joint.model_space_matrix, 0.1);
+    // immediate_debug_matrix(self.transform * joint.model_space_matrix, 0.1);
         
     buffer[id] = transpose(joint.model_space_matrix * def.inverse_bind_matrix);
     joint.dirty = false;

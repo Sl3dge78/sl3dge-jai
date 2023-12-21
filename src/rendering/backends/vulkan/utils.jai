@@ -88,8 +88,7 @@ end_single_time_command_buffer :: (cmd: VkCommandBuffer) {
 
 vkCreateDebugUtilsMessengerEXT: PFN_vkCreateDebugUtilsMessengerEXT;
 vkDestroyDebugUtilsMessengerEXT: PFN_vkDestroyDebugUtilsMessengerEXT;
-// vkCmdBeginRenderingKHR : PFN_vkCmdBeginRenderingKHR;
-// vkCmdEndRenderingKHR : PFN_vkCmdEndRenderingKHR;
+vkCmdInsertDebugUtilsLabelEXT: PFN_vkCmdInsertDebugUtilsLabelEXT;
 
 load_function_pointers :: (instance: VkInstance) {
     load :: (name: string) -> *void #expand {
@@ -97,11 +96,18 @@ load_function_pointers :: (instance: VkInstance) {
         assert(result != null, "Unable to load pfn %", name);
         return xx result;
     }
+    vkCmdInsertDebugUtilsLabelEXT = xx load("vkCmdInsertDebugUtilsLabelEXT");
     vkCreateDebugUtilsMessengerEXT = xx load("vkCreateDebugUtilsMessengerEXT");
     vkDestroyDebugUtilsMessengerEXT = xx load("vkDestroyDebugUtilsMessengerEXT");
-    // vkCmdBeginRenderingKHR = xx load("vkCmdBeginRenderingKHR");
-    // vkCmdEndRenderingKHR = xx load("vkCmdEndRenderingKHR");
 }
 
 SDL_Vulkan_GetInstanceExtensions :: (window: *SDL_Window, pCount: *u32, pNames: **u8) -> bool #foreign SDL2;
 SDL_Vulkan_CreateSurface :: (window: *SDL_Window, instance: VkInstance, surface: *VkSurfaceKHR) -> bool #foreign SDL2;
+
+debug_marker :: (command_buffer: VkCommandBuffer, label: string) {
+    marker_info := VkDebugUtilsLabelEXT.{
+        pLabelName = temp_c_string(label),
+    };
+
+    vkCmdInsertDebugUtilsLabelEXT(command_buffer, *marker_info);
+}

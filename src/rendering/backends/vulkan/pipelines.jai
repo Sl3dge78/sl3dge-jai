@@ -143,15 +143,18 @@ bind_material :: (command_buffer: VkCommandBuffer, material: Material, $kind: Pi
     #if kind == .SHADOWMAP {
         pipeline := material.shadowmap;
         vkCmdBindPipeline(command_buffer, .GRAPHICS, pipeline.pipeline);
-        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.layout, Renderer.FRAME_CAMERADATA_SET, 1, *context.vk.shadowmap_camera_descriptor, 0, null);
+        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.layout, Renderer.FRAME_CAMERADATA_SET, 1, *global_renderer.frame_data[global_renderer.frame_index].shadowmap_camera_descriptor.descriptor_set, 0, null);
     } else #if kind == .COLOR {
         pipeline := material.color;
         vkCmdBindPipeline(command_buffer, .GRAPHICS, pipeline.pipeline);
         vkCmdSetViewport(command_buffer, 0, 1, *VkViewport.{0, xx global_renderer.swapchain.extent.height, xx global_renderer.swapchain.extent.width, -(cast(float)global_renderer.swapchain.extent.height), 0, 1});
         vkCmdSetScissor(command_buffer, 0, 1, *VkRect2D.{.{0, 0}, global_renderer.swapchain.extent});
-        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.layout, Renderer.FRAME_CAMERADATA_SET, 1, *context.vk.camera_descriptor, 0, null);
-        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.layout, Renderer.FRAME_SHADOWMAP_SET, 1, *global_renderer.shadowmap_descriptor_set, 0, null);
-        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.layout, Renderer.MATERIAL_SET, 1, *global_renderer.default_texture_descriptor, 0, null);
+        sets := VkDescriptorSet.[
+            global_renderer.frame_data[global_renderer.frame_index].camera_descriptor.descriptor_set,
+            global_renderer.shadowmap_descriptor_set,
+            global_renderer.empty_texture_uniform.descriptor_set
+        ];
+        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.layout, 0, sets.count, sets.data, 0, null);
     } else {
         #assert false;
     }

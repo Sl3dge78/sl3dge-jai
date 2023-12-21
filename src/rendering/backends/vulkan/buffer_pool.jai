@@ -29,19 +29,19 @@ buffer_pool_get :: (using self: *Buffer_Pool, size: VkDeviceSize) -> Buffer_Loca
     return result;
 }
 
-load_data :: (using self: *Buffer_Pool, data: []$T) -> Buffer_Location {
+buffer_pool_load_data :: (using self: *Buffer_Pool, data: []$T) -> Buffer_Location {
     size : VkDeviceSize = xx (data.count * size_of(T));
     loc := buffer_pool_get(self, size);
-    maybe_grow(buffer_pool, xx size);
+    maybe_grow(self, xx size);
     buffer_write_data(loc.buffer, data.data, size, loc.offset);
     return loc;
 }
 
-load_mesh :: (using buffer_pool: *Buffer_Pool, vertices: []$T, indices: []u32) -> Sub_Mesh {
-    mesh: SubMesh;
-    mesh.vertices_loc = load_data(buffer_pool, vertices);
+buffer_pool_load_mesh :: (using buffer_pool: *Buffer_Pool, vertices: []$T, indices: []u32) -> Sub_Mesh {
+    mesh: Sub_Mesh;
+    mesh.vertices= buffer_pool_load_data(buffer_pool, vertices);
     mesh.vertex_count = xx vertices.count;
-    mesh.indices_loc = load_data(buffer_pool, indices);
+    mesh.indices= buffer_pool_load_data(buffer_pool, indices);
     mesh.index_count = xx indices.count;
     return mesh;
 }

@@ -32,14 +32,14 @@ load_mesh_from_data :: (gltf_data : GLTF_Data) -> Mesh {
         // Vertices
         accessor := gltf_data.accessors[position_accessor];
         assert(accessor.component_type == .FLOAT);
-        vertices := NewArray(accessor.count, Vertex, allocator = temp);
+        vertices := NewArray(accessor.count, Standard_Vertex, allocator = temp);
         
-        read_accessor_into_array(vertices.data, 0, size_of(Vertex), gltf_data, position_accessor);
+        read_accessor_into_array(vertices.data, 0, size_of(Standard_Vertex), gltf_data, position_accessor);
         
         // Normals
         if normal_accessor != -1 {
-            offset: *Vertex = null;
-            read_accessor_into_array(vertices.data, xx *offset.normal, size_of(Vertex), gltf_data, normal_accessor);
+            offset: *Standard_Vertex = null;
+            read_accessor_into_array(vertices.data, xx *offset.normal, size_of(Standard_Vertex), gltf_data, normal_accessor);
         }
 
         color: Vector4 = .{0, 0, 0, 1};
@@ -56,7 +56,7 @@ load_mesh_from_data :: (gltf_data : GLTF_Data) -> Mesh {
         idx_accessor := gltf_data.accessors[indices_accessor];
         indices := NewArray(idx_accessor.count, u32, allocator = temp);
         read_accessor_into_array(indices.data, 0, size_of(u32), gltf_data, indices_accessor);
-        array_add(*result.submeshes, buffer_pool_load_mesh(*global_renderer.mesh_buffer_pool, vertices, indices));
+        array_add(*result.submeshes, buffer_pool_load_mesh(*global_renderer.vertex_buffer_pool, vertices, indices));
     }
     return result;
 }

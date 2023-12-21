@@ -53,6 +53,8 @@ Renderer :: struct {
     // Standard pass
     standard_render_pass: VkRenderPass;
 
+    empty_descriptor_set: VkDescriptorSet;
+
     sampler: VkSampler;
     empty_texture: Texture;
     empty_texture_uniform: Uniform_Texture;
@@ -64,6 +66,8 @@ Renderer :: struct {
     vertex_buffer_pool: Buffer_Pool;
     immediate_buffer_pool: Buffer_Pool;
     uniform_buffer_pool: Buffer_Pool;
+
+    command_buffers: [..]VkCommandBuffer;
 }
 
 renderer_create :: (window: *SDL_Window) -> Renderer {
@@ -171,6 +175,10 @@ destroy :: (using self: *Renderer) {
     vkDestroyDebugUtilsMessengerEXT(instance, debug_messenger, null);
     vkDestroySurfaceKHR(instance, surface, null);
     vkDestroyInstance(instance, null);
+}
+
+renderer_push_command_buffers :: (self: *Renderer, command_buffers: []VkCommandBuffer) {
+    array_add(*self.command_buffers, ..command_buffers);
 }
 
 end_frame :: () {
@@ -534,6 +542,13 @@ create_command_pool :: (device: VkDevice, queue_family_index: u32) -> VkCommandP
 
 create_descriptor_sets :: (renderer: *Renderer) {
     renderer.sampler = create_sampler(renderer.device);
+
+    alloc_info := VkDescriptorSetAllocateInfo.{
+        descriptorPool = renderer.descriptor_pool,
+        descriptorSetCount = 1,
+        pSetLayouts = *renderer.empty_set_layout,
+    };
+    Vk_Check(vkAllocateDescriptorSets(global_renderer.device, *alloc_info, *renderer.empty_descriptor_set));
 
     data := u8.[255, 255, 255, 255];
     renderer.empty_texture = texture_from_data(data.data, 1, 1, 4, u8);
