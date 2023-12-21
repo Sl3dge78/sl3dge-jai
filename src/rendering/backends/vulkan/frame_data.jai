@@ -9,6 +9,7 @@ Frame_Data :: struct {
 
     camera_descriptor: Uniform_Buffer;
     shadowmap_camera_descriptor: Uniform_Buffer;
+    swapchain_image_index: u32;
 }
 
 frame_data_create :: (device: VkDevice, command_pool: VkCommandPool, camera_dsl: VkDescriptorSetLayout) -> Frame_Data {

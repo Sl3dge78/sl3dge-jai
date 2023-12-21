@@ -107,3 +107,23 @@ debug_marker :: (command_buffer: VkCommandBuffer, label: string) {
 
     vkCmdInsertDebugUtilsLabelEXT(command_buffer, *marker_info);
 }
+
+debug_name_object :: (handle: $T, name: string) {
+    name_info := VkDebugUtilsObjectNameInfoEXT.{
+        objectType = get_vk_object_type(T),
+        objectHandle = xx handle,
+        pObjectName = temp_c_string(name),
+
+    };
+    Vk_Check(vkSetDebugUtilsObjectNameEXT(global_renderer.device, *name_info));
+}
+
+get_vk_object_type :: ($object: Type) -> VkObjectType {
+    #if object == VkCommandBuffer {
+        return VK_OBJECT_TYPE_COMMAND_BUFFER;
+    } else #if object == VkImageView {
+        return VK_OBJECT_TYPE_IMAGE_VIEW;
+    } else #if object == VkImage {
+        return VK_OBJECT_TYPE_IMAGE;
+    } else #assert(false, "Unregistered object");
+}

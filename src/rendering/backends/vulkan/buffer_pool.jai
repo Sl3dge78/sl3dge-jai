@@ -7,25 +7,28 @@ Buffer_Location :: struct {
 Buffer_Pool :: struct {
     BUFFER_SIZE :: 32 * 1024 * 1024;
 
+    kind: VkBufferUsageFlagBits;
     buffers: [..]Buffer;
     current_position_in_buffer: VkDeviceSize;
+    alignement: VkDeviceSize;
 }
 
 maybe_grow :: (using buffer_pool: *Buffer_Pool, size: VkDeviceSize) {
     if buffers.count == 0 || size > (BUFFER_SIZE - current_position_in_buffer) {
-        array_add(*buffers, buffer_create(BUFFER_SIZE, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, .UPLOAD));
+        array_add(*buffers, buffer_create(BUFFER_SIZE, kind, .UPLOAD));
         current_position_in_buffer = 0;
     }
 }
 
 buffer_pool_get :: (using self: *Buffer_Pool, size: VkDeviceSize) -> Buffer_Location {
-    maybe_grow(self, size);
+    aligned_size := get_aligned_size(size, alignement);
+    maybe_grow(self, aligned_size);
     result := Buffer_Location.{
         buffer = buffers[buffers.count - 1],
         offset = current_position_in_buffer,
         size = size,
     };
-    current_position_in_buffer += size;
+    current_position_in_buffer += aligned_size;
     return result;
 }
 

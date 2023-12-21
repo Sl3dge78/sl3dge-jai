@@ -201,6 +201,10 @@ Pipeline_Builder :: struct {
             stencilAttachmentFormat = self.stencil_attachment_format,
         };
 
+        dynamic_state := VkPipelineDynamicStateCreateInfo.{
+            dynamicStateCount = xx self.dynamic_state.count,
+            pDynamicStates = self.dynamic_state.data,
+        };
         create_info := VkGraphicsPipelineCreateInfo.{
             pNext = *pipeline_rendering,
             stageCount = xx self.stages.count,
@@ -211,10 +215,7 @@ Pipeline_Builder :: struct {
             pRasterizationState = *self.rasterization,
             pMultisampleState = *self.multisample,
             pColorBlendState = *color_blend,
-            pDynamicState = *VkPipelineDynamicStateCreateInfo.{
-                dynamicStateCount = xx self.dynamic_state.count,
-                pDynamicStates = self.dynamic_state.data,
-            },
+            pDynamicState = *dynamic_state,
             pDepthStencilState = *self.depth_stencil,
             layout = layout,
             renderPass = null,

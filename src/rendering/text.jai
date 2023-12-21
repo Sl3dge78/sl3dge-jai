@@ -32,7 +32,7 @@ font_from_data :: (font_data: string, size: float) -> Font, bool {
     stbtt_PackFontRange(*pack_context, font_data.data, 0, size, xx self.first_char, 437, self.char_data.data);
     stbtt_PackEnd(*pack_context);
 
-    self.texture = texture_from_data(bitmap.data, 512, 512, 1, u8);
+    self.texture = texture_from_data(bitmap.data, 512, 512, 1, u8, "Font texture");
 
     self.uniform = uniform_texture_create(self.texture);
     texture_change_layout(self.texture, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);

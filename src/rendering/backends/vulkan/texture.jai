@@ -6,7 +6,7 @@ Texture :: struct {
     h : u32;
 }
 
-texture_create :: (w: u32, h: u32, format: VkFormat, $usage: VkImageUsageFlags, aspect: VkImageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT) -> Texture {
+texture_create :: (w: u32, h: u32, format: VkFormat, $usage: VkImageUsageFlags, aspect: VkImageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT, name: string) -> Texture {
     texture: Texture;
     texture.w = w;
     texture.h = h;
@@ -26,6 +26,8 @@ texture_create :: (w: u32, h: u32, format: VkFormat, $usage: VkImageUsageFlags, 
     Vk_Check(vkCreateImage(global_renderer.device, *create_info, null, *texture.image));
     texture.memory = alloc_device_memory(texture.image, .LOCAL);
     texture.view = make_image_view(texture.image, format, aspect);
+    debug_name_object(texture.view, name);
+    debug_name_object(texture.image, name);
     return texture;
 }
 
@@ -36,10 +38,10 @@ texture_from_file :: (path: string) -> Texture {
     img := stbi_load(temp_c_string(path), *w, *h, *channels, 4);
     assert(img != null, "Unable to load %.", path);
     defer stbi_image_free(img);
-    return texture_from_data(img, xx w, xx h, channels, u8);
+    return texture_from_data(img, xx w, xx h, channels, u8, basename(path));
 }
 
-texture_from_data :: (ptr: *void, w: u32, h: u32, channels: int, $data_type: Type) -> Texture {
+texture_from_data :: (ptr: *void, w: u32, h: u32, channels: int, $data_type: Type, name: string) -> Texture {
     format : VkFormat = ---;
     #if data_type == u8 {
         if channels == {
@@ -49,7 +51,7 @@ texture_from_data :: (ptr: *void, w: u32, h: u32, channels: int, $data_type: Typ
         }
     } else #assert false;
 
-    texture := texture_create(w, h, format, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
+    texture := texture_create(w, h, format, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, name = name);
 
     image_size: VkDeviceSize = xx(texture.w * texture.h * channels);
     staging_buffer := buffer_create(image_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, .UPLOAD);
@@ -63,8 +65,8 @@ texture_from_data :: (ptr: *void, w: u32, h: u32, channels: int, $data_type: Typ
     return texture;
 }
 
-render_texture_create :: (w: u32, h: u32) -> Texture {
-    return texture_create(w, h, global_renderer.swapchain.format.format, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
+render_texture_create :: (w: u32, h: u32, name: string) -> Texture {
+    return texture_create(w, h, global_renderer.swapchain.format.format, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, name = name);
 }
 
 destroy :: (texture: *Texture) {

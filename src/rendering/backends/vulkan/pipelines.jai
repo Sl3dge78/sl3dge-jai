@@ -151,7 +151,7 @@ bind_material :: (command_buffer: VkCommandBuffer, material: Material, $kind: Pi
         vkCmdSetScissor(command_buffer, 0, 1, *VkRect2D.{.{0, 0}, global_renderer.swapchain.extent});
         sets := VkDescriptorSet.[
             global_renderer.frame_data[global_renderer.frame_index].camera_descriptor.descriptor_set,
-            global_renderer.shadowmap_descriptor_set,
+            global_renderer.shadowmap_uniform_texture.descriptor_set,
             global_renderer.empty_texture_uniform.descriptor_set
         ];
         vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.layout, 0, sets.count, sets.data, 0, null);

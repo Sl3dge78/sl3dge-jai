@@ -48,7 +48,7 @@ Renderer :: struct {
     shadowmap_render_pass: VkRenderPass;
     shadowmap_framebuffer: VkFramebuffer;
     shadowmap_texture: Texture;
-    shadowmap_descriptor_set: VkDescriptorSet;
+    shadowmap_uniform_texture: Uniform_Texture;
 
     // Standard pass
     standard_render_pass: VkRenderPass;
@@ -63,9 +63,15 @@ Renderer :: struct {
     view: Matrix4;
     light_dir: Vector3;
 
-    vertex_buffer_pool: Buffer_Pool;
-    immediate_buffer_pool: Buffer_Pool;
-    uniform_buffer_pool: Buffer_Pool;
+    vertex_buffer_pool: Buffer_Pool = .{
+        kind = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    };
+    immediate_buffer_pool: Buffer_Pool = .{
+        kind = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    };
+    uniform_buffer_pool: Buffer_Pool = .{
+        kind = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT
+    };
 
     command_buffers: [..]VkCommandBuffer;
 }
@@ -87,19 +93,24 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
     renderer.instance = create_instance(window);
     load_vulkan_instance_procedures(renderer.instance);
 
-    // load_function_pointers(renderer.instance);
-
     renderer.debug_messenger = create_debug_messenger(renderer.instance);
 
     SDL_Vulkan_CreateSurface(window, renderer.instance, *renderer.surface);
     
     renderer.physical_device = pick_physical_device(renderer.instance);
     vkGetPhysicalDeviceProperties(renderer.physical_device, *renderer.physical_device_properties);
+
+    // @TODO: Check limits
+
+    // Setup limits where needed
+    renderer.uniform_buffer_pool.alignement = renderer.physical_device_properties.limits.minUniformBufferOffsetAlignment;
+
     renderer.compatible_mem_types = get_memory_types(renderer.physical_device);
     renderer.swapchain.format = swapchain_pick_format(renderer.physical_device, renderer.surface);
     renderer.queue_family_index = get_queue_family_index(renderer.physical_device, renderer.surface);
     renderer.device = create_device(renderer.physical_device, renderer.queue_family_index);
     load_vulkan_device_procedures(renderer.device);
+
 
     vkGetDeviceQueue(renderer.device, renderer.queue_family_index, 0, *renderer.graphics_queue);
     
@@ -114,18 +125,18 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
     create_descriptor_sets(renderer);
 
     // Shadowmap
-    renderer.shadowmap_render_pass = create_shadowmap_renderpass(renderer.device);
-    fb_ci := VkFramebufferCreateInfo.{
-        renderPass = renderer.shadowmap_render_pass,
-        attachmentCount = 1,
-        pAttachments = *renderer.shadowmap_texture.view,
-        width = renderer.shadowmap_texture.w,
-        height = renderer.shadowmap_texture.h,
-        layers = 1
-    };
-    Vk_Check(vkCreateFramebuffer(renderer.device, *fb_ci, null, *renderer.shadowmap_framebuffer));
+    // renderer.shadowmap_render_pass = create_shadowmap_renderpass(renderer.device);
+    // fb_ci := VkFramebufferCreateInfo.{
+    //     renderPass = renderer.shadowmap_render_pass,
+    //     attachmentCount = 1,
+    //     pAttachments = *renderer.shadowmap_texture.view,
+    //     width = renderer.shadowmap_texture.w,
+    //     height = renderer.shadowmap_texture.h,
+    //     layers = 1
+    // };
+    // Vk_Check(vkCreateFramebuffer(renderer.device, *fb_ci, null, *renderer.shadowmap_framebuffer));
     
-    renderer.standard_render_pass = create_standard_renderpass(renderer.device);
+    // renderer.standard_render_pass = create_standard_renderpass(renderer.device);
     
     renderer.static_mesh_material = create_static_mesh_material(renderer.device);
     renderer.skinned_mesh_material = create_skinned_mesh_material(renderer.device);
@@ -137,6 +148,8 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
     // Default projection
     renderer.projection = make_projection_matrix(radians(45), cast(float)renderer.swapchain.extent.width/cast(float)renderer.swapchain.extent.height, 0.1, 1000);
     renderer.view = Matrix4_Identity;
+
+    update_framebuffer();
 
     log("Renderer successfully initialized!");
     return renderer;
@@ -190,7 +203,7 @@ renderer_push_command_buffers :: (self: *Renderer, command_buffers: []VkCommandB
     array_add(*self.command_buffers, ..command_buffers);
 }
 
-end_frame :: () {
+update_framebuffer :: () {
     using global_renderer;
 
     this_frame := *frame_data[frame_index];
@@ -198,10 +211,13 @@ end_frame :: () {
     // Wait for image
     vkWaitForFences(device, 1, *this_frame.frame_fence, VK_TRUE, U64_MAX);
     vkResetFences(device, 1, *this_frame.frame_fence);
-    image_index: u32 = ---;
-    Vk_Check(vkAcquireNextImageKHR(device, swapchain.handle, U64_MAX, this_frame.image_available_semaphore, VK_NULL_HANDLE, *image_index));
+    Vk_Check(vkAcquireNextImageKHR(device, swapchain.handle, U64_MAX, this_frame.image_available_semaphore, VK_NULL_HANDLE, *this_frame.swapchain_image_index));
+    this_frame.framebuffer = swapchain.image_views[this_frame.swapchain_image_index];
+}
 
-    this_frame.framebuffer = swapchain.image_views[image_index];
+end_frame :: () {
+    using global_renderer;
+    this_frame := *frame_data[frame_index];
 
     {   // Update uniforms
         size:: 20;
@@ -250,8 +266,8 @@ end_frame :: () {
             waitSemaphoreCount = 1,
             pWaitSemaphores = *this_frame.image_available_semaphore,
             pWaitDstStageMask = VkPipelineStageFlags.[VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT].data,
-            commandBufferCount = 1,
-            pCommandBuffers = *this_frame.command_buffer,
+            commandBufferCount = xx command_buffers.count,
+            pCommandBuffers = command_buffers.data,
             signalSemaphoreCount = 1,
             pSignalSemaphores = *this_frame.render_finished_semaphore,
         };
@@ -262,7 +278,7 @@ end_frame :: () {
             pWaitSemaphores = *this_frame.render_finished_semaphore,
             swapchainCount = 1,
             pSwapchains = *global_renderer.swapchain.handle,
-            pImageIndices = *image_index
+            pImageIndices = *this_frame.swapchain_image_index
         };
         result := vkQueuePresentKHR(global_renderer.graphics_queue, *present_info);
         if result == VK_ERROR_OUT_OF_DATE_KHR { // Window was resized
@@ -275,10 +291,13 @@ end_frame :: () {
     {   // Prepare next frame
         frame_index = (frame_index + 1) % FRAME_COUNT;
         idx := frame_index;
+        command_buffers.count = 0;
     }
 
     // And some perf data
     global_engine.frame_time = cast(float)(SDL_GetPerformanceCounter() - global_engine.frame_start) / cast(float)(SDL_GetPerformanceFrequency() / 1000);
+
+    update_framebuffer();
 }
 
 set_view_matrix :: (view: Matrix4) {
@@ -352,19 +371,6 @@ debug_callback :: (severity: VkDebugUtilsMessageSeverityFlagsEXT, type: VkDebugU
 
 create_instance :: (window: *SDL_Window) -> VkInstance {
     
-    property_count: u32 = ---;
-    Vk_Check(vkEnumerateInstanceExtensionProperties(null, *property_count, null));
-    properties: [..]VkExtensionProperties;
-    properties.allocator = temp;
-    array_reserve(*properties, property_count);
-    Vk_Check(vkEnumerateInstanceExtensionProperties(null, *property_count, properties.data));
-    properties.count += property_count;
-
-    log("Available extensions:");
-    for properties {
-        log("\t%", cast(string)it.extensionName);
-    }
-
     layers: [..]*u8; 
     layers.allocator = temp;
     array_add(*layers, temp_c_string("VK_LAYER_KHRONOS_validation"));
@@ -385,15 +391,18 @@ create_instance :: (window: *SDL_Window) -> VkInstance {
         log("\t%", to_string(ext));
     }
 
+    app_info := VkApplicationInfo.{
+        apiVersion = VK_MAKE_API_VERSION(0, 1, 3, 0),
+    };
+
     create_info := VkInstanceCreateInfo.{
         enabledLayerCount = xx layers.count,
         ppEnabledLayerNames = layers.data,
         enabledExtensionCount = xx extensions.count,
         ppEnabledExtensionNames = extensions.data,
-        pApplicationInfo = *VkApplicationInfo.{
-            apiVersion = VK_MAKE_API_VERSION(0, 1, 3, 0),
-        },
+        pApplicationInfo = *app_info,
     };
+    create_info.enabledLayerCount = xx layers.count;
     instance : VkInstance = ---;
     Vk_Check(vkCreateInstance(*create_info, null, *instance));
     log("Instance created.");
@@ -486,7 +495,12 @@ create_device :: (physical_device: VkPhysicalDevice, queue_family_index: u32) ->
     exts := *u8.[
         VK_KHR_SWAPCHAIN_EXTENSION_NAME.data,
     ];
+    features_1_3 := VkPhysicalDeviceVulkan13Features.{
+        dynamicRendering = VK_TRUE,
+    };
+
     create_info := VkDeviceCreateInfo.{
+        pNext = *features_1_3,
         pQueueCreateInfos = *queue_create_info,
         queueCreateInfoCount = 1,
         pEnabledFeatures = *device_features,
@@ -574,11 +588,12 @@ create_descriptor_sets :: (renderer: *Renderer) {
     Vk_Check(vkAllocateDescriptorSets(global_renderer.device, *alloc_info, *renderer.empty_descriptor_set));
 
     data := u8.[255, 255, 255, 255];
-    renderer.empty_texture = texture_from_data(data.data, 1, 1, 4, u8);
+    renderer.empty_texture = texture_from_data(data.data, 1, 1, 4, u8, "Empty texture");
     renderer.empty_texture_uniform = uniform_texture_create(renderer.empty_texture, renderer.single_texture_layout);
 
-    renderer.shadowmap_texture = texture_create(Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE, Renderer.DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
-    renderer.empty_texture_uniform = uniform_texture_create(renderer.shadowmap_texture, renderer.single_texture_layout);
+    renderer.shadowmap_texture = texture_create(Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE, Renderer.DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_DEPTH_BIT, "Shadowmap Texture");
+    renderer.shadowmap_uniform_texture = uniform_texture_create(renderer.shadowmap_texture, renderer.single_texture_layout);
+
 }
 
 create_standard_renderpass :: (device: VkDevice) -> VkRenderPass {

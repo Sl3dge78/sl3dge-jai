@@ -43,7 +43,6 @@ load_vulkan_loader_procedures :: () {
         member_to_set := cast(**void)((cast(*u8)*_vulkan_loader_commands) + member.offset_in_bytes);
         member_to_set.* = cast(*void) vkGetInstanceProcAddr(null, member.name.data);
         assert(member_to_set.* != null, "Unable to fetch %", member.name);
-        log("Loaded : %", member.name);
     }
 }
 
@@ -65,11 +64,6 @@ load_vulkan_instance_procedures :: (instance : VkInstance, instance_commands : *
     for member: info.members {
         member_to_set := cast(**void)((cast(*u8)instance_commands) + member.offset_in_bytes);
         <<member_to_set = cast(*void) vkGetInstanceProcAddr(instance, member.name.data);
-        if (member_to_set.* != null) {
-            log("Loaded : %", member.name);
-        } else {
-            log("Fail   : %", member.name);
-        }
     }
 }
 
@@ -79,11 +73,6 @@ load_vulkan_device_procedures :: (device: VkDevice, device_commands : *Vulkan_De
     for member: info.members {
         member_to_set := cast(**void)((cast(*u8)device_commands) + member.offset_in_bytes);
         <<member_to_set = cast(*void) vkGetDeviceProcAddr(device, member.name.data);
-        if (member_to_set.* != null) {
-            log("Loaded : %", member.name);
-        } else {
-            log("Fail   : %", member.name);
-        }
     }
 }
 
@@ -193,7 +182,7 @@ Vulkan_All_Commands :: struct {
             vkCreateXlibSurfaceKHR : PFN_vkCreateXlibSurfaceKHR;
             vkGetPhysicalDeviceXlibPresentationSupportKHR : PFN_vkGetPhysicalDeviceXlibPresentationSupportKHR;
             vkAcquireXlibDisplayEXT : PFN_vkAcquireXlibDisplayEXT;
-            vkGetRandROutputDisplayEXT : PFN_vkGetRandROutputDisplayEXT;
+            // vkGetRandROutputDisplayEXT : PFN_vkGetRandROutputDisplayEXT;
         }
         #if VULKAN_PLATFORM == .Wayland
         {

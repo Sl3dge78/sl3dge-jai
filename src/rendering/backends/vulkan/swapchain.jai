@@ -62,11 +62,13 @@ swapchain_create_or_update :: (self: *Swapchain, device: VkDevice, physical_devi
 
     for self.images {
         image_view := make_image_view(it, self.format.format);
+        debug_name_object(image_view, "Swapchain image view");
+        debug_name_object(it, "Swapchain image");
         array_add(*self.image_views, image_view);
     }
 
     {   // Depth image
-        self.depth_texture = texture_create(self.extent.width, self.extent.height, Renderer.DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+        self.depth_texture = texture_create(self.extent.width, self.extent.height, Renderer.DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, "Swapchain Depth Texture");
         transition_image_layout(self.depth_texture.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
     }
 
@@ -75,17 +77,18 @@ swapchain_create_or_update :: (self: *Swapchain, device: VkDevice, physical_devi
         self.depth_texture.view
     ];
 
-    framebuffer_ci := VkFramebufferCreateInfo.{
-        renderPass = global_renderer.standard_render_pass, // @Hardcoded
-        attachmentCount = attachments.count,
-        pAttachments = attachments.data,
-        width = self.extent.width,
-        height = self.extent.height,
-        layers = 1,
-    };
-    Vk_Check(vkCreateFramebuffer(device, *framebuffer_ci, null, *self.framebuffers[0]));
-    attachments[0] = self.image_views[1];
-    Vk_Check(vkCreateFramebuffer(device, *framebuffer_ci, null, *self.framebuffers[1]));
+    // @Cleanup: Dynamic Rendering
+    // framebuffer_ci := VkFramebufferCreateInfo.{
+    //     renderPass = global_renderer.standard_render_pass, // @Hardcoded
+    //     attachmentCount = attachments.count,
+    //     pAttachments = attachments.data,
+    //     width = self.extent.width,
+    //     height = self.extent.height,
+    //     layers = 1,
+    // };
+    // Vk_Check(vkCreateFramebuffer(device, *framebuffer_ci, null, *self.framebuffers[0]));
+    // attachments[0] = self.image_views[1];
+    // Vk_Check(vkCreateFramebuffer(device, *framebuffer_ci, null, *self.framebuffers[1]));
 
     log("Swapchain created:");
     log("\tFormat: %", self.format.format);

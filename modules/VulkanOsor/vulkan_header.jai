@@ -90,6 +90,7 @@ VK_MAX_SHADER_MODULE_IDENTIFIER_SIZE_EXT :u32: 32;
 #if VULKAN_PLATFORM == .X11
 {
     #import "Linux";
+    #import "X11";
     // @@TODO: We probably need more things here
 } // X11
 
@@ -26395,10 +26396,10 @@ PFN_vkAcquireXlibDisplayEXT :: #type (physicalDevice : VkPhysicalDevice,
 //  - (https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkGetRandROutputDisplayEXT.html)
 // Referenced by VK_EXT_acquire_xlib_display
 //  - (https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VK_EXT_acquire_xlib_display.html)
-PFN_vkGetRandROutputDisplayEXT :: #type (physicalDevice : VkPhysicalDevice,
-                                         dpy : *Display,
-                                         rrOutput : RROutput,
-                                         pDisplay : *VkDisplayKHR) -> VkResult #foreign;
+// PFN_vkGetRandROutputDisplayEXT :: #type (physicalDevice : VkPhysicalDevice,
+//                                          dpy : *Display,
+//                                          rrOutput : RROutput,
+//                                          pDisplay : *VkDisplayKHR) -> VkResult #foreign;
 
 
 }

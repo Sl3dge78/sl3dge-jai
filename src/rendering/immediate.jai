@@ -80,8 +80,10 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
 
     // @TODO: maybe look into secondary command buffers?
     array_reserve(*result.command_buffers, count);
+    array_reserve(*result.current_pipelines, count);
+    result.current_pipelines.count = count;
     Vk_Check(vkAllocateCommandBuffers(global_renderer.device, *alloc_info, result.command_buffers.data));
-    result.command_buffers.count = 2;
+    result.command_buffers.count = count;
 
     begin_info := VkCommandBufferBeginInfo.{
         flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
@@ -93,6 +95,7 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
 
     #if vertex_type == UI_Vertex {
         cmd := result.command_buffers[0];
+        debug_name_object(cmd, "UI Command Buffer");
         color_attachment := VkRenderingAttachmentInfo.{
             imageView = view,
             imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -114,6 +117,11 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
 
         debug_marker(cmd, label);
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, global_renderer.ui_pipeline.pipeline);
+        result.current_pipelines[0] = global_renderer.ui_pipeline;
+
+        vkCmdSetViewport(cmd, 0, 1, *VkViewport.{0, xx result.target_h, xx result.target_w, -(cast(float)result.target_h), 0, 1});
+        vkCmdSetScissor(cmd, 0, 1, *VkRect2D.{.{0, 0}, .{result.target_w, result.target_w}});
+
         pc := UI_Push_Constants.{.{2.0 / cast(float)result.target_w, -2.0 / cast(float)result.target_h}, .{-1, 1}};
         vkCmdPushConstants(cmd, global_renderer.ui_pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, global_renderer.ui_pipeline.layout, 0, 1, *global_renderer.empty_texture_uniform.descriptor_set, 0, null);
@@ -121,6 +129,7 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
     } else #if vertex_type == Standard_Vertex {
         {   // Directionnal Shadow
             cmd := result.command_buffers[0];
+            debug_name_object(cmd, "3D Shadowmap Command Buffer");
             depth_attachment := VkRenderingAttachmentInfo.{
                 imageView = global_renderer.shadowmap_texture.view, 
                 imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
@@ -133,10 +142,12 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
                     offset = .{0, 0},
                     extent = .{Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE}, 
                 },
+                layerCount = 1,
                 colorAttachmentCount = 0,
                 pDepthAttachment = *depth_attachment,
             };
             vkCmdBeginRendering(cmd, *rendering_info);
+            result.current_pipelines[0] = global_renderer.static_mesh_material.shadowmap;
             bind_material(cmd, global_renderer.static_mesh_material, .SHADOWMAP);
             // wgpu.RenderPassEncoderSetPipeline(shadow_render_pass, global_renderer.static_mesh_pipelines[0]);
             // wgpu.RenderPassEncoderSetBindGroup(shadow_render_pass, 0, global_renderer.shadowmap_matrices_uniform.bind_group, 0, null);
@@ -145,8 +156,9 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
         
         {   // Color
             cmd := result.command_buffers[1];
+            debug_name_object(cmd, "3D Color Command Buffer");
             depth_attachment := VkRenderingAttachmentInfo.{
-                imageView = global_renderer.shadowmap_texture.view, 
+                imageView = global_renderer.swapchain.depth_texture.view, 
                 imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
                 loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
                 storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -164,11 +176,13 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
                     offset = .{0, 0},
                     extent = .{result.target_w, result.target_h}, 
                 },
+                layerCount = 1,
                 colorAttachmentCount = 1,
                 pColorAttachments = *color_attachment, 
                 pDepthAttachment = *depth_attachment,
             };
             vkCmdBeginRendering(cmd, *rendering_info);
+            result.current_pipelines[1] = global_renderer.static_mesh_material.color;
             bind_material(cmd, global_renderer.static_mesh_material, .COLOR);
 
             // // wgpu.RenderPassEncoderSetPipeline(color_render_pass, global_renderer.static_mesh_pipelines[1]);
@@ -228,6 +242,7 @@ immediate_end :: (using immediate: *Immediate) {
     flush(immediate);
     for command_buffers {
         vkCmdEndRendering(it);
+        vkEndCommandBuffer(it);
     }
     renderer_push_command_buffers(*global_renderer, immediate.command_buffers);
 }

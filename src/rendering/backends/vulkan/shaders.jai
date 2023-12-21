@@ -37,3 +37,28 @@ Global_Matrices :: struct {
 Instance_Data :: struct {
     joint_matrices: [128]Matrix4;
 }
+
+
+// #run {
+//     #import "Process";
+
+//     build_shader :: (path: string) -> bool {
+//         name := tprint("%.spv", path);
+//         result, output, err := run_command("glslangValidator", "-V", path, "-o", name, working_directory = "bin/shaders", true);
+//         print("%\n", output);
+//         if result.exit_code != 0 {
+//             print("%\n", err);
+//             assert(false, "%", err);
+//             return false;
+//         }
+
+//         return true;
+//     }
+
+//     build_shader("static.vert");
+//     build_shader("skinned.vert");
+//     build_shader("color.frag");
+//     build_shader("ui.vert");
+//     build_shader("ui.frag");
+
+// }
