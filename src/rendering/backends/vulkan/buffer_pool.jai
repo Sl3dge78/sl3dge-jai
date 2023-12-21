@@ -13,7 +13,7 @@ Buffer_Pool :: struct {
 
 maybe_grow :: (using buffer_pool: *Buffer_Pool, size: VkDeviceSize) {
     if buffers.count == 0 || size > (BUFFER_SIZE - current_position_in_buffer) {
-        array_add(*buffers, buffer_create(BUFFER_SIZE, .VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT | .STORAGE_BUFFER_BIT | .TRANSFER_SRC_BIT, .UPLOAD));
+        array_add(*buffers, buffer_create(BUFFER_SIZE, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, .UPLOAD));
         current_position_in_buffer = 0;
     }
 }

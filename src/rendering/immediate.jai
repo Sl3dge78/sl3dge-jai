@@ -57,12 +57,12 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
         result.target_w = global_renderer.swapchain.extent.width;
         result.target_h = global_renderer.swapchain.extent.height;
         view = global_renderer.frame_data[global_renderer.frame_index].framebuffer;
-        load_op = .LOAD;
+        load_op = VK_ATTACHMENT_LOAD_OP_LOAD;
     } else {
         result.target_w = render_target.w;
         result.target_h = render_target.h;
         view = render_target.view;
-        load_op = .CLEAR;
+        load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
     }
 
     count : u32 = 0;
@@ -74,7 +74,7 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
 
     alloc_info := VkCommandBufferAllocateInfo.{
         commandPool = global_renderer.command_pool,
-        level = .PRIMARY,
+        level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
         commandBufferCount = count,
     };
 
@@ -84,7 +84,7 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
     result.command_buffers.count = 2;
 
     begin_info := VkCommandBufferBeginInfo.{
-        flags = .ONE_TIME_SUBMIT_BIT,
+        flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
     };
 
     for result.command_buffers {
@@ -95,10 +95,10 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
         cmd := result.command_buffers[0];
         color_attachment := VkRenderingAttachmentInfo.{
             imageView = view,
-            imageLayout = .COLOR_ATTACHMENT_OPTIMAL,
+            imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             loadOp = load_op,
-            storeOp = .STORE,
-            clearValue = .{color = .{ _float32 = .[0, 0, 0, 1]}},
+            storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+            clearValue = .{color = .{ float32_ = .[0, 0, 0, 1]}},
         };
 
         rendering_info := VkRenderingInfo.{
@@ -113,19 +113,19 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
         vkCmdBeginRendering(cmd, *rendering_info);
 
         debug_marker(cmd, label);
-        vkCmdBindPipeline(cmd, .GRAPHICS, global_renderer.ui_pipeline.pipeline);
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, global_renderer.ui_pipeline.pipeline);
         pc := UI_Push_Constants.{.{2.0 / cast(float)result.target_w, -2.0 / cast(float)result.target_h}, .{-1, 1}};
-        vkCmdPushConstants(cmd, global_renderer.ui_pipeline.layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
-        vkCmdBindDescriptorSets(cmd, .GRAPHICS, global_renderer.ui_pipeline.layout, 0, 1, *global_renderer.empty_texture_uniform.descriptor_set, 0, null);
+        vkCmdPushConstants(cmd, global_renderer.ui_pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, global_renderer.ui_pipeline.layout, 0, 1, *global_renderer.empty_texture_uniform.descriptor_set, 0, null);
 
     } else #if vertex_type == Standard_Vertex {
         {   // Directionnal Shadow
             cmd := result.command_buffers[0];
             depth_attachment := VkRenderingAttachmentInfo.{
                 imageView = global_renderer.shadowmap_texture.view, 
-                imageLayout = .DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                loadOp = .CLEAR,
-                storeOp = .STORE,
+                imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+                storeOp = VK_ATTACHMENT_STORE_OP_STORE,
                 clearValue = .{depthStencil = .{1, 0}},
             };
             rendering_info := VkRenderingInfo.{
@@ -147,17 +147,17 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
             cmd := result.command_buffers[1];
             depth_attachment := VkRenderingAttachmentInfo.{
                 imageView = global_renderer.shadowmap_texture.view, 
-                imageLayout = .DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                loadOp = .CLEAR,
-                storeOp = .STORE,
+                imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+                storeOp = VK_ATTACHMENT_STORE_OP_STORE,
                 clearValue = .{depthStencil = .{1, 0}},
             };
             color_attachment := VkRenderingAttachmentInfo.{
                 imageView = view,
-                imageLayout = .COLOR_ATTACHMENT_OPTIMAL,
+                imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                 loadOp = load_op,
-                storeOp = .STORE,
-                clearValue = .{color = .{ _float32 = .[0, 0, 0, 1]}},
+                storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+                clearValue = .{color = .{ float32_ = .[0, 0, 0, 1]}},
             };
             rendering_info := VkRenderingInfo.{
                 renderArea = .{
@@ -188,10 +188,10 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
 
 // Only for 2d for now...
 immediate_use_shader :: (using immediate: *Immediate2D, pipeline: Pipeline) {
-    vkCmdBindPipeline(command_buffers[0], .GRAPHICS, pipeline.pipeline);
+    vkCmdBindPipeline(command_buffers[0], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
     pc := UI_Push_Constants.{.{2.0 / cast(float)target_w, -2.0 / cast(float)target_h}, .{-1, 1}};
-    vkCmdPushConstants(command_buffers[0], pipeline.layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
-    vkCmdBindDescriptorSets(command_buffers[0], .GRAPHICS, pipeline.layout, 0, 1, *global_renderer.empty_texture_uniform.descriptor_set, 0, null);
+    vkCmdPushConstants(command_buffers[0], pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
+    vkCmdBindDescriptorSets(command_buffers[0], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.layout, 0, 1, *global_renderer.empty_texture_uniform.descriptor_set, 0, null);
     immediate.current_pipelines[0] = pipeline;
 }
 
@@ -205,12 +205,12 @@ immediate_default_texture :: (using immediate: *Immediate3D) {
 
 immediate_bind_texture :: (using immediate: *Immediate2D, texture: Uniform_Texture) {
     flush(immediate);
-    vkCmdBindDescriptorSets(command_buffers[0], .GRAPHICS, current_pipelines[0].layout, 0, 1, *texture.descriptor_set, 0, null);
+    vkCmdBindDescriptorSets(command_buffers[0], VK_PIPELINE_BIND_POINT_GRAPHICS, current_pipelines[0].layout, 0, 1, *texture.descriptor_set, 0, null);
 }
 
 immediate_bind_texture :: (using immediate: *Immediate3D, texture: Uniform_Texture) {
     flush(immediate);
-    vkCmdBindDescriptorSets(command_buffers[1], .GRAPHICS, current_pipelines[1].layout, Renderer.MATERIAL_SET, 1, *texture.descriptor_set, 0, null);
+    vkCmdBindDescriptorSets(command_buffers[1], VK_PIPELINE_BIND_POINT_GRAPHICS, current_pipelines[1].layout, Renderer.MATERIAL_SET, 1, *texture.descriptor_set, 0, null);
 }
 
 set_model_matrix :: (immediate: *Immediate3D, mat: Matrix4) {
@@ -220,7 +220,7 @@ set_model_matrix :: (immediate: *Immediate3D, mat: Matrix4) {
         inverse_transform = transpose(inverse(mat)),
     };
     for immediate.command_buffers {
-        vkCmdPushConstants(it, immediate.current_pipelines[it_index].layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
+        vkCmdPushConstants(it, immediate.current_pipelines[it_index].layout, VK_SHADER_STAGE_VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
     }
 }
 

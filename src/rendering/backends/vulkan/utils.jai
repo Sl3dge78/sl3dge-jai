@@ -1,6 +1,6 @@
 
 Vk_Check :: (result: VkResult) #expand #no_debug {
-    assert(result == .SUCCESS, "Vk result is %", result);
+    assert(result == VK_SUCCESS, "Vk result is %", result);
 }
 
 fill_array :: ($type: Type, func: $R, arg: $S) -> [..]type #expand {
@@ -58,7 +58,7 @@ alloc_device_memory :: (item: $T, mem_type: MemoryType) -> VkDeviceMemory {
 // Maybe a bad idea, allocates and starts a command command then ends it at the end of the current scope.
 begin_single_time_command_buffer :: () -> VkCommandBuffer {
     alloc_info := VkCommandBufferAllocateInfo.{
-        level = .PRIMARY,
+        level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
         commandPool = global_renderer.command_pool,
         commandBufferCount = 1,
     };
@@ -67,7 +67,7 @@ begin_single_time_command_buffer :: () -> VkCommandBuffer {
     vkAllocateCommandBuffers(global_renderer.device, *alloc_info, *cmd);
 
     begin_info := VkCommandBufferBeginInfo.{
-        flags = .ONE_TIME_SUBMIT_BIT,
+        flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
     };
     vkBeginCommandBuffer(cmd, *begin_info);
 
@@ -85,10 +85,6 @@ end_single_time_command_buffer :: (cmd: VkCommandBuffer) {
 
     vkFreeCommandBuffers(global_renderer.device, global_renderer.command_pool, 1, *cmd);
 }
-
-vkCreateDebugUtilsMessengerEXT: PFN_vkCreateDebugUtilsMessengerEXT;
-vkDestroyDebugUtilsMessengerEXT: PFN_vkDestroyDebugUtilsMessengerEXT;
-vkCmdInsertDebugUtilsLabelEXT: PFN_vkCmdInsertDebugUtilsLabelEXT;
 
 load_function_pointers :: (instance: VkInstance) {
     load :: (name: string) -> *void #expand {

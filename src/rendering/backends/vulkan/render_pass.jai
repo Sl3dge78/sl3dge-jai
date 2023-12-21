@@ -24,11 +24,11 @@ Render_Pass_Builder :: struct {
             pAttachments = attachments.data,
             subpassCount = 1,
             pSubpasses = *VkSubpassDescription.{
-                pipelineBindPoint = .GRAPHICS,
+                pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
                 colorAttachmentCount = 0,
                 pDepthStencilAttachment = *VkAttachmentReference.{
                     attachment = 0,
-                    layout = .DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+                    layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
                 },
             },
             dependencyCount = dependencies.count,

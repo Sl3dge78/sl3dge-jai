@@ -9,7 +9,7 @@ buffer_create :: (size: u64, usage: VkBufferUsageFlagBits, mem_type: MemoryType)
     buffer_ci := VkBufferCreateInfo.{
         size = size,
         usage = usage,
-        sharingMode = .EXCLUSIVE,
+        sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         queueFamilyIndexCount = 1,
         pQueueFamilyIndices = *global_renderer.queue_family_index,
     };

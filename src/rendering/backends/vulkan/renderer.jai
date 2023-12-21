@@ -16,7 +16,7 @@ Renderer :: struct {
 
     swapchain: Swapchain;
 
-    DEPTH_FORMAT :: VkFormat.D32_SFLOAT_S8_UINT;
+    DEPTH_FORMAT :: VK_FORMAT_D32_SFLOAT_S8_UINT;
     
     // Descriptors
     descriptor_pool: VkDescriptorPool;
@@ -70,21 +70,28 @@ Renderer :: struct {
     command_buffers: [..]VkCommandBuffer;
 }
 
+#if OS == .WINDOWS {
+    #import "Windows";
+}
+
 renderer_create :: (window: *SDL_Window) -> Renderer {
     renderer := *global_renderer;
 
     renderer.window = window;
+    load_vulkan_loader_procedures();
 
     api_version: u32 = ---;
     Vk_Check(vkEnumerateInstanceVersion(*api_version));
-    log("Vk v%.%.%", VK_VERSION_MAJOR(api_version), VK_VERSION_MINOR(api_version), VK_VERSION_PATCH(api_version));
+    log("Vk v%.%.%", VK_API_VERSION_MAJOR(api_version), VK_API_VERSION_MINOR(api_version), VK_API_VERSION_PATCH(api_version));
     
     renderer.instance = create_instance(window);
-    
-    load_function_pointers(renderer.instance);
-    SDL_Vulkan_CreateSurface(window, renderer.instance, *renderer.surface);
+    load_vulkan_instance_procedures(renderer.instance);
+
+    // load_function_pointers(renderer.instance);
 
     renderer.debug_messenger = create_debug_messenger(renderer.instance);
+
+    SDL_Vulkan_CreateSurface(window, renderer.instance, *renderer.surface);
     
     renderer.physical_device = pick_physical_device(renderer.instance);
     vkGetPhysicalDeviceProperties(renderer.physical_device, *renderer.physical_device_properties);
@@ -92,6 +99,8 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
     renderer.swapchain.format = swapchain_pick_format(renderer.physical_device, renderer.surface);
     renderer.queue_family_index = get_queue_family_index(renderer.physical_device, renderer.surface);
     renderer.device = create_device(renderer.physical_device, renderer.queue_family_index);
+    load_vulkan_device_procedures(renderer.device);
+
     vkGetDeviceQueue(renderer.device, renderer.queue_family_index, 0, *renderer.graphics_queue);
     
     renderer.descriptor_pool = create_descriptor_pool(renderer.device);
@@ -218,7 +227,7 @@ end_frame :: () {
     }
 
     // {   // Record Command Buffer
-    //     vkBeginCommandBuffer(this_frame.command_buffer, *VkCommandBufferBeginInfo.{flags = .ONE_TIME_SUBMIT_BIT});
+    //     vkBeginCommandBuffer(this_frame.command_buffer, *VkCommandBufferBeginInfo.{flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT});
 
     //     // Shadowmap
     //     begin_shadowmap_renderpass(*global_renderer, this_frame.command_buffer);
@@ -240,7 +249,7 @@ end_frame :: () {
         submit_info := VkSubmitInfo.{
             waitSemaphoreCount = 1,
             pWaitSemaphores = *this_frame.image_available_semaphore,
-            pWaitDstStageMask = VkPipelineStageFlags.[.COLOR_ATTACHMENT_OUTPUT_BIT].data,
+            pWaitDstStageMask = VkPipelineStageFlags.[VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT].data,
             commandBufferCount = 1,
             pCommandBuffers = *this_frame.command_buffer,
             signalSemaphoreCount = 1,
@@ -256,7 +265,7 @@ end_frame :: () {
             pImageIndices = *image_index
         };
         result := vkQueuePresentKHR(global_renderer.graphics_queue, *present_info);
-        if result == .ERROR_OUT_OF_DATE_KHR { // Window was resized
+        if result == VK_ERROR_OUT_OF_DATE_KHR { // Window was resized
             swapchain_create_or_update(*swapchain, device, physical_device, surface, window);
         } else {
             Vk_Check(result);
@@ -301,8 +310,8 @@ wait_idle :: () {
 }
 
 MemoryType :: enum {
-    READBACK :: 0; // HOST_VISIBLE_BIT | .HOST_CACHED_BIT
-    UPLOAD;        // HOST_VISIBLE_BIT | .HOST_COHERENT_BIT
+    READBACK :: 0; // HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT
+    UPLOAD;        // HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
     LOCAL;         // DEVICE_LOCAL_BIT
     COUNT;
 }
@@ -334,7 +343,7 @@ debug_callback :: (severity: VkDebugUtilsMessageSeverityFlagsEXT, type: VkDebugU
     push_context ctx {
         msg := to_string(callback_data.pMessage);
         log("%: %", severity, msg);
-        if severity >= .ERROR_BIT_EXT {
+        if severity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT {
             assert(false);
         }
     }
@@ -342,6 +351,20 @@ debug_callback :: (severity: VkDebugUtilsMessageSeverityFlagsEXT, type: VkDebugU
 }
 
 create_instance :: (window: *SDL_Window) -> VkInstance {
+    
+    property_count: u32 = ---;
+    Vk_Check(vkEnumerateInstanceExtensionProperties(null, *property_count, null));
+    properties: [..]VkExtensionProperties;
+    properties.allocator = temp;
+    array_reserve(*properties, property_count);
+    Vk_Check(vkEnumerateInstanceExtensionProperties(null, *property_count, properties.data));
+    properties.count += property_count;
+
+    log("Available extensions:");
+    for properties {
+        log("\t%", cast(string)it.extensionName);
+    }
+
     layers: [..]*u8; 
     layers.allocator = temp;
     array_add(*layers, temp_c_string("VK_LAYER_KHRONOS_validation"));
@@ -379,8 +402,8 @@ create_instance :: (window: *SDL_Window) -> VkInstance {
 
 create_debug_messenger :: (instance: VkInstance) -> VkDebugUtilsMessengerEXT {
     create_info := VkDebugUtilsMessengerCreateInfoEXT.{
-        messageSeverity = .WARNING_BIT_EXT | .ERROR_BIT_EXT,
-        messageType = .GENERAL_BIT_EXT | .VALIDATION_BIT_EXT | .PERFORMANCE_BIT_EXT,
+        messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+        messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
         pfnUserCallback = debug_callback,
         pUserData = *context,
     };
@@ -404,7 +427,7 @@ pick_physical_device :: (instance: VkInstance) -> VkPhysicalDevice {
         // - Pick depending on queues
         prop: VkPhysicalDeviceProperties = ---;
         vkGetPhysicalDeviceProperties(device, *prop);
-        if (prop.deviceType == .DISCRETE_GPU) {
+        if (prop.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
             
             log("Physical device: %", cast(string)(prop.deviceName));
             return device;
@@ -430,9 +453,9 @@ get_memory_types :: (physical_device: VkPhysicalDevice) -> [MemoryType.COUNT]u32
     vkGetPhysicalDeviceMemoryProperties(physical_device, *memory_properties);
 
     result : [MemoryType.COUNT]u32 = ---;
-    result[MemoryType.READBACK] = find_compatible_memory_type(*memory_properties, .HOST_VISIBLE_BIT | .HOST_CACHED_BIT);
-    result[MemoryType.UPLOAD] = find_compatible_memory_type(*memory_properties, .HOST_VISIBLE_BIT | .HOST_COHERENT_BIT);
-    result[MemoryType.LOCAL] = find_compatible_memory_type(*memory_properties, .DEVICE_LOCAL_BIT);
+    result[MemoryType.READBACK] = find_compatible_memory_type(*memory_properties, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT);
+    result[MemoryType.UPLOAD] = find_compatible_memory_type(*memory_properties, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    result[MemoryType.LOCAL] = find_compatible_memory_type(*memory_properties, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     return result;
 }
 
@@ -442,7 +465,7 @@ get_queue_family_index :: (physical_device: VkPhysicalDevice, surface: VkSurface
     for queue_families {
         supports_present := VK_FALSE;
         vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, xx it_index, surface, *supports_present);
-        if supports_present && (it.queueFlags & .GRAPHICS_BIT) {
+        if supports_present && (it.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
             return xx it_index;
         }
     }
@@ -478,10 +501,10 @@ create_device :: (physical_device: VkPhysicalDevice, queue_family_index: u32) ->
 
 create_descriptor_pool :: (device: VkDevice) -> VkDescriptorPool {
     pool_sizes := VkDescriptorPoolSize.[.{ 
-        type = .UNIFORM_BUFFER,
+        type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         descriptorCount = 32,
     }, .{ 
-        type = .COMBINED_IMAGE_SAMPLER,
+        type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
         descriptorCount = 32,
     }
     ];
@@ -500,30 +523,30 @@ create_descriptor_set_layouts :: (renderer: *Renderer) {
     renderer.empty_set_layout = create_descriptor_set_layout(renderer.device, .[]);
     renderer.camera_set_layout = create_descriptor_set_layout(renderer.device, .[.{
         binding = 0, 
-        descriptorType = .UNIFORM_BUFFER,
+        descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         descriptorCount = 1,
-        stageFlags = .VERTEX_BIT | .FRAGMENT_BIT,
+        stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
         pImmutableSamplers = null,
     }]);
     renderer.shadowmap_layout = create_descriptor_set_layout(renderer.device, .[.{
         binding = 0,
-        descriptorType = .COMBINED_IMAGE_SAMPLER,
+        descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
         descriptorCount = 1,
-        stageFlags = .FRAGMENT_BIT,
+        stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
         pImmutableSamplers = null,
     }]);
     renderer.single_texture_layout = create_descriptor_set_layout(renderer.device, .[.{
         binding = 0,
-        descriptorType = .COMBINED_IMAGE_SAMPLER,
+        descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
         descriptorCount = 1,
-        stageFlags = .FRAGMENT_BIT,
+        stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
         pImmutableSamplers = null,
     }]);
     renderer.skinned_mesh_layout = create_descriptor_set_layout(renderer.device, .[.{
         binding = 0,
-        descriptorType = .UNIFORM_BUFFER,
+        descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         descriptorCount = 1,
-        stageFlags = .VERTEX_BIT,
+        stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
         pImmutableSamplers = null,
     }]);
 }
@@ -531,7 +554,7 @@ create_descriptor_set_layouts :: (renderer: *Renderer) {
 create_command_pool :: (device: VkDevice, queue_family_index: u32) -> VkCommandPool {
 
     cmd_pool_ci := VkCommandPoolCreateInfo.{
-        flags = .RESET_COMMAND_BUFFER_BIT,
+        flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
         queueFamilyIndex = queue_family_index,
     };
     command_pool: VkCommandPool = ---;
@@ -554,7 +577,7 @@ create_descriptor_sets :: (renderer: *Renderer) {
     renderer.empty_texture = texture_from_data(data.data, 1, 1, 4, u8);
     renderer.empty_texture_uniform = uniform_texture_create(renderer.empty_texture, renderer.single_texture_layout);
 
-    renderer.shadowmap_texture = texture_create(Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE, Renderer.DEPTH_FORMAT, .DEPTH_STENCIL_ATTACHMENT_BIT | .SAMPLED_BIT, .DEPTH_BIT);
+    renderer.shadowmap_texture = texture_create(Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE, Renderer.DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
     renderer.empty_texture_uniform = uniform_texture_create(renderer.shadowmap_texture, renderer.single_texture_layout);
 }
 
@@ -565,23 +588,23 @@ create_standard_renderpass :: (device: VkDevice) -> VkRenderPass {
     attachments := VkAttachmentDescription.[
     .{
         format = format,
-        samples = ._1_BIT,
-        loadOp = .CLEAR,
-        storeOp = .STORE,
-        stencilLoadOp = .DONT_CARE,
-        stencilStoreOp = .DONT_CARE,
-        initialLayout = .UNDEFINED,
-        finalLayout = .PRESENT_SRC_KHR,
+        samples = VK_SAMPLE_COUNT_1_BIT,
+        loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
     },
     .{
         format = depth_format,
-        samples = ._1_BIT,
-        loadOp = .CLEAR,
-        storeOp = .STORE,
-        stencilLoadOp = .DONT_CARE,
-        stencilStoreOp = .DONT_CARE,
-        initialLayout = .UNDEFINED,
-        finalLayout = .DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        samples = VK_SAMPLE_COUNT_1_BIT,
+        loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
     }];
 
     create_info := VkRenderPassCreateInfo.{
@@ -589,25 +612,25 @@ create_standard_renderpass :: (device: VkDevice) -> VkRenderPass {
         pAttachments = attachments.data,
         subpassCount = 1,
         pSubpasses = *VkSubpassDescription.{
-            pipelineBindPoint = .GRAPHICS,
+            pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
             colorAttachmentCount = 1,
             pColorAttachments = *VkAttachmentReference.{
                 attachment = 0,
-                layout = .COLOR_ATTACHMENT_OPTIMAL,
+                layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             },
             pDepthStencilAttachment = *VkAttachmentReference.{
                 attachment = 1,
-                layout = .DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+                layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
             },
         },
         dependencyCount = 1,
         pDependencies = *VkSubpassDependency.{
             srcSubpass = VK_SUBPASS_EXTERNAL,
             dstSubpass = 0,
-            srcStageMask = .COLOR_ATTACHMENT_OUTPUT_BIT | .EARLY_FRAGMENT_TESTS_BIT,
-            dstStageMask = .COLOR_ATTACHMENT_OUTPUT_BIT | .EARLY_FRAGMENT_TESTS_BIT,
+            srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+            dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
             srcAccessMask = 0,
-            dstAccessMask = .COLOR_ATTACHMENT_WRITE_BIT | .DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
             dependencyFlags = 0,
         },
     };
@@ -619,7 +642,7 @@ create_standard_renderpass :: (device: VkDevice) -> VkRenderPass {
 begin_standard_renderpass :: (renderer: *Renderer, command_buffer: VkCommandBuffer, framebuffer: VkFramebuffer) {
     clear_color := Vector4.{0.529, 0.808, 0.922, 0};
     clear_values := VkClearValue.[
-        .{color = .{_float32 = clear_color.component}},
+        .{color = .{float32_ = clear_color.component}},
         .{depthStencil = .{1, 0}}
     ];
      vkCmdBeginRenderPass(command_buffer, *VkRenderPassBeginInfo.{
@@ -631,7 +654,7 @@ begin_standard_renderpass :: (renderer: *Renderer, command_buffer: VkCommandBuff
             offset = .{0, 0},
             extent = renderer.swapchain.extent,
         },
-    }, .INLINE);
+    }, VK_SUBPASS_CONTENTS_INLINE);
 }
 
 create_shadowmap_renderpass :: (device: VkDevice) -> VkRenderPass {
@@ -640,32 +663,32 @@ create_shadowmap_renderpass :: (device: VkDevice) -> VkRenderPass {
 
     attachments := VkAttachmentDescription.[.{
         format = depth_format,
-        samples = ._1_BIT,
-        loadOp = .CLEAR,
-        storeOp = .STORE,
-        stencilLoadOp = .DONT_CARE,
-        stencilStoreOp = .DONT_CARE,
-        initialLayout = .UNDEFINED,
-        finalLayout = .DEPTH_STENCIL_READ_ONLY_OPTIMAL,
+        samples = VK_SAMPLE_COUNT_1_BIT,
+        loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
     }];
 
     dependencies := VkSubpassDependency.[.{
         srcSubpass = VK_SUBPASS_EXTERNAL,
         dstSubpass = 0,
-        srcStageMask = .FRAGMENT_SHADER_BIT, 
-        dstStageMask = .EARLY_FRAGMENT_TESTS_BIT,
-        srcAccessMask = .SHADER_READ_BIT,
-        dstAccessMask = .DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-        dependencyFlags = .BY_REGION_BIT,
+        srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 
+        dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+        srcAccessMask = VK_ACCESS_SHADER_READ_BIT,
+        dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+        dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
     },
     .{
         srcSubpass = 0,
         dstSubpass = VK_SUBPASS_EXTERNAL,
-        srcStageMask = .LATE_FRAGMENT_TESTS_BIT, 
-        dstStageMask = .FRAGMENT_SHADER_BIT,
-        srcAccessMask = .DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-        dstAccessMask = .SHADER_READ_BIT,
-        dependencyFlags = .BY_REGION_BIT,
+        srcStageMask = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, 
+        dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+        dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+        dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
     }];
 
     create_info := VkRenderPassCreateInfo.{
@@ -673,11 +696,11 @@ create_shadowmap_renderpass :: (device: VkDevice) -> VkRenderPass {
         pAttachments = attachments.data,
         subpassCount = 1,
         pSubpasses = *VkSubpassDescription.{
-            pipelineBindPoint = .GRAPHICS,
+            pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
             colorAttachmentCount = 0,
             pDepthStencilAttachment = *VkAttachmentReference.{
                 attachment = 0,
-                layout = .DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+                layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
             },
         },
         dependencyCount = dependencies.count,
@@ -699,13 +722,13 @@ begin_shadowmap_renderpass :: (renderer: Renderer, command_buffer: VkCommandBuff
             offset = .{0, 0},
             extent = .{renderer.shadowmap_texture.w, renderer.shadowmap_texture.h}
         },
-    }, .INLINE);
+    }, VK_SUBPASS_CONTENTS_INLINE);
 }
 
 // draw :: (using self: Mesh, command_buffer: VkCommandBuffer) {
 //     for submeshes {
 //         vkCmdBindVertexBuffers(command_buffer, 0, 1, *it.vertices_loc.buffer.buffer, *it.vertices_loc.offset);
-//         vkCmdBindIndexBuffer(command_buffer, it.indices_loc.buffer.buffer, it.indices_loc.offset, .UINT32);
+//         vkCmdBindIndexBuffer(command_buffer, it.indices_loc.buffer.buffer, it.indices_loc.offset, VK_INDEX_TYPE_UINT32);
 //         vkCmdDrawIndexed(command_buffer, xx it.index_count, 1, 0, 0, 0);
 //     }
 // }
@@ -715,7 +738,7 @@ begin_shadowmap_renderpass :: (renderer: Renderer, command_buffer: VkCommandBuff
 //     for submeshes {
 //         vkCmdBindVertexBuffers(command_buffer, 0, 1, *it.vertices_loc.buffer.buffer, *it.vertices_loc.offset);
 //         vkCmdBindVertexBuffers(command_buffer, 1, 1, *skins[it_index].buffer.buffer, *skins[it_index].offset);
-//         vkCmdBindIndexBuffer(command_buffer, it.indices_loc.buffer.buffer, it.indices_loc.offset, .UINT32);
+//         vkCmdBindIndexBuffer(command_buffer, it.indices_loc.buffer.buffer, it.indices_loc.offset, VK_INDEX_TYPE_UINT32);
 //         vkCmdDrawIndexed(command_buffer, xx it.index_count, 1, 0, 0, 0);
 //     }
 // }

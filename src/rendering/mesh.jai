@@ -16,7 +16,7 @@ destroy :: (using mesh : *Mesh) {
 draw :: inline (using self: Mesh, command_buffer: VkCommandBuffer) {
     for submeshes {
         vkCmdBindVertexBuffers(command_buffer, 0, 1, *it.vertices.buffer.handle, *it.vertices.offset);
-        vkCmdBindIndexBuffer(command_buffer, it.indices.buffer.handle, it.indices.offset, .UINT32);
+        vkCmdBindIndexBuffer(command_buffer, it.indices.buffer.handle, it.indices.offset, VK_INDEX_TYPE_UINT32);
         vkCmdDrawIndexed(command_buffer, it.index_count, 1, 0, 0, 0);
     }
 }

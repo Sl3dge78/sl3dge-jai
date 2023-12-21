@@ -24,7 +24,7 @@ uniform_buffer_create :: (layout: VkDescriptorSetLayout, size: VkDeviceSize) -> 
         dstSet = self.descriptor_set,
         dstBinding = 0,
         dstArrayElement = 0,
-        descriptorType = .UNIFORM_BUFFER,
+        descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         descriptorCount = 1,
         pBufferInfo = *buffer_info
     }];
@@ -59,13 +59,13 @@ uniform_texture_create :: (sampler: VkSampler, view: VkImageView, layout: VkDesc
     image_info := VkDescriptorImageInfo.{
         sampler = sampler, 
         imageView = view, 
-        imageLayout = .SHADER_READ_ONLY_OPTIMAL,
+        imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
     };
     descriptor_writes := VkWriteDescriptorSet.[.{
         dstSet = self.descriptor_set,
         dstBinding = 0,
         dstArrayElement = 0,
-        descriptorType = .COMBINED_IMAGE_SAMPLER,
+        descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
         descriptorCount = 1,
         pImageInfo = *image_info,
     }];

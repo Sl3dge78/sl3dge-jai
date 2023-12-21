@@ -23,7 +23,7 @@ draw_static_meshes :: inline (using self: *Scene, command_buffer: VkCommandBuffe
             transform = transpose(it.transform),
             inverse_transform = transpose(inverse(it.transform)),
         };
-        vkCmdPushConstants(command_buffer, current_pipeline.layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
+        vkCmdPushConstants(command_buffer, current_pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
         draw(it.mesh, command_buffer);
     }
 }
@@ -34,8 +34,8 @@ draw_skinned_meshes :: inline (using self: *Scene, command_buffer: VkCommandBuff
             transform = transpose(it.transform),
             inverse_transform = transpose(inverse(it.transform)),
         };
-        vkCmdPushConstants(command_buffer, current_pipeline.layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
-        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, current_pipeline.layout, 2, 1, *it.joint_uniform.descriptor_set, 0, null);
+        vkCmdPushConstants(command_buffer, current_pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
+        vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, current_pipeline.layout, 2, 1, *it.joint_uniform.descriptor_set, 0, null);
         draw(it.skinned_mesh, command_buffer);
     }
 }
