@@ -146,6 +146,7 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
                 colorAttachmentCount = 0,
                 pDepthAttachment = *depth_attachment,
             };
+            transition_image_layout(global_renderer.shadowmap_texture.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, cmd);
             vkCmdBeginRendering(cmd, *rendering_info);
             result.current_pipelines[0] = global_renderer.static_mesh_material.shadowmap;
             bind_material(cmd, global_renderer.static_mesh_material, .SHADOWMAP);
@@ -156,6 +157,7 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
         
         {   // Color
             cmd := result.command_buffers[1];
+            transition_image_layout(global_renderer.shadowmap_texture.image, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cmd);
             debug_name_object(cmd, "3D Color Command Buffer");
             depth_attachment := VkRenderingAttachmentInfo.{
                 imageView = global_renderer.swapchain.depth_texture.view, 

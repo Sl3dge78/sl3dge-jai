@@ -112,6 +112,10 @@ transition_image_layout :: (image: VkImage, $old_layout: VkImageLayout, $new_lay
     } else #if old_layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL { 
         src_access = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
         src_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    } else #if old_layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL { 
+        src_access = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        src_stage = VK_PIPELINE_STAGE_
+
     } else {
         #assert false, "Unsupported image layout transition.";
     }
