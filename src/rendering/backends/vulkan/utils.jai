@@ -100,6 +100,18 @@ load_function_pointers :: (instance: VkInstance) {
 SDL_Vulkan_GetInstanceExtensions :: (window: *SDL_Window, pCount: *u32, pNames: **u8) -> bool #foreign SDL2;
 SDL_Vulkan_CreateSurface :: (window: *SDL_Window, instance: VkInstance, surface: *VkSurfaceKHR) -> bool #foreign SDL2;
 
+debug_callback :: (severity: VkDebugUtilsMessageSeverityFlagsEXT, type: VkDebugUtilsMessageTypeFlagsEXT, callback_data: *VkDebugUtilsMessengerCallbackDataEXT,  data: *void) -> VkBool32 #c_call {
+    ctx := (cast(*Context)data).*;
+    push_context ctx {
+        msg := to_string(callback_data.pMessage);
+        log("%: %\n", severity, msg);
+        if severity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT {
+            assert(false);
+        }
+    }
+    return VK_TRUE;
+}
+
 debug_marker :: (command_buffer: VkCommandBuffer, label: string) {
     marker_info := VkDebugUtilsLabelEXT.{
         pLabelName = temp_c_string(label),

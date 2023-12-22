@@ -8,6 +8,7 @@ Renderer :: struct {
     
     physical_device: VkPhysicalDevice;
     physical_device_properties: VkPhysicalDeviceProperties;
+    physical_device_features: VkPhysicalDeviceFeatures;
     compatible_mem_types: [MemoryType.COUNT]u32;
     queue_family_index: u32;
 
@@ -93,7 +94,7 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
 
     api_version: u32 = ---;
     Vk_Check(vkEnumerateInstanceVersion(*api_version));
-    log("Vk v%.%.%", VK_API_VERSION_MAJOR(api_version), VK_API_VERSION_MINOR(api_version), VK_API_VERSION_PATCH(api_version));
+    log("Vulkan v%.%.%", VK_API_VERSION_MAJOR(api_version), VK_API_VERSION_MINOR(api_version), VK_API_VERSION_PATCH(api_version));
     
     renderer.instance = create_instance(window);
     load_vulkan_instance_procedures(renderer.instance);
@@ -103,9 +104,10 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
     SDL_Vulkan_CreateSurface(window, renderer.instance, *renderer.surface);
     
     renderer.physical_device = pick_physical_device(renderer.instance);
+    // @TODO: Check limits & features
     vkGetPhysicalDeviceProperties(renderer.physical_device, *renderer.physical_device_properties);
+    vkGetPhysicalDeviceFeatures(renderer.physical_device, *renderer.physical_device_features);
 
-    // @TODO: Check limits
 
     // Setup limits where needed
     renderer.uniform_buffer_pool.alignement = renderer.physical_device_properties.limits.minUniformBufferOffsetAlignment;
@@ -211,6 +213,15 @@ update_framebuffer :: () {
         h = swapchain.extent.height,
         aspect = VK_IMAGE_ASPECT_COLOR_BIT,
     };
+
+    command_buffer := begin_single_time_command_buffer();
+    transition_texture_layout(*this_frame.framebuffer, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, command_buffer);
+    clear := VkClearColorValue.{ float32_ = .[0, 0, 0, 1] };
+    range := VkImageSubresourceRange.{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+    vkCmdClearColorImage(command_buffer, this_frame.framebuffer.image, this_frame.framebuffer.current_layout, *clear, 1, *range);
+    transition_texture_layout(*this_frame.framebuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, command_buffer);
+    vkEndCommandBuffer(command_buffer);
+    array_add(*command_buffers, command_buffer);
 }
 
 end_frame :: () {
@@ -297,6 +308,7 @@ end_frame :: () {
         frame_index = (frame_index + 1) % FRAME_COUNT;
         idx := frame_index;
         command_buffers.count = 0;
+        // Vk_Check(vkResetCommandPool(device, command_pool, 0));
     }
 
     buffer_pool_reset(*immediate_buffer_pool);
@@ -364,17 +376,6 @@ panic :: () {
 
 #scope_file
 
-debug_callback :: (severity: VkDebugUtilsMessageSeverityFlagsEXT, type: VkDebugUtilsMessageTypeFlagsEXT, callback_data: *VkDebugUtilsMessengerCallbackDataEXT,  data: *void) -> VkBool32 #c_call {
-    ctx := (cast(*Context)data).*;
-    push_context ctx {
-        msg := to_string(callback_data.pMessage);
-        log("%: %\n", severity, msg);
-        if severity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT {
-            // assert(false);
-        }
-    }
-    return VK_TRUE;
-}
 
 create_instance :: (window: *SDL_Window) -> VkInstance {
     
@@ -392,17 +393,31 @@ create_instance :: (window: *SDL_Window) -> VkInstance {
     extensions.count += nb;
 
     array_add(*extensions, VK_EXT_DEBUG_UTILS_EXTENSION_NAME.data);
+    array_add(*extensions, VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME.data);
 
     log("Extensions:");
     for ext : extensions {
         log("\t%", to_string(ext));
     }
 
+    enabled_features := VkValidationFeatureEnableEXT.[
+        // VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT,
+        // VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_RESERVE_BINDING_SLOT_EXT,
+        VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT,
+        // VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT,
+        VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT,
+    ];
+    validation_features := VkValidationFeaturesEXT.{
+        enabledValidationFeatureCount = xx enabled_features.count,
+        pEnabledValidationFeatures = enabled_features.data,
+    };
+    
     app_info := VkApplicationInfo.{
         apiVersion = VK_MAKE_API_VERSION(0, 1, 3, 0),
     };
 
     create_info := VkInstanceCreateInfo.{
+        pNext = *validation_features,
         enabledLayerCount = xx layers.count,
         ppEnabledLayerNames = layers.data,
         enabledExtensionCount = xx extensions.count,
@@ -418,8 +433,8 @@ create_instance :: (window: *SDL_Window) -> VkInstance {
 
 create_debug_messenger :: (instance: VkInstance) -> VkDebugUtilsMessengerEXT {
     create_info := VkDebugUtilsMessengerCreateInfoEXT.{
-        messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
-        messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
+        messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT,
+        messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_DEVICE_ADDRESS_BINDING_BIT_EXT,
         pfnUserCallback = debug_callback,
         pUserData = *context,
     };
@@ -575,7 +590,6 @@ create_descriptor_set_layouts :: (renderer: *Renderer) {
 create_command_pool :: (device: VkDevice, queue_family_index: u32) -> VkCommandPool {
 
     cmd_pool_ci := VkCommandPoolCreateInfo.{
-        flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
         queueFamilyIndex = queue_family_index,
     };
     command_pool: VkCommandPool = ---;

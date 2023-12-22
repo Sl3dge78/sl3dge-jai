@@ -34,10 +34,8 @@ immediate_3d :: #bake_arguments immediate_begin(vertex_type = Standard_Vertex);
 immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : string = "") -> Immediate(vertex_type) {
     result : Immediate(vertex_type);
 
-    load_op : VkAttachmentLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; 
     if render_target == null {
         result.target = *global_renderer.frame_data[global_renderer.frame_index].framebuffer;
-        load_op = VK_ATTACHMENT_LOAD_OP_LOAD;
     } else {
         result.target = render_target;
     }
@@ -81,7 +79,7 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
         color_attachment := VkRenderingAttachmentInfo.{
             imageView = result.target.view,
             imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            loadOp = load_op,
+            loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
             storeOp = VK_ATTACHMENT_STORE_OP_STORE,
             clearValue = .{color = .{ float32_ = .[0, 0, 0, 1]}},
         };
@@ -126,7 +124,7 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
             color_attachment := VkRenderingAttachmentInfo.{
                 imageView = result.target.view,
                 imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                loadOp = load_op,
+                loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
                 storeOp = VK_ATTACHMENT_STORE_OP_STORE,
                 clearValue = .{color = .{ float32_ = .[0, 0, 0, 1]}},
             };
@@ -218,14 +216,13 @@ set_model_matrix :: (immediate: *Immediate3D, mat: Matrix4) {
     }
 }
 
-immediate_end :: (using immediate: *Immediate) {
+immediate_end :: (using immediate: *Immediate, final: bool = false) {
     flush(immediate);
     for command_buffers {
         vkCmdEndRendering(it);
     }
 
-    // @Speed: We transition even the framebuffer
-    if (immediate.target.image != global_renderer.frame_data[global_renderer.frame_index].framebuffer.image) {
+    if final { 
         transition_texture_layout(immediate.target, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, command_buffers[0]);
     }
 

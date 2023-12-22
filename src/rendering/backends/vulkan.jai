@@ -1,4 +1,5 @@
 #import,dir "../../../modules/VulkanOsor";
+#load "../../../modules/VMA/module.jai";
 #load "vulkan/initialization.jai";
 #load "vulkan/renderer.jai";
 #load "vulkan/utils.jai";
