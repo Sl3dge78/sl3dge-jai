@@ -17,6 +17,9 @@ Renderer :: struct {
     swapchain: Swapchain;
 
     DEPTH_FORMAT :: VK_FORMAT_D32_SFLOAT_S8_UINT;
+    SHADOWMAP_FORMAT :: VK_FORMAT_D32_SFLOAT;
+
+    current_framebuffer: Texture;
     
     // Descriptors
     descriptor_pool: VkDescriptorPool;
@@ -46,7 +49,6 @@ Renderer :: struct {
     // Shadowmap pass
     SHADOWMAP_SIZE :: 2048;
     shadowmap_render_pass: VkRenderPass;
-    shadowmap_framebuffer: VkFramebuffer;
     shadowmap_texture: Texture;
     shadowmap_uniform_texture: Uniform_Texture;
 
@@ -65,12 +67,15 @@ Renderer :: struct {
 
     vertex_buffer_pool: Buffer_Pool = .{
         kind = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        name = "vertex_buffer_pool",
     };
     immediate_buffer_pool: Buffer_Pool = .{
         kind = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        name = "immediate_buffer_pool",
     };
     uniform_buffer_pool: Buffer_Pool = .{
-        kind = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT
+        kind = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        name = "uniform_buffer_pool",
     };
 
     command_buffers: [..]VkCommandBuffer;
@@ -80,7 +85,7 @@ Renderer :: struct {
     #import "Windows";
 }
 
-renderer_create :: (window: *SDL_Window) -> Renderer {
+renderer_create :: (window: *SDL_Window) -> *Renderer {
     renderer := *global_renderer;
 
     renderer.window = window;
@@ -123,20 +128,6 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
     }       
 
     create_descriptor_sets(renderer);
-
-    // Shadowmap
-    // renderer.shadowmap_render_pass = create_shadowmap_renderpass(renderer.device);
-    // fb_ci := VkFramebufferCreateInfo.{
-    //     renderPass = renderer.shadowmap_render_pass,
-    //     attachmentCount = 1,
-    //     pAttachments = *renderer.shadowmap_texture.view,
-    //     width = renderer.shadowmap_texture.w,
-    //     height = renderer.shadowmap_texture.h,
-    //     layers = 1
-    // };
-    // Vk_Check(vkCreateFramebuffer(renderer.device, *fb_ci, null, *renderer.shadowmap_framebuffer));
-    
-    // renderer.standard_render_pass = create_standard_renderpass(renderer.device);
     
     renderer.static_mesh_material = create_static_mesh_material(renderer.device);
     renderer.skinned_mesh_material = create_skinned_mesh_material(renderer.device);
@@ -158,9 +149,9 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
 destroy :: (using self: *Renderer) {
     vkDeviceWaitIdle(device);
 
-    buffer_pool_reset(*vertex_buffer_pool);
-    buffer_pool_reset(*immediate_buffer_pool);
-    buffer_pool_reset(*uniform_buffer_pool);
+    destroy(*vertex_buffer_pool);
+    destroy(*immediate_buffer_pool);
+    destroy(*uniform_buffer_pool);
 
     vkDestroyDescriptorPool(device, descriptor_pool, null);
     vkDestroyDescriptorSetLayout(device, empty_set_layout, null);
@@ -176,11 +167,11 @@ destroy :: (using self: *Renderer) {
     vkDestroyPipeline(device, ui_pipeline.pipeline, null);
 
     // Standard render pass
-    vkDestroyRenderPass(device, standard_render_pass, null);
+    // vkDestroyRenderPass(device, standard_render_pass, null);
 
     // Shadowmap render pass
-    vkDestroyRenderPass(device, shadowmap_render_pass, null);
-    vkDestroyFramebuffer(device, shadowmap_framebuffer, null);
+    // vkDestroyRenderPass(device, shadowmap_render_pass, null);
+    // vkDestroyFramebuffer(device, shadowmap_framebuffer, null);
     destroy(*shadowmap_texture);
 
     vkDestroySampler(device, sampler, null);
@@ -212,7 +203,14 @@ update_framebuffer :: () {
     vkWaitForFences(device, 1, *this_frame.frame_fence, VK_TRUE, U64_MAX);
     vkResetFences(device, 1, *this_frame.frame_fence);
     Vk_Check(vkAcquireNextImageKHR(device, swapchain.handle, U64_MAX, this_frame.image_available_semaphore, VK_NULL_HANDLE, *this_frame.swapchain_image_index));
-    this_frame.framebuffer = swapchain.image_views[this_frame.swapchain_image_index];
+    this_frame.framebuffer = .{
+        image = swapchain.images[this_frame.swapchain_image_index],
+        view = swapchain.image_views[this_frame.swapchain_image_index],
+        current_layout = VK_IMAGE_LAYOUT_UNDEFINED,
+        w = swapchain.extent.width,
+        h = swapchain.extent.height,
+        aspect = VK_IMAGE_ASPECT_COLOR_BIT,
+    };
 }
 
 end_frame :: () {
@@ -261,6 +259,13 @@ end_frame :: () {
     //     Vk_Check(vkEndCommandBuffer(this_frame.command_buffer));
     // }
 
+
+    // Transition swapchain image to present
+    command_buffer := begin_single_time_command_buffer();
+    transition_texture_layout(*this_frame.framebuffer, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, command_buffer);
+    Vk_Check(vkEndCommandBuffer(command_buffer));
+    array_add(*command_buffers, command_buffer);
+
     {   // Submit and Present
         submit_info := VkSubmitInfo.{
             waitSemaphoreCount = 1,
@@ -293,6 +298,8 @@ end_frame :: () {
         idx := frame_index;
         command_buffers.count = 0;
     }
+
+    buffer_pool_reset(*immediate_buffer_pool);
 
     // And some perf data
     global_engine.frame_time = cast(float)(SDL_GetPerformanceCounter() - global_engine.frame_start) / cast(float)(SDL_GetPerformanceFrequency() / 1000);
@@ -361,9 +368,9 @@ debug_callback :: (severity: VkDebugUtilsMessageSeverityFlagsEXT, type: VkDebugU
     ctx := (cast(*Context)data).*;
     push_context ctx {
         msg := to_string(callback_data.pMessage);
-        log("%: %", severity, msg);
+        log("%: %\n", severity, msg);
         if severity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT {
-            assert(false);
+            // assert(false);
         }
     }
     return VK_TRUE;
@@ -588,157 +595,158 @@ create_descriptor_sets :: (renderer: *Renderer) {
     Vk_Check(vkAllocateDescriptorSets(global_renderer.device, *alloc_info, *renderer.empty_descriptor_set));
 
     data := u8.[255, 255, 255, 255];
-    renderer.empty_texture = texture_from_data(data.data, 1, 1, 4, u8, "Empty texture");
+    renderer.empty_texture = texture_from_data(data.data, 1, 1, 4, u8, "empty_texture");
+    transition_texture_layout(*renderer.empty_texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     renderer.empty_texture_uniform = uniform_texture_create(renderer.empty_texture, renderer.single_texture_layout);
 
-    renderer.shadowmap_texture = texture_create(Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE, Renderer.DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_DEPTH_BIT, "Shadowmap Texture");
+    renderer.shadowmap_texture = texture_create(Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_DEPTH_BIT, "shadowmap_texture");
     renderer.shadowmap_uniform_texture = uniform_texture_create(renderer.shadowmap_texture, renderer.single_texture_layout);
 
 }
 
-create_standard_renderpass :: (device: VkDevice) -> VkRenderPass {
-    format := global_renderer.swapchain.format.format;
-    depth_format := Renderer.DEPTH_FORMAT;
+// create_standard_renderpass :: (device: VkDevice) -> VkRenderPass {
+//     format := global_renderer.swapchain.format.format;
+//     depth_format := Renderer.DEPTH_FORMAT;
 
-    attachments := VkAttachmentDescription.[
-    .{
-        format = format,
-        samples = VK_SAMPLE_COUNT_1_BIT,
-        loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-        storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-        stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-        stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-        initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-    },
-    .{
-        format = depth_format,
-        samples = VK_SAMPLE_COUNT_1_BIT,
-        loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-        storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-        stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-        stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-        initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-    }];
+//     attachments := VkAttachmentDescription.[
+//     .{
+//         format = format,
+//         samples = VK_SAMPLE_COUNT_1_BIT,
+//         loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+//         storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+//         stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+//         stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+//         initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+//         finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+//     },
+//     .{
+//         format = depth_format,
+//         samples = VK_SAMPLE_COUNT_1_BIT,
+//         loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+//         storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+//         stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+//         stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+//         initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+//         finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+//     }];
 
-    create_info := VkRenderPassCreateInfo.{
-        attachmentCount = attachments.count,
-        pAttachments = attachments.data,
-        subpassCount = 1,
-        pSubpasses = *VkSubpassDescription.{
-            pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-            colorAttachmentCount = 1,
-            pColorAttachments = *VkAttachmentReference.{
-                attachment = 0,
-                layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            },
-            pDepthStencilAttachment = *VkAttachmentReference.{
-                attachment = 1,
-                layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-            },
-        },
-        dependencyCount = 1,
-        pDependencies = *VkSubpassDependency.{
-            srcSubpass = VK_SUBPASS_EXTERNAL,
-            dstSubpass = 0,
-            srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
-            dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
-            srcAccessMask = 0,
-            dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-            dependencyFlags = 0,
-        },
-    };
-    render_pass: VkRenderPass = ---;
-    Vk_Check(vkCreateRenderPass(device, *create_info, null, *render_pass));
-    return render_pass;
-}
+//     create_info := VkRenderPassCreateInfo.{
+//         attachmentCount = attachments.count,
+//         pAttachments = attachments.data,
+//         subpassCount = 1,
+//         pSubpasses = *VkSubpassDescription.{
+//             pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+//             colorAttachmentCount = 1,
+//             pColorAttachments = *VkAttachmentReference.{
+//                 attachment = 0,
+//                 layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+//             },
+//             pDepthStencilAttachment = *VkAttachmentReference.{
+//                 attachment = 1,
+//                 layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+//             },
+//         },
+//         dependencyCount = 1,
+//         pDependencies = *VkSubpassDependency.{
+//             srcSubpass = VK_SUBPASS_EXTERNAL,
+//             dstSubpass = 0,
+//             srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+//             dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+//             srcAccessMask = 0,
+//             dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+//             dependencyFlags = 0,
+//         },
+//     };
+//     render_pass: VkRenderPass = ---;
+//     Vk_Check(vkCreateRenderPass(device, *create_info, null, *render_pass));
+//     return render_pass;
+// }
 
-begin_standard_renderpass :: (renderer: *Renderer, command_buffer: VkCommandBuffer, framebuffer: VkFramebuffer) {
-    clear_color := Vector4.{0.529, 0.808, 0.922, 0};
-    clear_values := VkClearValue.[
-        .{color = .{float32_ = clear_color.component}},
-        .{depthStencil = .{1, 0}}
-    ];
-     vkCmdBeginRenderPass(command_buffer, *VkRenderPassBeginInfo.{
-        renderPass = renderer.standard_render_pass,
-        framebuffer = framebuffer,
-        clearValueCount = clear_values.count,
-        pClearValues = clear_values.data,
-        renderArea = .{
-            offset = .{0, 0},
-            extent = renderer.swapchain.extent,
-        },
-    }, VK_SUBPASS_CONTENTS_INLINE);
-}
+// begin_standard_renderpass :: (renderer: *Renderer, command_buffer: VkCommandBuffer, framebuffer: VkFramebuffer) {
+//     clear_color := Vector4.{0.529, 0.808, 0.922, 0};
+//     clear_values := VkClearValue.[
+//         .{color = .{float32_ = clear_color.component}},
+//         .{depthStencil = .{1, 0}}
+//     ];
+//      vkCmdBeginRenderPass(command_buffer, *VkRenderPassBeginInfo.{
+//         renderPass = renderer.standard_render_pass,
+//         framebuffer = framebuffer,
+//         clearValueCount = clear_values.count,
+//         pClearValues = clear_values.data,
+//         renderArea = .{
+//             offset = .{0, 0},
+//             extent = renderer.swapchain.extent,
+//         },
+//     }, VK_SUBPASS_CONTENTS_INLINE);
+// }
 
-create_shadowmap_renderpass :: (device: VkDevice) -> VkRenderPass {
-    format := global_renderer.swapchain.format.format;
-    depth_format := Renderer.DEPTH_FORMAT;
+// create_shadowmap_renderpass :: (device: VkDevice) -> VkRenderPass {
+//     format := global_renderer.swapchain.format.format;
+//     depth_format := Renderer.DEPTH_FORMAT;
 
-    attachments := VkAttachmentDescription.[.{
-        format = depth_format,
-        samples = VK_SAMPLE_COUNT_1_BIT,
-        loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-        storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-        stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-        stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-        initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
-    }];
+//     attachments := VkAttachmentDescription.[.{
+//         format = depth_format,
+//         samples = VK_SAMPLE_COUNT_1_BIT,
+//         loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+//         storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+//         stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+//         stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+//         initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+//         finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
+//     }];
 
-    dependencies := VkSubpassDependency.[.{
-        srcSubpass = VK_SUBPASS_EXTERNAL,
-        dstSubpass = 0,
-        srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 
-        dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
-        srcAccessMask = VK_ACCESS_SHADER_READ_BIT,
-        dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-        dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
-    },
-    .{
-        srcSubpass = 0,
-        dstSubpass = VK_SUBPASS_EXTERNAL,
-        srcStageMask = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, 
-        dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-        dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
-        dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
-    }];
+//     dependencies := VkSubpassDependency.[.{
+//         srcSubpass = VK_SUBPASS_EXTERNAL,
+//         dstSubpass = 0,
+//         srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 
+//         dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+//         srcAccessMask = VK_ACCESS_SHADER_READ_BIT,
+//         dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+//         dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
+//     },
+//     .{
+//         srcSubpass = 0,
+//         dstSubpass = VK_SUBPASS_EXTERNAL,
+//         srcStageMask = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, 
+//         dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+//         srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+//         dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+//         dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
+//     }];
 
-    create_info := VkRenderPassCreateInfo.{
-        attachmentCount = attachments.count,
-        pAttachments = attachments.data,
-        subpassCount = 1,
-        pSubpasses = *VkSubpassDescription.{
-            pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-            colorAttachmentCount = 0,
-            pDepthStencilAttachment = *VkAttachmentReference.{
-                attachment = 0,
-                layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-            },
-        },
-        dependencyCount = dependencies.count,
-        pDependencies = dependencies.data
-    };
-    render_pass: VkRenderPass = ---;
-    Vk_Check(vkCreateRenderPass(device, *create_info, null, *render_pass));
-    return render_pass;
-}
+//     create_info := VkRenderPassCreateInfo.{
+//         attachmentCount = attachments.count,
+//         pAttachments = attachments.data,
+//         subpassCount = 1,
+//         pSubpasses = *VkSubpassDescription.{
+//             pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+//             colorAttachmentCount = 0,
+//             pDepthStencilAttachment = *VkAttachmentReference.{
+//                 attachment = 0,
+//                 layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+//             },
+//         },
+//         dependencyCount = dependencies.count,
+//         pDependencies = dependencies.data
+//     };
+//     render_pass: VkRenderPass = ---;
+//     Vk_Check(vkCreateRenderPass(device, *create_info, null, *render_pass));
+//     return render_pass;
+// }
 
-begin_shadowmap_renderpass :: (renderer: Renderer, command_buffer: VkCommandBuffer) {
-    clear_value := VkClearValue.{depthStencil = .{1, 0}};
-    vkCmdBeginRenderPass(command_buffer, *VkRenderPassBeginInfo.{
-        renderPass = renderer.shadowmap_render_pass,
-        framebuffer = renderer.shadowmap_framebuffer,
-        clearValueCount = 1,
-        pClearValues = *clear_value,
-        renderArea = .{
-            offset = .{0, 0},
-            extent = .{renderer.shadowmap_texture.w, renderer.shadowmap_texture.h}
-        },
-    }, VK_SUBPASS_CONTENTS_INLINE);
-}
+// begin_shadowmap_renderpass :: (renderer: Renderer, command_buffer: VkCommandBuffer) {
+//     clear_value := VkClearValue.{depthStencil = .{1, 0}};
+//     vkCmdBeginRenderPass(command_buffer, *VkRenderPassBeginInfo.{
+//         renderPass = renderer.shadowmap_render_pass,
+//         framebuffer = renderer.shadowmap_framebuffer,
+//         clearValueCount = 1,
+//         pClearValues = *clear_value,
+//         renderArea = .{
+//             offset = .{0, 0},
+//             extent = .{renderer.shadowmap_texture.w, renderer.shadowmap_texture.h}
+//         },
+//     }, VK_SUBPASS_CONTENTS_INLINE);
+// }
 
 // draw :: (using self: Mesh, command_buffer: VkCommandBuffer) {
 //     for submeshes {

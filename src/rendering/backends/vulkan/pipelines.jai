@@ -60,7 +60,7 @@ create_static_mesh_material :: (device : VkDevice) -> Material {
         Pipeline_Builder.add_shader(*builder, VK_SHADER_STAGE_VERTEX_BIT, vtx, "main");
         Pipeline_Builder.rasterization_state_depth_bias(*builder, 1.25, 0, 1.75);
         Pipeline_Builder.viewport_state(*builder, Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE);
-        Pipeline_Builder.depth_format(*builder, Renderer.DEPTH_FORMAT);
+        Pipeline_Builder.depth_format(*builder, Renderer.SHADOWMAP_FORMAT);
         result.pipelines[Pipeline_Kind.SHADOWMAP] = Pipeline_Builder.build(*builder, device);
         log("Shadowmap pipeline created.");
     }
@@ -106,7 +106,7 @@ create_skinned_mesh_material :: (device : VkDevice) -> Material {
         Pipeline_Builder.add_shader(*builder, VK_SHADER_STAGE_VERTEX_BIT, vtx, "main");
         Pipeline_Builder.rasterization_state_depth_bias(*builder, 1.25, 0, 1.75);
         Pipeline_Builder.viewport_state(*builder, Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE);
-        Pipeline_Builder.depth_format(*builder, Renderer.DEPTH_FORMAT);
+        Pipeline_Builder.depth_format(*builder, Renderer.SHADOWMAP_FORMAT);
         result.pipelines[Pipeline_Kind.SHADOWMAP] = Pipeline_Builder.build(*builder, device);
         
         log("Shadowmap pipeline created.");

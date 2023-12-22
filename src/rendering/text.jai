@@ -13,11 +13,11 @@ font_from_file :: (path: string, size: float) -> Font, bool {
         assert(false, "Unable to load font from %", path);
         return .{}, false;
     }
-    result, success2 := font_from_data(font_data, size);
+    result, success2 := font_from_data(font_data, size, path_filename(path));
     return result, success2;
 }
 
-font_from_data :: (font_data: string, size: float) -> Font, bool {
+font_from_data :: (font_data: string, size: float, resource_name: string) -> Font, bool {
     self : Font = ---;
     bitmap : [512*512]u8 = ---;
     
@@ -32,10 +32,10 @@ font_from_data :: (font_data: string, size: float) -> Font, bool {
     stbtt_PackFontRange(*pack_context, font_data.data, 0, size, xx self.first_char, 437, self.char_data.data);
     stbtt_PackEnd(*pack_context);
 
-    self.texture = texture_from_data(bitmap.data, 512, 512, 1, u8, "Font texture");
+    self.texture = texture_from_data(bitmap.data, 512, 512, 1, u8, resource_name);
 
     self.uniform = uniform_texture_create(self.texture);
-    texture_change_layout(self.texture, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    transition_texture_layout(*self.texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     
     // Get additional font info
     info : stbtt_fontinfo = ---;
@@ -54,7 +54,7 @@ font_from_data :: (font_data: string, size: float) -> Font, bool {
 }
 
 destroy :: (font: *Font) {
-    destroy(*font.texture);
+    destroy(*(font.texture));
 }
 
 size_text :: (text: string, font: *Font) -> float {

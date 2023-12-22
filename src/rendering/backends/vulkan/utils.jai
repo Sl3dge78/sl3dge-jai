@@ -64,12 +64,12 @@ begin_single_time_command_buffer :: () -> VkCommandBuffer {
     };
 
     cmd: VkCommandBuffer = ---;
-    vkAllocateCommandBuffers(global_renderer.device, *alloc_info, *cmd);
+    Vk_Check(vkAllocateCommandBuffers(global_renderer.device, *alloc_info, *cmd));
 
     begin_info := VkCommandBufferBeginInfo.{
         flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
     };
-    vkBeginCommandBuffer(cmd, *begin_info);
+    Vk_Check(vkBeginCommandBuffer(cmd, *begin_info));
 
     return cmd;
 }
@@ -125,5 +125,7 @@ get_vk_object_type :: ($object: Type) -> VkObjectType {
         return VK_OBJECT_TYPE_IMAGE_VIEW;
     } else #if object == VkImage {
         return VK_OBJECT_TYPE_IMAGE;
+    } else #if object == VkBuffer {
+        return VK_OBJECT_TYPE_BUFFER;
     } else #assert(false, "Unregistered object");
 }

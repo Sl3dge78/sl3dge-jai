@@ -7,16 +7,29 @@ Buffer_Location :: struct {
 Buffer_Pool :: struct {
     BUFFER_SIZE :: 32 * 1024 * 1024;
 
+    name: string;
     kind: VkBufferUsageFlagBits;
     buffers: [..]Buffer;
+    current_buffer: s64 = 0;
     current_position_in_buffer: VkDeviceSize;
-    alignement: VkDeviceSize;
+    alignement: VkDeviceSize = 1;
 }
 
 maybe_grow :: (using buffer_pool: *Buffer_Pool, size: VkDeviceSize) {
-    if buffers.count == 0 || size > (BUFFER_SIZE - current_position_in_buffer) {
-        array_add(*buffers, buffer_create(BUFFER_SIZE, kind, .UPLOAD));
+    assert(size < BUFFER_SIZE, "Trying to allocate too much from pool!");
+
+    if buffers.count - 1 > current_buffer {
+        current_buffer += 1;
         current_position_in_buffer = 0;
+        return;
+    }
+
+    if buffers.count == 0 || size > (BUFFER_SIZE - current_position_in_buffer) {
+        buffer := buffer_create(BUFFER_SIZE, kind, .UPLOAD, tprint("%_%", name, buffers.count));
+        array_add(*buffers, buffer);
+        current_position_in_buffer = 0;
+        current_buffer = buffers.count - 1;
+        return;
     }
 }
 
@@ -24,7 +37,7 @@ buffer_pool_get :: (using self: *Buffer_Pool, size: VkDeviceSize) -> Buffer_Loca
     aligned_size := get_aligned_size(size, alignement);
     maybe_grow(self, aligned_size);
     result := Buffer_Location.{
-        buffer = buffers[buffers.count - 1],
+        buffer = buffers[current_buffer],
         offset = current_position_in_buffer,
         size = size,
     };
@@ -50,8 +63,13 @@ buffer_pool_load_mesh :: (using buffer_pool: *Buffer_Pool, vertices: []$T, indic
 }
 
 buffer_pool_reset :: (using buffer_pool: *Buffer_Pool) {
-    for *buffers {
-        destroy(it);
+    current_buffer = 0;
+    current_position_in_buffer = 0;
+}
+
+destroy :: (using buffer_pool: *Buffer_Pool) {
+    for buffers {
+        destroy(*buffers[it_index]);
     }
     array_reset(*buffers);
     current_position_in_buffer = 0;

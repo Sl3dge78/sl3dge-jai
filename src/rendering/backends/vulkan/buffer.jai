@@ -4,7 +4,7 @@ Buffer :: struct {
     size: VkDeviceSize;
 }
 
-buffer_create :: (size: u64, usage: VkBufferUsageFlagBits, mem_type: MemoryType) -> Buffer {
+buffer_create :: (size: u64, usage: VkBufferUsageFlagBits, mem_type: MemoryType, name: string) -> Buffer {
     result: Buffer;
     buffer_ci := VkBufferCreateInfo.{
         size = size,
@@ -14,6 +14,7 @@ buffer_create :: (size: u64, usage: VkBufferUsageFlagBits, mem_type: MemoryType)
         pQueueFamilyIndices = *global_renderer.queue_family_index,
     };
     Vk_Check(vkCreateBuffer(global_renderer.device, *buffer_ci, null, *result.handle));
+    debug_name_object(result.handle, name);
 
     result.memory = alloc_device_memory(result.handle, mem_type);
     result.size = size;
@@ -24,16 +25,16 @@ buffer_create :: (size: u64, usage: VkBufferUsageFlagBits, mem_type: MemoryType)
 buffer_create_or_update :: (buffer: *Buffer, size: u64, usage: VkBufferUsageFlagBits, mem_type: MemoryType, $map := false) {
     if buffer.buffer != VK_NULL_HANDLE && buffer.size >= size then return;
     if buffer.buffer != VK_NULL_HANDLE {
-        Renderer.wait_idle();
-        Buffer.destroy(buffer);
+        wait_idle();
+        destroy(buffer);
     }
 
-    buffer.* = Buffer.create(size, usage, mem_type, map);
+    buffer.* = buffer_create(size, usage, mem_type, map);
 }
 
 destroy :: (buffer: *Buffer) {
     vkFreeMemory(global_renderer.device, buffer.memory, null);
-    vkDestroyBuffer(global_renderer.device, buffer, null);
+    vkDestroyBuffer(global_renderer.device, buffer.handle, null);
     buffer.* = .{};
 }
 

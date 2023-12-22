@@ -121,18 +121,16 @@ Resources :: struct {
 
     load_all :: () {
         for *resources.infos {
+            log("[RESOURCES] Loading %", it.path);
             it.load(it);
         }
     }
 
     unload_all :: () {
         for *resources.infos {
+            log("[RESOURCES] Destroying %", it.path);
             it.unload(it);
         }
-    }
-
-    get_resource_info :: (path: string) -> *Resource_Info {
-        return null;
     }
 
     on_file_change :: (watcher: *File_Watcher.File_Watcher(void), change: *File_Watcher.File_Change, user_data: *void) {
@@ -144,7 +142,7 @@ Resources :: struct {
             }
         }
         if !info then return;
-        log("File % has changed", change.full_path);
+        log("[RESOURCES] Reloading %", info.path);
         info.unload(info);
         info.load(info);
     }
@@ -204,7 +202,8 @@ unload_var :: (info: *Resource_Info) {
 
 // .ttf files
 load_font_file :: (info: *Resource_Info) -> bool {
-    (cast(*Font)info.pointer).* = font_from_file(info.path, 8); // @Todo: Find a way to specify a font size
+    font : *Font = cast(*Font)info.pointer;
+    font.* = font_from_file(info.path, 8); // @Todo: Find a way to specify a font size
     return true;
 }
 

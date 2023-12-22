@@ -69,7 +69,7 @@ swapchain_create_or_update :: (self: *Swapchain, device: VkDevice, physical_devi
 
     {   // Depth image
         self.depth_texture = texture_create(self.extent.width, self.extent.height, Renderer.DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, "Swapchain Depth Texture");
-        transition_image_layout(self.depth_texture.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+        transition_texture_layout(*self.depth_texture, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
     }
 
     attachments := VkImageView.[

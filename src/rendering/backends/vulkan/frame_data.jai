@@ -5,7 +5,7 @@ Frame_Data :: struct {
     frame_fence: VkFence;
     image_available_semaphore: VkSemaphore;
     render_finished_semaphore: VkSemaphore;
-    framebuffer: VkImageView;
+    framebuffer: Texture;
 
     camera_descriptor: Uniform_Buffer;
     shadowmap_camera_descriptor: Uniform_Buffer;
