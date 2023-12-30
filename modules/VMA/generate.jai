@@ -4,7 +4,7 @@ LIB_BASE_NAME :: "vk_mem_alloc";
 
 #run {
     set_build_options_dc(.{do_output=false});
-    // build_cpp_static_lib("vk_mem_alloc", "vk_mem_alloc.cpp", extra = .["-D","VMA_IMPLEMENTATION", "-stdlib=libc++"]);
+    // build_cpp_static_lib("vk_mem_alloc", "vk_mem_alloc.cpp", extra = .["-I", "C:\\Program Files\\VulkanSDK\\1.3.268.0\\Include", "-D","VMA_IMPLEMENTATION", "-stdlib=libc++"]);
     if !generate_bindings() {
         compiler_set_workspace_status(.FAILED);
     }

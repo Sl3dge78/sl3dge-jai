@@ -114,8 +114,8 @@ Pipeline_Builder :: struct {
 
     viewport_state :: (self: *Pipeline_Builder, w: u32, h: u32) {
         using self.viewport;
-        pViewports = New(VkViewport, false, allocator = temp);
-        pScissors = New(VkRect2D, false, allocator = temp);
+        pViewports = New(VkViewport, false,, allocator = temp);
+        pScissors = New(VkRect2D, false,, allocator = temp);
         pViewports.* = .{0, 0, xx w,  cast(float)h, 0, 1};
         pScissors.* = .{offset = .{0, 0}, extent = .{w, h}};
         viewportCount = 1;

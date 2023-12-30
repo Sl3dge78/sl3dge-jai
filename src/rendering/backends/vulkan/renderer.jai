@@ -106,6 +106,7 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
     renderer.physical_device = pick_physical_device(renderer.instance);
     // @TODO: Check limits & features
     vkGetPhysicalDeviceProperties(renderer.physical_device, *renderer.physical_device_properties);
+    log("Physical device: %", cast(string)(renderer.physical_device_properties.deviceName));
     vkGetPhysicalDeviceFeatures(renderer.physical_device, *renderer.physical_device_features);
 
 
@@ -459,15 +460,12 @@ pick_physical_device :: (instance: VkInstance) -> VkPhysicalDevice {
         prop: VkPhysicalDeviceProperties = ---;
         vkGetPhysicalDeviceProperties(device, *prop);
         if (prop.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
-            
-            log("Physical device: %", cast(string)(prop.deviceName));
             return device;
         }
     }
-    assert(false, "No discrete GPU found!");
-    log_error("No discrete GPU found!");
-    panic();
-    return VK_NULL_HANDLE;
+
+    log("No discrete GPU found, picking the first device.");
+    return physical_devices[0];
 }
 
 get_memory_types :: (physical_device: VkPhysicalDevice) -> [MemoryType.COUNT]u32 {

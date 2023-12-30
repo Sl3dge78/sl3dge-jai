@@ -32,7 +32,7 @@ load_mesh_from_data :: (gltf_data : GLTF_Data) -> Mesh {
         // Vertices
         accessor := gltf_data.accessors[position_accessor];
         assert(accessor.component_type == .FLOAT);
-        vertices := NewArray(accessor.count, Standard_Vertex, allocator = temp);
+        vertices := NewArray(accessor.count, Standard_Vertex,, allocator = temp);
         
         read_accessor_into_array(vertices.data, 0, size_of(Standard_Vertex), gltf_data, position_accessor);
         
@@ -54,7 +54,7 @@ load_mesh_from_data :: (gltf_data : GLTF_Data) -> Mesh {
         
         // Indices
         idx_accessor := gltf_data.accessors[indices_accessor];
-        indices := NewArray(idx_accessor.count, u32, allocator = temp);
+        indices := NewArray(idx_accessor.count, u32,, allocator = temp);
         read_accessor_into_array(indices.data, 0, size_of(u32), gltf_data, indices_accessor);
         array_add(*result.submeshes, buffer_pool_load_mesh(*global_renderer.vertex_buffer_pool, vertices, indices));
     }

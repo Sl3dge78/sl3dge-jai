@@ -93,7 +93,7 @@ load_skinned_gltf :: (path: string) -> Skinned_Mesh {
         vtx_count := result.mesh.submeshes[it_index].vertex_count;
 
         // Other attributes
-        vertices := NewArray(xx vtx_count, Skinned_Vertex, allocator = temp);
+        vertices := NewArray(xx vtx_count, Skinned_Vertex,, allocator = temp);
         offset: *Skinned_Vertex = null;
 
         if primitive.joints_accessor != -1 {
@@ -116,7 +116,7 @@ load_skinned_gltf :: (path: string) -> Skinned_Mesh {
     skin := gltf_data.skins[0];
 
     result.skeleton.joints = NewArray(skin.joints.count, Skeleton_Definition.Joint_Definition);
-    joint_ids := NewArray(skin.joints.count, int, allocator = temp);
+    joint_ids := NewArray(skin.joints.count, int,, allocator = temp);
     
     // fill the ids
     for *joint_ids {
@@ -130,7 +130,7 @@ load_skinned_gltf :: (path: string) -> Skinned_Mesh {
         return -1;
     }
 
-    inverse_bind_matrices := NewArray(skin.joints.count, Matrix4, allocator = temp);
+    inverse_bind_matrices := NewArray(skin.joints.count, Matrix4,, allocator = temp);
     result.skeleton.bind_pose = NewArray(skin.joints.count, Joint);
     read_accessor_into_array(inverse_bind_matrices.data, 0, size_of(Matrix4), gltf_data, skin.inverse_bind_matrices);
     for *inverse_bind_matrices {
