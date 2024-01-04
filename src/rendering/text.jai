@@ -35,7 +35,7 @@ font_from_data :: (font_data: string, size: float, resource_name: string) -> Fon
     self.texture = texture_from_data(bitmap.data, 512, 512, 1, u8, resource_name);
 
     self.uniform = uniform_texture_create(self.texture);
-    transition_texture_layout(*self.texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    transition_texture_layout(*self.texture, .SHADER_READ_ONLY_OPTIMAL);
     
     // Get additional font info
     info : stbtt_fontinfo = ---;

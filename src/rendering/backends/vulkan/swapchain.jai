@@ -14,12 +14,14 @@ swapchain_create_or_update :: (self: *Swapchain, device: VkDevice, physical_devi
     vkDeviceWaitIdle(device);
 
     present_modes := fill_array(VkPresentModeKHR, vkGetPhysicalDeviceSurfacePresentModesKHR, physical_device, surface);
-    present_mode : VkPresentModeKHR = VK_PRESENT_MODE_FIFO_KHR;
+    present_mode : VkPresentModeKHR = .FIFO_KHR;
     for present_modes {
-        if it == VK_PRESENT_MODE_MAILBOX_KHR then present_mode = VK_PRESENT_MODE_MAILBOX_KHR;
-        break;
+        if it == .MAILBOX_KHR {
+            present_mode = .MAILBOX_KHR;
+            break;
+        }
     }
-    image_count := ifx present_mode == VK_PRESENT_MODE_MAILBOX_KHR then 3 else 2;
+    image_count := ifx present_mode == .MAILBOX_KHR then 3 else 2;
 
     surface_capabilities: VkSurfaceCapabilitiesKHR;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, *surface_capabilities);
@@ -41,10 +43,10 @@ swapchain_create_or_update :: (self: *Swapchain, device: VkDevice, physical_devi
         imageColorSpace = self.format.colorSpace,
         imageExtent = self.extent,
         imageArrayLayers = 1,
-        imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-        imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        imageUsage = .COLOR_ATTACHMENT_BIT | .TRANSFER_DST_BIT,
+        imageSharingMode = .EXCLUSIVE,
         preTransform = surface_capabilities.currentTransform,
-        compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+        compositeAlpha = .OPAQUE_BIT_KHR,
         presentMode = present_mode,
         clipped = VK_TRUE,
         oldSwapchain = old_swapchain
@@ -68,8 +70,8 @@ swapchain_create_or_update :: (self: *Swapchain, device: VkDevice, physical_devi
     }
 
     {   // Depth image
-        self.depth_texture = texture_create(self.extent.width, self.extent.height, Renderer.DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, "Swapchain Depth Texture");
-        transition_texture_layout(*self.depth_texture, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+        self.depth_texture = texture_create(self.extent.width, self.extent.height, Renderer.DEPTH_FORMAT, .DEPTH_STENCIL_ATTACHMENT_BIT, .DEPTH_BIT | .STENCIL_BIT, "Swapchain Depth Texture");
+        transition_texture_layout(*self.depth_texture, .DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
     }
 
     attachments := VkImageView.[
@@ -121,6 +123,6 @@ swapchain_pick_format :: (physical_device: VkPhysicalDevice, surface: VkSurfaceK
     result: VkSurfaceFormatKHR;
     surface_formats := fill_array(VkSurfaceFormatKHR, vkGetPhysicalDeviceSurfaceFormatsKHR, physical_device, surface);
     result = surface_formats[0];
-    if result.format == VK_FORMAT_UNDEFINED then result.format = VK_FORMAT_B8G8R8A8_UNORM;
+    if result.format == .UNDEFINED then result.format = .B8G8R8A8_UNORM;
     return result;
 }

@@ -1,7 +1,7 @@
 //
 // This file was auto-generated using the following command:
 //
-// jai generate.jai
+// jai ./generate.jai
 //
 
 
@@ -14,7 +14,7 @@ VMA_BUFFER_DEVICE_ADDRESS :: 1;
 VMA_MEMORY_PRIORITY :: 1;
 VMA_EXTERNAL_MEMORY :: 1;
 VMA_STATS_STRING_ENABLED :: 1;
-VmaAllocatorCreateFlagBits :: enum u32 {
+VmaAllocatorCreateFlagBits :: enum s32 {
     EXTERNALLY_SYNCHRONIZED_BIT    :: 1;
     KHR_DEDICATED_ALLOCATION_BIT   :: 2;
     KHR_BIND_MEMORY2_BIT           :: 4;
@@ -33,8 +33,8 @@ VmaAllocatorCreateFlagBits :: enum u32 {
     VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT        :: EXT_MEMORY_PRIORITY_BIT;
     VMA_ALLOCATOR_CREATE_FLAG_BITS_MAX_ENUM             :: FLAG_BITS_MAX_ENUM;
 }
-VmaAllocatorCreateFlags :: VkFlags;
-VmaMemoryUsage :: enum u32 {
+VmaAllocatorCreateFlags :: VmaAllocatorCreateFlagBits;
+VmaMemoryUsage :: enum s32 {
     UNKNOWN              :: 0;
     GPU_ONLY             :: 1;
     CPU_ONLY             :: 2;
@@ -59,7 +59,7 @@ VmaMemoryUsage :: enum u32 {
     VMA_MEMORY_USAGE_AUTO_PREFER_HOST     :: AUTO_PREFER_HOST;
     VMA_MEMORY_USAGE_MAX_ENUM             :: MAX_ENUM;
 }
-VmaAllocationCreateFlagBits :: enum u32 {
+VmaAllocationCreateFlagBits :: enum s32 {
     DEDICATED_MEMORY_BIT                   :: 1;
     NEVER_ALLOCATE_BIT                     :: 2;
     MAPPED_BIT                             :: 4;
@@ -98,8 +98,9 @@ VmaAllocationCreateFlagBits :: enum u32 {
     VMA_ALLOCATION_CREATE_STRATEGY_MASK                          :: STRATEGY_MASK;
     VMA_ALLOCATION_CREATE_FLAG_BITS_MAX_ENUM                     :: FLAG_BITS_MAX_ENUM;
 }
-VmaAllocationCreateFlags :: VkFlags;
-VmaPoolCreateFlagBits :: enum u32 {
+VmaAllocationCreateFlags :: VmaAllocationCreateFlagBits;
+
+VmaPoolCreateFlagBits :: enum s32 {
     IGNORE_BUFFER_IMAGE_GRANULARITY_BIT :: 2;
     LINEAR_ALGORITHM_BIT                :: 4;
     ALGORITHM_MASK                      :: 4;
@@ -111,7 +112,7 @@ VmaPoolCreateFlagBits :: enum u32 {
     VMA_POOL_CREATE_FLAG_BITS_MAX_ENUM                  :: FLAG_BITS_MAX_ENUM;
 }
 VmaPoolCreateFlags :: VkFlags;
-VmaDefragmentationFlagBits :: enum u32 {
+VmaDefragmentationFlagBits :: enum s32 {
     ALGORITHM_FAST_BIT      :: 1;
     ALGORITHM_BALANCED_BIT  :: 2;
     ALGORITHM_FULL_BIT      :: 4;
@@ -127,7 +128,7 @@ VmaDefragmentationFlagBits :: enum u32 {
     VMA_DEFRAGMENTATION_FLAG_BITS_MAX_ENUM           :: BITS_MAX_ENUM;
 }
 VmaDefragmentationFlags :: VkFlags;
-VmaDefragmentationMoveOperation :: enum u32 {
+VmaDefragmentationMoveOperation :: enum s32 {
     COPY    :: 0;
     IGNORE  :: 1;
     DESTROY :: 2;
@@ -136,7 +137,7 @@ VmaDefragmentationMoveOperation :: enum u32 {
     VMA_DEFRAGMENTATION_MOVE_OPERATION_IGNORE  :: IGNORE;
     VMA_DEFRAGMENTATION_MOVE_OPERATION_DESTROY :: DESTROY;
 }
-VmaVirtualBlockCreateFlagBits :: enum u32 {
+VmaVirtualBlockCreateFlagBits :: enum s32 {
     LINEAR_ALGORITHM_BIT :: 1;
     ALGORITHM_MASK       :: 1;
     FLAG_BITS_MAX_ENUM   :: 2147483647;
@@ -146,7 +147,7 @@ VmaVirtualBlockCreateFlagBits :: enum u32 {
     VMA_VIRTUAL_BLOCK_CREATE_FLAG_BITS_MAX_ENUM   :: FLAG_BITS_MAX_ENUM;
 }
 VmaVirtualBlockCreateFlags :: VkFlags;
-VmaVirtualAllocationCreateFlagBits :: enum u32 {
+VmaVirtualAllocationCreateFlagBits :: enum s32 {
     UPPER_ADDRESS_BIT       :: 64;
     STRATEGY_MIN_MEMORY_BIT :: 65536;
     STRATEGY_MIN_TIME_BIT   :: 131072;

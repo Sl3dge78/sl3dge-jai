@@ -5,7 +5,7 @@ Pipeline_Builder :: struct {
     vertex_attributes: [..]VkVertexInputAttributeDescription;
 
     input_assembly := VkPipelineInputAssemblyStateCreateInfo.{
-        topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        topology = .TRIANGLE_LIST,
         primitiveRestartEnable = VK_FALSE,
     };
 
@@ -19,9 +19,9 @@ Pipeline_Builder :: struct {
     rasterization := VkPipelineRasterizationStateCreateInfo.{
         depthClampEnable = VK_FALSE,
         rasterizerDiscardEnable = VK_FALSE,
-        polygonMode = VK_POLYGON_MODE_FILL,
-        cullMode = VK_CULL_MODE_NONE,
-        frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+        polygonMode = .FILL,
+        cullMode = .NONE,
+        frontFace = .COUNTER_CLOCKWISE,
         depthBiasEnable = VK_FALSE,
         depthBiasConstantFactor = 0,
         depthBiasClamp = 0,
@@ -30,7 +30,7 @@ Pipeline_Builder :: struct {
     };
 
     multisample := VkPipelineMultisampleStateCreateInfo.{
-        rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+        rasterizationSamples = ._1_BIT,
         sampleShadingEnable = VK_FALSE,
         minSampleShading = 1,
         pSampleMask = VK_NULL_HANDLE,
@@ -44,7 +44,7 @@ Pipeline_Builder :: struct {
     depth_stencil := VkPipelineDepthStencilStateCreateInfo.{
         depthTestEnable = VK_TRUE,
         depthWriteEnable = VK_TRUE,
-        depthCompareOp = VK_COMPARE_OP_LESS,
+        depthCompareOp = .LESS,
         depthBoundsTestEnable = VK_FALSE,
         minDepthBounds = 0,
         maxDepthBounds = 1,
@@ -74,22 +74,22 @@ Pipeline_Builder :: struct {
             if it.type.type == {
                 case .FLOAT; {
                     assert(it.type.runtime_size <= 4, "Only float32 is supported in Vertex Attribute Data.");
-                    format = VK_FORMAT_R32_SFLOAT;
+                    format = .R32_SFLOAT;
                 }
                 case .STRUCT; {
                     struct_type_info := cast(*Type_Info_Struct) it.type;
 
                     if struct_type_info.name == {
-                        case "Vector4"; format = VK_FORMAT_R32G32B32A32_SFLOAT;
-                        case "Vector3"; format = VK_FORMAT_R32G32B32_SFLOAT;
-                        case "Vector2"; format = VK_FORMAT_R32G32_SFLOAT;
+                        case "Vector4"; format = .R32G32B32A32_SFLOAT;
+                        case "Vector3"; format = .R32G32B32_SFLOAT;
+                        case "Vector2"; format = .R32G32_SFLOAT;
                         case; assert(false, "Unsupported struct type. Only Vector2, Vector3, Vector4 are supported");
                     }
                 }
                 case .ARRAY; {
                     array_type_info := cast(*Type_Info_Array) it.type;
                     if array_type_info.element_type.type == .INTEGER && array_type_info.element_type.runtime_size == 1 && array_type_info.array_count == 4 {
-                        format = VK_FORMAT_R8G8B8A8_UINT;
+                        format = .R8G8B8A8_UINT;
                     } else {
                         assert(false, "Unhandled array type: % in vertex input.", array_type_info.element_type);
                     }
@@ -101,7 +101,7 @@ Pipeline_Builder :: struct {
             array_add(*self.vertex_attributes, .{location = xx self.vertex_attributes.count, binding = xx self.vertex_bindings.count, format = format, offset = xx it.offset_in_bytes });
         }
         self.vertex_bindings.allocator = temp;
-        array_add(*self.vertex_bindings, .{xx self.vertex_bindings.count, size_of(type), VK_VERTEX_INPUT_RATE_VERTEX});
+        array_add(*self.vertex_bindings, .{xx self.vertex_bindings.count, size_of(type), .VERTEX});
         
     }
 
@@ -169,22 +169,22 @@ Pipeline_Builder :: struct {
         color_blend_attachment :=
         ifx self.color_blend then VkPipelineColorBlendAttachmentState.{
             blendEnable = VK_TRUE,
-            srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
-            dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-            colorBlendOp = VK_BLEND_OP_ADD,
-            srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
-            dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-            alphaBlendOp = VK_BLEND_OP_ADD,
-            colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+            srcColorBlendFactor = .SRC_ALPHA,
+            dstColorBlendFactor = .ONE_MINUS_SRC_ALPHA,
+            colorBlendOp = .ADD,
+            srcAlphaBlendFactor = .SRC_ALPHA,
+            dstAlphaBlendFactor = .ONE_MINUS_SRC_ALPHA,
+            alphaBlendOp = .ADD,
+            colorWriteMask = .R_BIT | .G_BIT | .B_BIT | .A_BIT,
         } else .{            
             blendEnable = VK_FALSE,
-            srcColorBlendFactor = VK_BLEND_FACTOR_ONE,
-            dstColorBlendFactor = VK_BLEND_FACTOR_ZERO,
-            colorBlendOp = VK_BLEND_OP_ADD,
-            srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
-            dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
-            alphaBlendOp = VK_BLEND_OP_ADD,
-            colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+            srcColorBlendFactor = .ONE,
+            dstColorBlendFactor = .ZERO,
+            colorBlendOp = .ADD,
+            srcAlphaBlendFactor = .ONE,
+            dstAlphaBlendFactor = .ZERO,
+            alphaBlendOp = .ADD,
+            colorWriteMask = .R_BIT | .G_BIT | .B_BIT | .A_BIT,
         };
 
         color_blend := VkPipelineColorBlendStateCreateInfo.{

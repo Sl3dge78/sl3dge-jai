@@ -54,22 +54,22 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
     // @TODO: maybe look into secondary command buffers?
     alloc_info := VkCommandBufferAllocateInfo.{
         commandPool = global_renderer.command_pool,
-        level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        level = .PRIMARY,
         commandBufferCount = count,
     };
     Vk_Check(vkAllocateCommandBuffers(global_renderer.device, *alloc_info, result.command_buffers.data));
     result.command_buffers.count = count;
 
     begin_info := VkCommandBufferBeginInfo.{
-        flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+        flags = .ONE_TIME_SUBMIT_BIT,
     };
     for result.command_buffers {
         Vk_Check(vkBeginCommandBuffer(it, *begin_info));
     }
 
     // Prepare the render target for rendering
-    if result.target.current_layout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL {
-        transition_texture_layout(result.target, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, result.command_buffers[0]);
+    if result.target.current_layout != .COLOR_ATTACHMENT_OPTIMAL {
+        transition_texture_layout(result.target, .COLOR_ATTACHMENT_OPTIMAL, result.command_buffers[0]);
     }
 
     #if vertex_type == UI_Vertex {
@@ -78,10 +78,10 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
 
         color_attachment := VkRenderingAttachmentInfo.{
             imageView = result.target.view,
-            imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-            storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-            clearValue = .{color = .{ float32_ = .[0, 0, 0, 1]}},
+            imageLayout = .COLOR_ATTACHMENT_OPTIMAL,
+            loadOp = .LOAD,
+            storeOp = .STORE,
+            clearValue = .{color = .{ _float32 = .[0, 0, 0, 1]}},
         };
 
         rendering_info := VkRenderingInfo.{
@@ -96,37 +96,37 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
         vkCmdBeginRendering(cmd, *rendering_info);
 
         debug_marker(cmd, label);
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, global_renderer.ui_pipeline.pipeline);
+        vkCmdBindPipeline(cmd, .GRAPHICS, global_renderer.ui_pipeline.pipeline);
         result.current_pipelines[0] = global_renderer.ui_pipeline;
 
         vkCmdSetViewport(cmd, 0, 1, *VkViewport.{0, xx result.target.h, xx result.target.w, -(cast(float)result.target.h), 0, 1});
         vkCmdSetScissor(cmd, 0, 1, *VkRect2D.{.{0, 0}, .{result.target.w, result.target.w}});
 
         pc := UI_Push_Constants.{.{2.0 / cast(float)result.target.w, -2.0 / cast(float)result.target.h}, .{-1, 1}};
-        vkCmdPushConstants(cmd, global_renderer.ui_pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, global_renderer.ui_pipeline.layout, 0, 1, *global_renderer.empty_texture_uniform.descriptor_set, 0, null);
+        vkCmdPushConstants(cmd, global_renderer.ui_pipeline.layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
+        vkCmdBindDescriptorSets(cmd, .GRAPHICS, global_renderer.ui_pipeline.layout, 0, 1, *global_renderer.empty_texture_uniform.descriptor_set, 0, null);
 
     } else #if vertex_type == Standard_Vertex {
         {   // Color
             cmd := result.command_buffers[0];
 
             // Prepare the shadowmap texture for sampling
-            transition_texture_layout(*global_renderer.shadowmap_texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cmd);
+            transition_texture_layout(*global_renderer.shadowmap_texture, .SHADER_READ_ONLY_OPTIMAL, cmd);
 
             debug_name_object(cmd, "3D Color Command Buffer");
             depth_attachment := VkRenderingAttachmentInfo.{
                 imageView = global_renderer.swapchain.depth_texture.view, 
-                imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-                storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+                imageLayout = .DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                loadOp = .CLEAR,
+                storeOp = .STORE,
                 clearValue = .{depthStencil = .{1, 0}},
             };
             color_attachment := VkRenderingAttachmentInfo.{
                 imageView = result.target.view,
-                imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-                storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-                clearValue = .{color = .{ float32_ = .[0, 0, 0, 1]}},
+                imageLayout = .COLOR_ATTACHMENT_OPTIMAL,
+                loadOp = .LOAD,
+                storeOp = .STORE,
+                clearValue = .{color = .{ _float32 = .[0, 0, 0, 1]}},
             };
             rendering_info := VkRenderingInfo.{
                 renderArea = .{
@@ -147,13 +147,13 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
             debug_name_object(cmd, "3D Shadowmap Command Buffer");
 
             // Prepare the shadowmap texture for rendering
-            transition_texture_layout(*global_renderer.shadowmap_texture, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, cmd);
+            transition_texture_layout(*global_renderer.shadowmap_texture, .DEPTH_ATTACHMENT_OPTIMAL, cmd);
 
             depth_attachment := VkRenderingAttachmentInfo.{
                 imageView = global_renderer.shadowmap_texture.view, 
-                imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-                storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+                imageLayout = .DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                loadOp = .CLEAR,
+                storeOp = .STORE,
                 clearValue = .{depthStencil = .{1, 0}},
             };
             rendering_info := VkRenderingInfo.{
@@ -180,10 +180,10 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
 
 // Only for 2d for now...
 immediate_use_shader :: (using immediate: *Immediate2D, pipeline: Pipeline) {
-    vkCmdBindPipeline(command_buffers[0], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
+    vkCmdBindPipeline(command_buffers[0], .GRAPHICS, pipeline.pipeline);
     pc := UI_Push_Constants.{.{2.0 / cast(float)target.w, -2.0 / cast(float)target.h}, .{-1, 1}};
-    vkCmdPushConstants(command_buffers[0], pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
-    vkCmdBindDescriptorSets(command_buffers[0], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.layout, 0, 1, *global_renderer.empty_texture_uniform.descriptor_set, 0, null);
+    vkCmdPushConstants(command_buffers[0], pipeline.layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
+    vkCmdBindDescriptorSets(command_buffers[0], .GRAPHICS, pipeline.layout, 0, 1, *global_renderer.empty_texture_uniform.descriptor_set, 0, null);
     immediate.current_pipelines[0] = pipeline;
 }
 
@@ -197,12 +197,12 @@ immediate_default_texture :: (using immediate: *Immediate3D) {
 
 immediate_bind_texture :: (using immediate: *Immediate2D, texture: Uniform_Texture) {
     flush(immediate);
-    vkCmdBindDescriptorSets(command_buffers[0], VK_PIPELINE_BIND_POINT_GRAPHICS, current_pipelines[0].layout, 0, 1, *texture.descriptor_set, 0, null);
+    vkCmdBindDescriptorSets(command_buffers[0], .GRAPHICS, current_pipelines[0].layout, 0, 1, *texture.descriptor_set, 0, null);
 }
 
 immediate_bind_texture :: (using immediate: *Immediate3D, texture: Uniform_Texture) {
     flush(immediate);
-    vkCmdBindDescriptorSets(command_buffers[0], VK_PIPELINE_BIND_POINT_GRAPHICS, current_pipelines[0].layout, Renderer.MATERIAL_SET, 1, *texture.descriptor_set, 0, null);
+    vkCmdBindDescriptorSets(command_buffers[0], .GRAPHICS, current_pipelines[0].layout, Renderer.MATERIAL_SET, 1, *texture.descriptor_set, 0, null);
 }
 
 set_model_matrix :: (immediate: *Immediate3D, mat: Matrix4) {
@@ -212,7 +212,7 @@ set_model_matrix :: (immediate: *Immediate3D, mat: Matrix4) {
         inverse_transform = transpose(inverse(mat)),
     };
     for immediate.command_buffers {
-        vkCmdPushConstants(it, immediate.current_pipelines[it_index].layout, VK_SHADER_STAGE_VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
+        vkCmdPushConstants(it, immediate.current_pipelines[it_index].layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
     }
 }
 
@@ -223,7 +223,7 @@ immediate_end :: (using immediate: *Immediate, final: bool = false) {
     }
 
     if final { 
-        transition_texture_layout(immediate.target, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, command_buffers[0]);
+        transition_texture_layout(immediate.target, .SHADER_READ_ONLY_OPTIMAL, command_buffers[0]);
     }
 
     for command_buffers {

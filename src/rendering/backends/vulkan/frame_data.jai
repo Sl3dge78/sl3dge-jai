@@ -16,7 +16,7 @@ frame_data_create :: (device: VkDevice, command_pool: VkCommandPool, camera_dsl:
     self: Frame_Data;
     cmd_buff_ci := VkCommandBufferAllocateInfo.{
         commandPool = command_pool,
-        level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        level = .PRIMARY,
         commandBufferCount = 1,
     };
     vkAllocateCommandBuffers(device, *cmd_buff_ci, *self.command_buffer);
@@ -25,7 +25,7 @@ frame_data_create :: (device: VkDevice, command_pool: VkCommandPool, camera_dsl:
     vkCreateSemaphore(device, *semaphore_ci, null, *self.image_available_semaphore);
     vkCreateSemaphore(device, *semaphore_ci, null, *self.render_finished_semaphore);
 
-    fence_ci := VkFenceCreateInfo.{ flags = VK_FENCE_CREATE_SIGNALED_BIT, };
+    fence_ci := VkFenceCreateInfo.{ flags = .SIGNALED_BIT, };
     vkCreateFence(device, *fence_ci, null, *self.frame_fence);
 
     // Camera uniforms

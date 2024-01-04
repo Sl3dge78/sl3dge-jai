@@ -1,10 +1,9 @@
 
-FILE_PATH :: "vk_mem_alloc.h";
-LIB_BASE_NAME :: "vk_mem_alloc";
 
 #run {
     set_build_options_dc(.{do_output=false});
-    // build_cpp_static_lib("vk_mem_alloc", "vk_mem_alloc.cpp", extra = .["-I", "C:\\Program Files\\VulkanSDK\\1.3.268.0\\Include", "-D","VMA_IMPLEMENTATION", "-stdlib=libc++"]);
+    build_cpp_static_lib("vk_mem_alloc", "vk_mem_alloc.cpp", extra = .["-I", "C:\\VulkanSDK\\1.3.268.0\\Include"]);
+    log("Built!");
     if !generate_bindings() {
         compiler_set_workspace_status(.FAILED);
     }
@@ -16,9 +15,9 @@ generate_bindings :: () -> bool {
     {
         using opts;
 
-        array_add(*libnames, LIB_BASE_NAME);
-        array_add(*source_files, FILE_PATH);
-        // array_add(*extra_clang_arguments, "-stdlib=libc++");
+        array_add(*libnames, "vk_mem_alloc");
+        array_add(*source_files, "vk_mem_alloc.h");
+        array_add(*system_include_paths, "C:\\VulkanSDK\\1.3.268.0\\Include");
 
         auto_detect_enum_prefixes = true;
         // log_stripped_declarations = false;
@@ -26,13 +25,9 @@ generate_bindings :: () -> bool {
         output_filename = "module.jai";
         try_to_preserve_comments = false;
         mimic_spacing_flags = 0;
+        omit_global_declarations = true;
+        array_add(*libpaths, ".");
 
-        #if OS == .LINUX {
-            array_add(*libpaths, ".");
-
-        } else {
-            #assert(false, "TODO");
-        }
         // #if OS == .WINDOWS {
         //     #assert(false, "TODO");
         //     array_add(*libpaths, "windows");

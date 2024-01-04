@@ -678,10 +678,10 @@ shadowmap_render_pass :: (using renderer: *Renderer, command_encoder: wgpu.Comma
     
     attachment := wgpu.RenderPassDepthStencilAttachment.{
         view = framebuffer,
-        depthLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        depthLoadOp = .CLEAR,
         depthStoreOp = .Store,
         depthClearValue = 1,
-        stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        stencilLoadOp = .CLEAR,
         stencilStoreOp = .Discard,
         stencilClearValue = 0,
         stencilReadOnly = true,
@@ -717,10 +717,10 @@ main_render_pass :: (using renderer: *Renderer, command_encoder: wgpu.CommandEnc
     };
     depth_attachment := wgpu.RenderPassDepthStencilAttachment.{
         view = renderer.depth_texture.view,
-        depthLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        depthLoadOp = .CLEAR,
         depthStoreOp = .Store,
         depthClearValue = 1,
-        stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        stencilLoadOp = .CLEAR,
         stencilStoreOp = .Discard,
         stencilClearValue = 0,
         stencilReadOnly = true,

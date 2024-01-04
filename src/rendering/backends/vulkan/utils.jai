@@ -1,6 +1,6 @@
 
 Vk_Check :: (result: VkResult) #expand #no_debug {
-    assert(result == VK_SUCCESS, "Vk result is %", result);
+    assert(result == .SUCCESS, "Vk result is %", result);
 }
 
 fill_array :: ($type: Type, func: $R, arg: $S) -> [..]type #expand {
@@ -58,7 +58,7 @@ alloc_device_memory :: (item: $T, mem_type: MemoryType) -> VkDeviceMemory {
 // Maybe a bad idea, allocates and starts a command command then ends it at the end of the current scope.
 begin_single_time_command_buffer :: () -> VkCommandBuffer {
     alloc_info := VkCommandBufferAllocateInfo.{
-        level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        level = .PRIMARY,
         commandPool = global_renderer.command_pool,
         commandBufferCount = 1,
     };
@@ -67,7 +67,7 @@ begin_single_time_command_buffer :: () -> VkCommandBuffer {
     Vk_Check(vkAllocateCommandBuffers(global_renderer.device, *alloc_info, *cmd));
 
     begin_info := VkCommandBufferBeginInfo.{
-        flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+        flags = .ONE_TIME_SUBMIT_BIT,
     };
     Vk_Check(vkBeginCommandBuffer(cmd, *begin_info));
 
@@ -86,6 +86,11 @@ end_single_time_command_buffer :: (cmd: VkCommandBuffer) {
     vkFreeCommandBuffers(global_renderer.device, global_renderer.command_pool, 1, *cmd);
 }
 
+vkCmdInsertDebugUtilsLabelEXT : PFN_vkCmdInsertDebugUtilsLabelEXT;
+vkCreateDebugUtilsMessengerEXT : PFN_vkCreateDebugUtilsMessengerEXT;
+vkDestroyDebugUtilsMessengerEXT : PFN_vkDestroyDebugUtilsMessengerEXT;
+vkSetDebugUtilsObjectNameEXT : PFN_vkSetDebugUtilsObjectNameEXT;
+
 load_function_pointers :: (instance: VkInstance) {
     load :: (name: string) -> *void #expand {
         result := vkGetInstanceProcAddr(`instance, name);
@@ -95,6 +100,7 @@ load_function_pointers :: (instance: VkInstance) {
     vkCmdInsertDebugUtilsLabelEXT = xx load("vkCmdInsertDebugUtilsLabelEXT");
     vkCreateDebugUtilsMessengerEXT = xx load("vkCreateDebugUtilsMessengerEXT");
     vkDestroyDebugUtilsMessengerEXT = xx load("vkDestroyDebugUtilsMessengerEXT");
+    vkSetDebugUtilsObjectNameEXT = xx load("vkSetDebugUtilsObjectNameEXT");
 }
 
 SDL_Vulkan_GetInstanceExtensions :: (window: *SDL_Window, pCount: *u32, pNames: **u8) -> bool #foreign SDL2;
@@ -105,7 +111,7 @@ debug_callback :: (severity: VkDebugUtilsMessageSeverityFlagsEXT, type: VkDebugU
     push_context ctx {
         msg := to_string(callback_data.pMessage);
         log("%: %\n", severity, msg);
-        if severity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT {
+        if severity >= .ERROR_BIT_EXT {
             assert(false);
         }
     }
@@ -132,12 +138,12 @@ debug_name_object :: (handle: $T, name: string) {
 
 get_vk_object_type :: ($object: Type) -> VkObjectType {
     #if object == VkCommandBuffer {
-        return VK_OBJECT_TYPE_COMMAND_BUFFER;
+        return .COMMAND_BUFFER;
     } else #if object == VkImageView {
-        return VK_OBJECT_TYPE_IMAGE_VIEW;
+        return .IMAGE_VIEW;
     } else #if object == VkImage {
-        return VK_OBJECT_TYPE_IMAGE;
+        return .IMAGE;
     } else #if object == VkBuffer {
-        return VK_OBJECT_TYPE_BUFFER;
+        return .BUFFER;
     } else #assert(false, "Unregistered object");
 }
