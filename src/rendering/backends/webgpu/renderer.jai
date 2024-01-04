@@ -403,7 +403,6 @@ end_frame :: () {
     frame_end := SDL_GetPerformanceCounter();
     global_engine.frame_time = cast(float)(frame_end - global_engine.frame_start) / cast(float)SDL_GetPerformanceFrequency();
     wgpu.SurfacePresent(surface);
-    global_engine.frame_start = SDL_GetPerformanceCounter();
 
     wgpu.TextureViewRelease(renderer.surface_view);
     
@@ -804,7 +803,6 @@ update_framebuffer :: (using renderer: *Renderer) {
         arrayLayerCount = 1,
         aspect = .All
     };
-    log("Surface: %", renderer.surface_format);
     renderer.surface_view = wgpu.TextureCreateView(renderer.surface_texture.texture, *desc);
 
 }
