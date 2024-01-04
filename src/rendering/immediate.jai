@@ -169,12 +169,12 @@ immediate_default_texture :: (using immediate: *Immediate3D) {
     immediate_bind_texture(immediate, global_renderer.empty_texture_uniform);
 }
 
-immediate_bind_texture :: (using immediate: *Immediate2D, texture: Texture_Uniform) {
+immediate_bind_texture :: (using immediate: *Immediate2D, texture: Uniform_Texture) {
     flush(immediate);
     wgpu.RenderPassEncoderSetBindGroup(render_passes[0], 0, texture.bind_group, 0, null);
 }
 
-immediate_bind_texture :: (using immediate: *Immediate3D, texture: Texture_Uniform) {
+immediate_bind_texture :: (using immediate: *Immediate3D, texture: Uniform_Texture) {
     flush(immediate);
     wgpu.RenderPassEncoderSetBindGroup(render_passes[1], 3, texture.bind_group, 0, null);
 }

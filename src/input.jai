@@ -71,11 +71,11 @@ mouse_delta_y :: () -> s32 { return input.mouse.yrel;};
 
 open_controller :: () {
     for 0..SDL_NumJoysticks() - 1 {
-        log("Found hoystick %", to_string(SDL_JoystickNameForIndex(it)));
+        log("Found hoystick %", to_string(cast(*u8)SDL_JoystickNameForIndex(it)));
         if !SDL_IsGameController(it) then continue;
         input.controller = SDL_GameControllerOpen(it);
         input.controller_id = it;
-        log("Opened controller: %", to_string(SDL_GameControllerNameForIndex(0)));
+        log("Opened controller: %", to_string(cast(*u8)SDL_GameControllerNameForIndex(0)));
         return;
     }
     

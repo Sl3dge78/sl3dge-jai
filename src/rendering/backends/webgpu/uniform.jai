@@ -30,14 +30,17 @@ uniform_write :: inline (using self: Uniform, data: *void) {
     buffer_write_data(loc.buffer, data, loc.size, loc.offset);
 }
 
-Texture_Uniform :: struct {
+Uniform_Texture :: struct {
     bind_group: wgpu.BindGroup;
 }
 
-texture_uniform_create :: (sampler: wgpu.Sampler, texture_view: wgpu.TextureView, layout: wgpu.BindGroupLayout) -> Texture_Uniform {
+uniform_texture_create :: (texture: *Texture, layout: wgpu.BindGroupLayout = null) -> Uniform_Texture {
+    if layout == null {
+        layout = global_renderer.single_texture_bgl;
+    }
     entries := wgpu.BindGroupEntry.[
-        .{binding = 0, sampler = sampler },
-        .{binding = 1, textureView = texture_view },
+        .{binding = 0, sampler = global_renderer.sampler },
+        .{binding = 1, textureView = texture.view },
     ];
     desc := wgpu.BindGroupDescriptor.{
         layout = layout,
@@ -47,10 +50,10 @@ texture_uniform_create :: (sampler: wgpu.Sampler, texture_view: wgpu.TextureView
     return .{WGPU_Check(wgpu.DeviceCreateBindGroup(global_renderer.device, *desc))};
 }
 
-operator == :: (a: Texture_Uniform, b: Texture_Uniform) -> bool {
+operator == :: (a: Uniform_Texture, b: Uniform_Texture) -> bool {
     return a.bind_group == b.bind_group;
 }
 
-destroy :: inline (using self: *Texture_Uniform) {
+destroy :: inline (using self: *Uniform_Texture) {
     wgpu.BindGroupRelease(bind_group);
 }

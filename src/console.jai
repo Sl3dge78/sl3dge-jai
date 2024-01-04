@@ -14,7 +14,7 @@ console_create :: () {
 }
 
 console_destroy :: () {
-    context.logger = Context.default_logger;
+    context.logger = runtime_support_default_logger;
     for global_console.lines {
         free(it);
     }
@@ -92,7 +92,7 @@ console_log :: (message: string, data: *void, info: Log_Info) {
     if !message then return;
     
     console_print(message);
-    context.default_logger(message, data, info);
+    runtime_support_default_logger(message, data, info);
 }
 
 #scope_file

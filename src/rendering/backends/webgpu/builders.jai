@@ -38,7 +38,7 @@ Pipeline_Builder :: struct {
 add_vertex_shader :: (builder: *Pipeline_Builder, module: wgpu.ShaderModule, entry_point: string, $vertex_types: ..Type) {
     builder.vertex.module = module;
     builder.vertex.entryPoint = temp_c_string(entry_point);
-    arr := NewArray(vertex_types.count, wgpu.VertexBufferLayout, allocator = temp);
+    arr := NewArray(vertex_types.count, wgpu.VertexBufferLayout,, allocator = temp);
     offset := 0;
     for vertex_types { 
         arr[it_index] = get_vertex_layout(it, offset);
@@ -50,7 +50,7 @@ add_vertex_shader :: (builder: *Pipeline_Builder, module: wgpu.ShaderModule, ent
 
 get_vertex_layout :: (type: Type, shader_location_offset := 0) -> wgpu.VertexBufferLayout {
     info := cast(*Type_Info_Struct)type;
-    attributes := NewArray(info.members.count, wgpu.VertexAttribute, allocator = temp);
+    attributes := NewArray(info.members.count, wgpu.VertexAttribute,, allocator = temp);
 
     for info.members {
         // .{ format = .Float32x2, offset = 0, shaderLocation = 0 },

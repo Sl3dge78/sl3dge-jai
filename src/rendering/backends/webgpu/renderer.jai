@@ -43,11 +43,11 @@ Renderer :: struct {
 
     global_matrices_uniform: Uniform;
     empty_texture: Texture;
-    empty_texture_uniform: Texture_Uniform;
+    empty_texture_uniform: Uniform_Texture;
 
     shadowmap_matrices_uniform: Uniform;
     shadowmap_framebuffer: Texture;
-    shadowmap_texture_uniform : Texture_Uniform;
+    shadowmap_texture_uniform : Uniform_Texture;
 
     projection := Matrix4_Identity;
     view := Matrix4_Identity;
@@ -151,7 +151,7 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
 
         log("%", props);
         nb := wgpu.AdapterEnumerateFeatures(renderer.adapter, null);
-        features := NewArray(xx nb, wgpu.FeatureName, allocator = temp);
+        features := NewArray(xx nb, wgpu.FeatureName,, allocator = temp);
 
         wgpu.AdapterEnumerateFeatures(renderer.adapter, features.data);
         log("Features: ");
@@ -283,7 +283,7 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
         data := u8.[255, 255, 255, 255];
         renderer.empty_texture = texture_from_data(data.data, 1, 1, 4, u8);
         texture_set_label(*renderer.empty_texture, "Empty Texture");
-        renderer.empty_texture_uniform = texture_uniform_create(renderer.sampler, renderer.empty_texture.view, global_renderer.single_texture_bgl);
+        renderer.empty_texture_uniform = uniform_texture_create(*renderer.empty_texture);
     }   
 
     {   // Color Uniforms
@@ -297,7 +297,7 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
     {   // Shadowmap Uniforms
         renderer.shadowmap_framebuffer = texture_create(2048, 2048, .TextureBinding | .RenderAttachment, .Depth24Plus);
 
-        renderer.shadowmap_texture_uniform = texture_uniform_create(renderer.sampler, renderer.shadowmap_framebuffer.view, global_renderer.shadowmap_texture_bgl);
+        renderer.shadowmap_texture_uniform = uniform_texture_create(*renderer.shadowmap_framebuffer, renderer.shadowmap_texture_bgl);
         renderer.shadowmap_matrices_uniform = uniform_create(renderer.device, *renderer.uniform_pool, size_of(Global_Matrices), renderer.global_matrices_bgl);
         
     }

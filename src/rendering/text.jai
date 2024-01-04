@@ -4,7 +4,7 @@ Font :: struct {
     texture: Texture;
     line_height : float;
     width : float;
-    uniform : Texture_Uniform;
+    uniform : Uniform_Texture;
 }
 
 font_from_file :: (path: string, size: float) -> Font, bool {
@@ -44,7 +44,7 @@ font_from_data :: (font_data: string, size: float) -> Font, bool {
     self.texture = texture_from_data(bitmap.data, 512, 512, 1, u8);
     texture_set_label(*self.texture, "Font Atlas");
 
-    self.uniform = texture_uniform_create(global_renderer.sampler, self.texture.view, global_renderer.single_texture_bgl);
+    self.uniform = uniform_texture_create(*self.texture);
     
     // Get additional font info
     info : stbtt_fontinfo = ---;
