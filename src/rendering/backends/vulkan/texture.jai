@@ -77,10 +77,9 @@ render_texture_create :: (w: u32, h: u32, name: string) -> Texture {
 
 destroy :: (texture: *Texture) {
     vkDestroyImageView(global_renderer.device, texture.view, null);
+    vmaDestroyImage(global_renderer.allocator, texture.image, texture.memory);
     texture.view = null;
-    vkDestroyImage(global_renderer.device, texture.image, null);
     texture.image = null;
-    vmaFreeMemory(global_renderer.allocator, texture.memory);
     texture.memory = null;
 }
 
@@ -141,7 +140,7 @@ get_src_stage_and_access_from_layout :: (layout: VkImageLayout) -> (VkPipelineSt
         case .DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
             return .LATE_FRAGMENT_TESTS_BIT, .DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
         case .SHADER_READ_ONLY_OPTIMAL;
-            return .FRAGMENT_SHADER_BIT, .UNIFORM_READ_BIT;
+            return .FRAGMENT_SHADER_BIT, .SHADER_READ_BIT;
         case .DEPTH_ATTACHMENT_OPTIMAL;
             return .LATE_FRAGMENT_TESTS_BIT, .DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
         case; 

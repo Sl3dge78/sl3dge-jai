@@ -55,8 +55,7 @@ buffer_create_or_update :: (buffer: *Buffer, size: u64, usage: VkBufferUsageFlag
 }
 
 destroy :: (buffer: *Buffer) {
-    vmaFreeMemory(global_renderer.allocator, buffer.memory);
-    vkDestroyBuffer(global_renderer.device, buffer.handle, null);
+    vmaDestroyBuffer(global_renderer.allocator, buffer.handle, buffer.memory);
     buffer.* = .{};
 }
 
