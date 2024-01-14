@@ -40,7 +40,7 @@ Skinned_Mesh_Instance :: struct {
     transform: Matrix4;
 
     current_pose: Skeleton_Pose;
-    joint_uniform: Uniform;
+    joint_uniform: Uniform_Buffer;
 }
 
 destroy :: (using self: *Skeleton_Definition) {
@@ -63,17 +63,17 @@ destroy :: (using self : *Skinned_Mesh) {
     self.* = .{};
 }
 
-draw :: inline (using self: Skinned_Mesh, render_pass: wgpu.RenderPassEncoder) {
+draw :: inline (using self: Skinned_Mesh, command_buffer: VkCommandBuffer) {
     for submeshes {
-        wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 0, it.vertices.buffer, it.vertices.offset, it.vertices.size);
-        wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 1, skins[it_index].buffer, skins[it_index].offset, skins[it_index].size);
-        wgpu.RenderPassEncoderSetIndexBuffer(render_pass, it.indices.buffer, .Uint32, it.indices.offset, it.indices.size);
-        wgpu.RenderPassEncoderDrawIndexed(render_pass, it.index_count, 1, 0, 0, 0);
+        buffers := VkBuffer.[it.vertices.buffer.handle, skins[it_index].buffer.handle];
+        offsets := VkDeviceSize.[it.vertices.offset, skins[it_index].offset];
+        vkCmdBindVertexBuffers(command_buffer, 0, 2, buffers.data, offsets.data);
+        vkCmdBindIndexBuffer(command_buffer, it.indices.buffer.handle, it.indices.offset, .UINT32);
+        vkCmdDrawIndexed(command_buffer, it.index_count, 1, 0, 0, 0);
     }
 }
 
 destroy :: (self: *Skinned_Mesh_Instance) {
-    destroy(*self.joint_uniform);
     free(self.current_pose.data);
 }
 
@@ -109,7 +109,7 @@ load_skinned_gltf :: (path: string) -> Skinned_Mesh {
             read_accessor_into_array(vertices.data, xx *offset.weights, size_of(Skinned_Vertex), gltf_data, primitive.weights_accessor);
         }
 
-        skinned_loc := buffer_pool_load_data(*global_renderer.mesh_buffer_pool, vertices);
+        skinned_loc := buffer_pool_load_data(*global_renderer.vertex_buffer_pool, vertices);
         array_add(*result.skins, skinned_loc);
     }
     assert(gltf_data.skins.count == 1, "No or multiple skins found in gltf, this isn't supported"); // @TODO
@@ -170,7 +170,7 @@ instantiate :: (scene: *Scene, mesh: *Skinned_Mesh, matrix := Matrix4_Identity) 
     instance.transform = matrix;
 
     size := size_of(Instance_Data);
-    instance.joint_uniform = uniform_create(global_renderer.device, *global_renderer.uniform_pool, xx size, global_renderer.instance_data_bgl);
+    instance.joint_uniform = uniform_buffer_create(global_renderer.skinned_mesh_layout, xx size);
     
     instance.current_pose = NewArray(mesh.skeleton.joints.count, Joint);
     
@@ -179,7 +179,7 @@ instantiate :: (scene: *Scene, mesh: *Skinned_Mesh, matrix := Matrix4_Identity) 
         it.* = mesh.skeleton.bind_pose[it_index];
         buffer.joint_matrices[it_index] = transpose(it.model_space_matrix * mesh.skeleton.joints[it_index].inverse_bind_matrix);
     }
-    uniform_write(instance.joint_uniform, *buffer);
+    uniform_buffer_write(*instance.joint_uniform, *buffer);
     return instance;    
 }
 
@@ -217,7 +217,7 @@ upload_skeleton :: (using self: *Skinned_Mesh_Instance) {
         }
     }
 
-    uniform_write(self.joint_uniform, *buffer);
+    uniform_buffer_write(*self.joint_uniform, *buffer);
 }
 
 // set_bone_matrix :: (using self: *Skinned_Mesh_Instance, name: string, matrix: Matrix4) {

@@ -6,7 +6,7 @@ Pipeline :: struct {
 // --------
 // 2d/ui pipeline
 
-create_ui_pipeline :: (device: VkDevice, render_pass: VkRenderPass) -> Pipeline {
+create_ui_pipeline :: (device: VkDevice) -> Pipeline {
 
     // Pipeline
     vtx := create_shader_module(device, "shaders/ui.vert.spv");
@@ -18,12 +18,13 @@ create_ui_pipeline :: (device: VkDevice, render_pass: VkRenderPass) -> Pipeline 
     builder: Pipeline_Builder;
     Pipeline_Builder.add_descriptor_set_layouts(*builder, global_renderer.single_texture_layout);
     Pipeline_Builder.set_push_constants(*builder, .VERTEX_BIT, 4 * size_of(float));
-    Pipeline_Builder.add_vertex_input(*builder, Vertex);
+    Pipeline_Builder.add_vertex_input(*builder, UI_Vertex);
     Pipeline_Builder.add_shader(*builder, .VERTEX_BIT, vtx, "main");
     Pipeline_Builder.add_shader(*builder, .FRAGMENT_BIT, frag, "main");
-    Pipeline_Builder.add_dynamic_state(*builder, VkDynamicState.VIEWPORT, VkDynamicState.SCISSOR);
+    Pipeline_Builder.add_dynamic_state(*builder, .VIEWPORT, .SCISSOR);
+    Pipeline_Builder.color_format(*builder, global_renderer.swapchain.format.format);
     builder.color_blend = true;
-    pipeline := Pipeline_Builder.build(*builder, device, render_pass);
+    pipeline := Pipeline_Builder.build(*builder, device);
     log("UI Pipeline created.");
 
     return pipeline;
@@ -42,7 +43,7 @@ Material :: struct {
     }
 }
 
-create_static_mesh_material :: (device : VkDevice, shadowmap_rp: VkRenderPass, color_rp: VkRenderPass) -> Material {
+create_static_mesh_material :: (device : VkDevice) -> Material {
     result: Material;
 
     vtx := create_shader_module(device, "shaders/static.vert.spv");
@@ -55,11 +56,12 @@ create_static_mesh_material :: (device : VkDevice, shadowmap_rp: VkRenderPass, c
         builder: Pipeline_Builder;
         Pipeline_Builder.add_descriptor_set_layouts(*builder, global_renderer.camera_set_layout);
         Pipeline_Builder.set_push_constants(*builder, .VERTEX_BIT, size_of(PushConstantData));
-        Pipeline_Builder.add_vertex_input(*builder, Vertex);
+        Pipeline_Builder.add_vertex_input(*builder, Standard_Vertex);
         Pipeline_Builder.add_shader(*builder, .VERTEX_BIT, vtx, "main");
         Pipeline_Builder.rasterization_state_depth_bias(*builder, 1.25, 0, 1.75);
         Pipeline_Builder.viewport_state(*builder, Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE);
-        result.pipelines[Pipeline_Kind.SHADOWMAP] = Pipeline_Builder.build(*builder, device, shadowmap_rp);
+        Pipeline_Builder.depth_format(*builder, Renderer.SHADOWMAP_FORMAT);
+        result.pipelines[Pipeline_Kind.SHADOWMAP] = Pipeline_Builder.build(*builder, device);
         log("Shadowmap pipeline created.");
     }
 
@@ -70,17 +72,19 @@ create_static_mesh_material :: (device : VkDevice, shadowmap_rp: VkRenderPass, c
             global_renderer.shadowmap_layout,
             global_renderer.single_texture_layout);
         Pipeline_Builder.set_push_constants(*builder, .VERTEX_BIT, size_of(PushConstantData));
-        Pipeline_Builder.add_vertex_input(*builder, Vertex);
+        Pipeline_Builder.add_vertex_input(*builder, Standard_Vertex);
         Pipeline_Builder.add_shader(*builder, .VERTEX_BIT, vtx, "main");
         Pipeline_Builder.add_shader(*builder, .FRAGMENT_BIT, frag, "main");
-        Pipeline_Builder.add_dynamic_state(*builder, VkDynamicState.VIEWPORT, VkDynamicState.SCISSOR);
-        result.pipelines[Pipeline_Kind.COLOR] = Pipeline_Builder.build(*builder, device, color_rp);
+        Pipeline_Builder.add_dynamic_state(*builder, .VIEWPORT, .SCISSOR);
+        Pipeline_Builder.color_format(*builder, global_renderer.swapchain.format.format);
+        Pipeline_Builder.depth_format(*builder, Renderer.DEPTH_FORMAT);
+        result.pipelines[Pipeline_Kind.COLOR] = Pipeline_Builder.build(*builder, device);
         log("Color pipeline created.");
     }
     return result;
 }
 
-create_skinned_mesh_material :: (device : VkDevice, shadowmap_rp: VkRenderPass, color_rp: VkRenderPass) -> Material {
+create_skinned_mesh_material :: (device : VkDevice) -> Material {
     result: Material;
 
     vtx := create_shader_module(device, "shaders/skinned.vert.spv");
@@ -97,12 +101,13 @@ create_skinned_mesh_material :: (device : VkDevice, shadowmap_rp: VkRenderPass, 
             global_renderer.empty_set_layout,
             global_renderer.skinned_mesh_layout);
         Pipeline_Builder.set_push_constants(*builder, .VERTEX_BIT, size_of(PushConstantData));
-        Pipeline_Builder.add_vertex_input(*builder, Vertex);
+        Pipeline_Builder.add_vertex_input(*builder, Standard_Vertex);
         Pipeline_Builder.add_vertex_input(*builder, Skinned_Vertex);
         Pipeline_Builder.add_shader(*builder, .VERTEX_BIT, vtx, "main");
         Pipeline_Builder.rasterization_state_depth_bias(*builder, 1.25, 0, 1.75);
         Pipeline_Builder.viewport_state(*builder, Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE);
-        result.pipelines[Pipeline_Kind.SHADOWMAP] = Pipeline_Builder.build(*builder, device, shadowmap_rp);
+        Pipeline_Builder.depth_format(*builder, Renderer.SHADOWMAP_FORMAT);
+        result.pipelines[Pipeline_Kind.SHADOWMAP] = Pipeline_Builder.build(*builder, device);
         
         log("Shadowmap pipeline created.");
     }
@@ -115,12 +120,14 @@ create_skinned_mesh_material :: (device : VkDevice, shadowmap_rp: VkRenderPass, 
             global_renderer.single_texture_layout,
             global_renderer.skinned_mesh_layout);
         Pipeline_Builder.set_push_constants(*builder, .VERTEX_BIT, size_of(PushConstantData));
-        Pipeline_Builder.add_vertex_input(*builder, Vertex);
+        Pipeline_Builder.add_vertex_input(*builder, Standard_Vertex);
         Pipeline_Builder.add_vertex_input(*builder, Skinned_Vertex);
         Pipeline_Builder.add_shader(*builder, .VERTEX_BIT, vtx, "main");
         Pipeline_Builder.add_shader(*builder, .FRAGMENT_BIT, frag, "main");
-        Pipeline_Builder.add_dynamic_state(*builder, VkDynamicState.VIEWPORT, VkDynamicState.SCISSOR);
-        result.pipelines[Pipeline_Kind.COLOR] = Pipeline_Builder.build(*builder, device, color_rp);
+        Pipeline_Builder.add_dynamic_state(*builder, .VIEWPORT, .SCISSOR);
+        Pipeline_Builder.color_format(*builder, global_renderer.swapchain.format.format);
+        Pipeline_Builder.depth_format(*builder, Renderer.DEPTH_FORMAT);
+        result.pipelines[Pipeline_Kind.COLOR] = Pipeline_Builder.build(*builder, device);
         
         log("Color pipeline created.");
     }
@@ -136,15 +143,18 @@ bind_material :: (command_buffer: VkCommandBuffer, material: Material, $kind: Pi
     #if kind == .SHADOWMAP {
         pipeline := material.shadowmap;
         vkCmdBindPipeline(command_buffer, .GRAPHICS, pipeline.pipeline);
-        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.layout, Renderer.FRAME_CAMERADATA_SET, 1, *context.vk.shadowmap_camera_descriptor, 0, null);
+        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.layout, Renderer.FRAME_CAMERADATA_SET, 1, *global_renderer.frame_data[global_renderer.frame_index].shadowmap_camera_descriptor.descriptor_set, 0, null);
     } else #if kind == .COLOR {
         pipeline := material.color;
         vkCmdBindPipeline(command_buffer, .GRAPHICS, pipeline.pipeline);
         vkCmdSetViewport(command_buffer, 0, 1, *VkViewport.{0, xx global_renderer.swapchain.extent.height, xx global_renderer.swapchain.extent.width, -(cast(float)global_renderer.swapchain.extent.height), 0, 1});
         vkCmdSetScissor(command_buffer, 0, 1, *VkRect2D.{.{0, 0}, global_renderer.swapchain.extent});
-        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.layout, Renderer.FRAME_CAMERADATA_SET, 1, *context.vk.camera_descriptor, 0, null);
-        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.layout, Renderer.FRAME_SHADOWMAP_SET, 1, *global_renderer.shadowmap_descriptor_set, 0, null);
-        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.layout, Renderer.MATERIAL_SET, 1, *global_renderer.default_texture_descriptor, 0, null);
+        sets := VkDescriptorSet.[
+            global_renderer.frame_data[global_renderer.frame_index].camera_descriptor.descriptor_set,
+            global_renderer.shadowmap_uniform_texture.descriptor_set,
+            global_renderer.empty_texture_uniform.descriptor_set
+        ];
+        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.layout, 0, sets.count, sets.data, 0, null);
     } else {
         #assert false;
     }

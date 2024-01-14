@@ -1,11 +1,9 @@
 Immediate :: struct(Vertex_Type: Type)  {
-    command_encoder : wgpu.CommandEncoder;
-    render_passes : [..]wgpu.RenderPassEncoder;
-    target_w: u32;
-    target_h: u32;
+    command_buffers : [..]VkCommandBuffer;
+    current_pipelines : [..]Pipeline;
+    target: *Texture;
     
     locs : [..]Buffer_Location;
-    current_position_in_buffer : u64; // in bytes
     vertices : [..]Vertex_Type;
     BUFFER_SIZE :: 1024 * 1024;
 }
@@ -14,30 +12,15 @@ Immediate :: struct(Vertex_Type: Type)  {
 
 flush :: (using immediate: *Immediate) {
     if vertices.count > 0 {
-        loc := *locs[locs.count - 1];
         size : u64 = xx (vertices.count * size_of(type_of(vertices[0])));
-        buffer_write_data(loc.buffer, vertices.data, size, loc.offset + current_position_in_buffer);
-        for render_passes {
-            wgpu.RenderPassEncoderSetVertexBuffer(it, 0, loc.buffer.handle, loc.offset + current_position_in_buffer, loc.size);
-            wgpu.RenderPassEncoderDraw(it, xx vertices.count, 1, 0, 0);
+        loc := buffer_pool_get(*global_renderer.immediate_buffer_pool, size);
+        buffer_write_data(loc.buffer, vertices.data, size, loc.offset);
+        for command_buffers {
+            vkCmdBindVertexBuffers(it, 0, 1, *loc.buffer.handle, *(loc.offset));
+            vkCmdDraw(it, xx vertices.count, 1, 0, 0);
         }
-        current_position_in_buffer += size;
         vertices.count = 0;
     }
-}
-
-maybe_grow :: (using immediate: *Immediate, nb: u32) -> Buffer_Location {
-    size := nb * size_of(type_of(vertices[0]));
-    assert(size < BUFFER_SIZE, "Pushing too many vertices to immediate!!");
-    if locs.count == 0 ||  size + current_position_in_buffer >= locs[locs.count - 1].size {
-        flush(immediate);
-        loc := buffer_pool_get(*global_renderer.immediate_pool, BUFFER_SIZE);
-        array_add(*locs, loc);
-        current_position_in_buffer = 0;
-        
-    }
-    loc := locs[locs.count - 1];
-    return loc;
 }
 
 #scope_export
@@ -51,101 +34,144 @@ immediate_3d :: #bake_arguments immediate_begin(vertex_type = Standard_Vertex);
 immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : string = "") -> Immediate(vertex_type) {
     result : Immediate(vertex_type);
 
-    view: wgpu.TextureView = ---;
-    load_op : wgpu.LoadOp;
     if render_target == null {
-        result.target_w = global_renderer.width;
-        result.target_h = global_renderer.height;
-        view = global_renderer.surface_view;
-        load_op = .Load;
+        result.target = *global_renderer.frame_data[global_renderer.frame_index].framebuffer;
     } else {
-        result.target_w = wgpu.TextureGetWidth(render_target);
-        result.target_h = wgpu.TextureGetHeight(render_target);
-        view = render_target.view;
-        load_op = .Clear;
+        result.target = render_target;
     }
 
-    result.command_encoder = WGPU_Check(wgpu.DeviceCreateCommandEncoder(global_renderer.device, *wgpu.CommandEncoderDescriptor.{ label = temp_c_string(label) }));
+    count : u32 = 0;
+    #if vertex_type == UI_Vertex {
+        count = 1;
+    } else #if vertex_type == Standard_Vertex {
+        count = 2;
+    }
+
+    array_reserve(*result.current_pipelines, count);
+    result.current_pipelines.count = count;
+
+    array_reserve(*result.command_buffers, count);
+    // @TODO: maybe look into secondary command buffers?
+    alloc_info := VkCommandBufferAllocateInfo.{
+        commandPool = global_renderer.command_pool,
+        level = .PRIMARY,
+        commandBufferCount = count,
+    };
+    Vk_Check(vkAllocateCommandBuffers(global_renderer.device, *alloc_info, result.command_buffers.data));
+    result.command_buffers.count = count;
+
+    begin_info := VkCommandBufferBeginInfo.{
+        flags = .ONE_TIME_SUBMIT_BIT,
+    };
+    for result.command_buffers {
+        Vk_Check(vkBeginCommandBuffer(it, *begin_info));
+    }
+
+    // Prepare the render target for rendering
+    if result.target.current_layout != .COLOR_ATTACHMENT_OPTIMAL {
+        transition_texture_layout(result.target, .COLOR_ATTACHMENT_OPTIMAL, result.command_buffers[0]);
+    }
 
     #if vertex_type == UI_Vertex {
-        color_attachment := wgpu.RenderPassColorAttachment.{
-            view = view,
-            resolveTarget = null,
-            loadOp = load_op,
-            storeOp = .Store,
-            clearValue = .{0.0, 0.0, 0.0, 1.0}
+        cmd := result.command_buffers[0];
+        debug_name_object(cmd, "UI Command Buffer");
+
+        color_attachment := VkRenderingAttachmentInfo.{
+            imageView = result.target.view,
+            imageLayout = .COLOR_ATTACHMENT_OPTIMAL,
+            loadOp = .LOAD,
+            storeOp = .STORE,
+            clearValue = .{color = .{ _float32 = .[0, 0, 0, 1]}},
         };
-        render_pass_desc := wgpu.RenderPassDescriptor.{
-            label = "Immediate",
+
+        rendering_info := VkRenderingInfo.{
+            renderArea = .{
+                offset = .{0, 0},
+                extent = .{result.target.w, result.target.h},
+            },
+            layerCount = 1,
             colorAttachmentCount = 1,
-            colorAttachments = *color_attachment,
+            pColorAttachments = *color_attachment,
         };
-        render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(result.command_encoder, *render_pass_desc));
-        wgpu.RenderPassEncoderInsertDebugMarker(render_pass, temp_c_string(label));
-        wgpu.RenderPassEncoderSetPipeline(render_pass, global_renderer.ui_pipeline);    
-        pc := UI_Push_Constants.{.{2.0 / cast(float)result.target_w, -2.0 / cast(float)result.target_h}, .{-1, 1}};
-        wgpu.RenderPassEncoderSetPushConstants(render_pass, .Vertex, 0, size_of(type_of(pc)), *pc);
-        wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, global_renderer.empty_texture_uniform.bind_group, 0, null);
-        array_add(*result.render_passes, render_pass);
+        vkCmdBeginRendering(cmd, *rendering_info);
+
+        debug_marker(cmd, label);
+        vkCmdBindPipeline(cmd, .GRAPHICS, global_renderer.ui_pipeline.pipeline);
+        result.current_pipelines[0] = global_renderer.ui_pipeline;
+
+        vkCmdSetViewport(cmd, 0, 1, *VkViewport.{0, xx result.target.h, xx result.target.w, -(cast(float)result.target.h), 0, 1});
+        vkCmdSetScissor(cmd, 0, 1, *VkRect2D.{.{0, 0}, .{result.target.w, result.target.w}});
+
+        pc := UI_Push_Constants.{.{2.0 / cast(float)result.target.w, -2.0 / cast(float)result.target.h}, .{-1, 1}};
+        vkCmdPushConstants(cmd, global_renderer.ui_pipeline.layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
+        vkCmdBindDescriptorSets(cmd, .GRAPHICS, global_renderer.ui_pipeline.layout, 0, 1, *global_renderer.empty_texture_uniform.descriptor_set, 0, null);
 
     } else #if vertex_type == Standard_Vertex {
-        {   // Directionnal Shadow
-            attachment := wgpu.RenderPassDepthStencilAttachment.{
-                view = global_renderer.shadowmap_framebuffer.view,
-                depthLoadOp = .Clear,
-                depthStoreOp = .Store,
-                depthClearValue = 1,
-                stencilLoadOp = .Clear,
-                stencilStoreOp = .Discard,
-                stencilClearValue = 0,
-                stencilReadOnly = true,
-            };
-            render_pass_desc := wgpu.RenderPassDescriptor.{
-                label = "Shadow Map",
-                depthStencilAttachment = *attachment
-            };
-            shadow_render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(result.command_encoder, *render_pass_desc));
-
-            wgpu.RenderPassEncoderSetPipeline(shadow_render_pass, global_renderer.static_mesh_pipelines[0]);
-            wgpu.RenderPassEncoderSetBindGroup(shadow_render_pass, 0, global_renderer.shadowmap_matrices_uniform.bind_group, 0, null);
-            array_add(*result.render_passes, shadow_render_pass);
-        }
-        
         {   // Color
-            color_attachment := wgpu.RenderPassColorAttachment.{
-                view = view,
-                resolveTarget = null,
-                loadOp = load_op,
-                storeOp = .Store,
-                clearValue = .{0.0, 0.0, 0.0, 1.0}
+            cmd := result.command_buffers[0];
+
+            // Prepare the shadowmap texture for sampling
+            transition_texture_layout(*global_renderer.shadowmap_texture, .SHADER_READ_ONLY_OPTIMAL, cmd);
+
+            debug_name_object(cmd, "3D Color Command Buffer");
+            depth_attachment := VkRenderingAttachmentInfo.{
+                imageView = global_renderer.swapchain.depth_texture.view, 
+                imageLayout = .DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                loadOp = .CLEAR,
+                storeOp = .STORE,
+                clearValue = .{depthStencil = .{1, 0}},
             };
-            depth_attachment := wgpu.RenderPassDepthStencilAttachment.{
-                view = global_renderer.depth_texture.view,
-                depthLoadOp = .Clear,
-                depthStoreOp = .Store,
-                depthClearValue = 1,
-                stencilLoadOp = .Clear,
-                stencilStoreOp = .Discard,
-                stencilClearValue = 0,
-                stencilReadOnly = true,
+            color_attachment := VkRenderingAttachmentInfo.{
+                imageView = result.target.view,
+                imageLayout = .COLOR_ATTACHMENT_OPTIMAL,
+                loadOp = .LOAD,
+                storeOp = .STORE,
+                clearValue = .{color = .{ _float32 = .[0, 0, 0, 1]}},
             };
-            render_pass_desc := wgpu.RenderPassDescriptor.{
-                label = "Main Pass",
+            rendering_info := VkRenderingInfo.{
+                renderArea = .{
+                    offset = .{0, 0},
+                    extent = .{result.target.w, result.target.h}, 
+                },
+                layerCount = 1,
                 colorAttachmentCount = 1,
-                colorAttachments = *color_attachment,
-                depthStencilAttachment = *depth_attachment,
+                pColorAttachments = *color_attachment, 
+                pDepthAttachment = *depth_attachment,
             };
-            color_render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(result.command_encoder, *render_pass_desc));
-
-            wgpu.RenderPassEncoderSetPipeline(color_render_pass, global_renderer.static_mesh_pipelines[1]);
-            wgpu.RenderPassEncoderSetBindGroup(color_render_pass, 0, global_renderer.global_matrices_uniform.bind_group, 0, null);
-            wgpu.RenderPassEncoderSetBindGroup(color_render_pass, 1, global_renderer.shadowmap_texture_uniform.bind_group, 0, null);
-            wgpu.RenderPassEncoderSetBindGroup(color_render_pass, 2, global_renderer.empty_uniform, 0, null);
-            wgpu.RenderPassEncoderSetBindGroup(color_render_pass, 3, global_renderer.empty_texture_uniform.bind_group, 0, null);
-            array_add(*result.render_passes, color_render_pass);
-
-            set_model_matrix(*result, Matrix4_Identity);
+            vkCmdBeginRendering(cmd, *rendering_info);
+            result.current_pipelines[0] = global_renderer.static_mesh_material.color;
+            bind_material(cmd, global_renderer.static_mesh_material, .COLOR);
         }
+        {   // Directionnal Shadow
+            cmd := result.command_buffers[1];
+            debug_name_object(cmd, "3D Shadowmap Command Buffer");
+
+            // Prepare the shadowmap texture for rendering
+            transition_texture_layout(*global_renderer.shadowmap_texture, .DEPTH_ATTACHMENT_OPTIMAL, cmd);
+
+            depth_attachment := VkRenderingAttachmentInfo.{
+                imageView = global_renderer.shadowmap_texture.view, 
+                imageLayout = .DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                loadOp = .CLEAR,
+                storeOp = .STORE,
+                clearValue = .{depthStencil = .{1, 0}},
+            };
+            rendering_info := VkRenderingInfo.{
+                renderArea = .{
+                    offset = .{0, 0},
+                    extent = .{Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE}, 
+                },
+                layerCount = 1,
+                colorAttachmentCount = 0,
+                pDepthAttachment = *depth_attachment,
+            };
+            vkCmdBeginRendering(cmd, *rendering_info);
+            result.current_pipelines[1] = global_renderer.static_mesh_material.shadowmap;
+            bind_material(cmd, global_renderer.static_mesh_material, .SHADOWMAP);
+        }
+
+        set_model_matrix(*result, Matrix4_Identity);
+        
     } else {
         #assert false, "Unsupported vertex type %", vertex_type;
     }
@@ -153,12 +179,12 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
 }
 
 // Only for 2d for now...
-immediate_use_shader :: (using immediate: *Immediate2D, pipeline: wgpu.RenderPipeline) {
-    wgpu.RenderPassEncoderSetPipeline(render_passes[0], pipeline);    
-    pc := UI_Push_Constants.{.{2.0 / cast(float)target_w, -2.0 / cast(float)target_h}, .{-1, 1}};
-    wgpu.RenderPassEncoderSetPushConstants(render_passes[0], .Vertex, 0, size_of(type_of(pc)), *pc);
-    wgpu.RenderPassEncoderSetBindGroup(render_passes[0], 0, global_renderer.empty_texture_uniform.bind_group, 0, null);
-
+immediate_use_shader :: (using immediate: *Immediate2D, pipeline: Pipeline) {
+    vkCmdBindPipeline(command_buffers[0], .GRAPHICS, pipeline.pipeline);
+    pc := UI_Push_Constants.{.{2.0 / cast(float)target.w, -2.0 / cast(float)target.h}, .{-1, 1}};
+    vkCmdPushConstants(command_buffers[0], pipeline.layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
+    vkCmdBindDescriptorSets(command_buffers[0], .GRAPHICS, pipeline.layout, 0, 1, *global_renderer.empty_texture_uniform.descriptor_set, 0, null);
+    immediate.current_pipelines[0] = pipeline;
 }
 
 immediate_default_texture :: (using immediate: *Immediate2D) {
@@ -171,12 +197,12 @@ immediate_default_texture :: (using immediate: *Immediate3D) {
 
 immediate_bind_texture :: (using immediate: *Immediate2D, texture: Uniform_Texture) {
     flush(immediate);
-    wgpu.RenderPassEncoderSetBindGroup(render_passes[0], 0, texture.bind_group, 0, null);
+    vkCmdBindDescriptorSets(command_buffers[0], .GRAPHICS, current_pipelines[0].layout, 0, 1, *texture.descriptor_set, 0, null);
 }
 
 immediate_bind_texture :: (using immediate: *Immediate3D, texture: Uniform_Texture) {
     flush(immediate);
-    wgpu.RenderPassEncoderSetBindGroup(render_passes[1], 3, texture.bind_group, 0, null);
+    vkCmdBindDescriptorSets(command_buffers[0], .GRAPHICS, current_pipelines[0].layout, Renderer.MATERIAL_SET, 1, *texture.descriptor_set, 0, null);
 }
 
 set_model_matrix :: (immediate: *Immediate3D, mat: Matrix4) {
@@ -185,21 +211,28 @@ set_model_matrix :: (immediate: *Immediate3D, mat: Matrix4) {
         transform = transpose(mat),
         inverse_transform = transpose(inverse(mat)),
     };
-    for immediate.render_passes {
-        wgpu.RenderPassEncoderSetPushConstants(it, .Vertex, 0, size_of(type_of(pc)), *pc);
+    for immediate.command_buffers {
+        vkCmdPushConstants(it, immediate.current_pipelines[it_index].layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
     }
 }
 
-immediate_end :: (using immediate: *Immediate) {
+immediate_end :: (using immediate: *Immediate, final: bool = false) {
     flush(immediate);
-    for render_passes {
-        wgpu.RenderPassEncoderEnd(it);
+    for command_buffers {
+        vkCmdEndRendering(it);
     }
-    renderer_push_command_encoder(*immediate.command_encoder, "Immediate Command Buffer");
+
+    if final { 
+        transition_texture_layout(immediate.target, .SHADER_READ_ONLY_OPTIMAL, command_buffers[0]);
+    }
+
+    for command_buffers {
+        vkEndCommandBuffer(it);
+    }
+    renderer_push_command_buffers(*global_renderer, immediate.command_buffers);
 }
 
 push_vertices :: (imm: *Immediate, vertices: []$T) {
-    loc := maybe_grow(imm, xx vertices.count);
     if imm.vertices.allocated < vertices.count + imm.vertices.count {
         array_reserve(*imm.vertices, vertices.count + imm.vertices.count);
     }

@@ -1,12 +1,14 @@
 Texture :: struct {
     image: VkImage;
-    memory: VkDeviceMemory;
+    memory: VmaAllocation;
     view: VkImageView;
     w : u32;
     h : u32;
+    current_layout: VkImageLayout = .UNDEFINED;
+    aspect: VkImageAspectFlags;
 }
 
-create_texture :: (w: u32, h: u32, format: VkFormat, $usage: VkImageUsageFlags, aspect: VkImageAspectFlags = .COLOR_BIT) -> Texture {
+texture_create :: (w: u32, h: u32, format: VkFormat, $usage: VkImageUsageFlags, aspect: VkImageAspectFlags = .COLOR_BIT, name: string) -> Texture {
     texture: Texture;
     texture.w = w;
     texture.h = h;
@@ -23,15 +25,30 @@ create_texture :: (w: u32, h: u32, format: VkFormat, $usage: VkImageUsageFlags, 
         sharingMode = .EXCLUSIVE,
         samples = ._1_BIT
     }; 
-    Vk_Check(vkCreateImage(global_renderer.device, *create_info, null, *texture.image));
-    texture.memory = alloc_device_memory(texture.image, .LOCAL);
+
+    alloc_ci := VmaAllocationCreateInfo.{
+        usage = .AUTO,
+    };
+
+    Vk_Check(vmaCreateImage(global_renderer.allocator, *create_info, *alloc_ci, *texture.image, *texture.memory, null));
     texture.view = make_image_view(texture.image, format, aspect);
+    debug_name_object(texture.view, name);
+    debug_name_object(texture.image, name);
+    texture.aspect = aspect;
     return texture;
 }
 
+texture_from_file :: (path: string) -> Texture {
+    channels: s32;
+    w: s32;
+    h: s32;
+    img := stbi_load(temp_c_string(path), *w, *h, *channels, 4);
+    assert(img != null, "Unable to load %.", path);
+    defer stbi_image_free(img);
+    return texture_from_data(img, xx w, xx h, channels, u8, path_filename(path));
+}
 
-
-create_texture_from_data :: (ptr: *void, w: u32, h: u32, channels: int, $data_type: Type) -> Texture {
+texture_from_data :: (ptr: *void, w: u32, h: u32, channels: int, $data_type: Type, name: string) -> Texture {
     format : VkFormat = ---;
     #if data_type == u8 {
         if channels == {
@@ -41,33 +58,35 @@ create_texture_from_data :: (ptr: *void, w: u32, h: u32, channels: int, $data_ty
         }
     } else #assert false;
 
-    texture := create_texture(w, h, format, .TRANSFER_DST_BIT | .SAMPLED_BIT);
+    texture := texture_create(w, h, format, .TRANSFER_DST_BIT | .SAMPLED_BIT, name = name);
 
     image_size: VkDeviceSize = xx(texture.w * texture.h * channels);
-    staging_buffer := buffer_create(image_size, .TRANSFER_SRC_BIT, .UPLOAD);
+    staging_buffer := buffer_create(image_size, .TRANSFER_SRC_BIT,  "texture_from_data::staging_buffer");
     defer destroy(*staging_buffer);
-    copy_data(staging_buffer, ptr, image_size);
+    buffer_write_data(staging_buffer, ptr, image_size);
 
-    transition_image_layout(texture.image, .UNDEFINED, .TRANSFER_DST_OPTIMAL);
-    copy_buffer_to_image(staging_buffer.buffer, texture.image, xx texture.w, xx texture.h);
-    transition_image_layout(texture.image, .TRANSFER_DST_OPTIMAL, .SHADER_READ_ONLY_OPTIMAL);
+    transition_texture_layout(*texture, .TRANSFER_DST_OPTIMAL);
+    copy_buffer_to_image(staging_buffer.handle, texture.image, xx texture.w, xx texture.h);
 
     return texture;
 }
 
+render_texture_create :: (w: u32, h: u32, name := "") -> Texture {
+    return texture_create(w, h, global_renderer.swapchain.format.format, .COLOR_ATTACHMENT_BIT | .SAMPLED_BIT, name = name);
+}
+
 destroy :: (texture: *Texture) {
     vkDestroyImageView(global_renderer.device, texture.view, null);
-    vkDestroyImage(global_renderer.device, texture.image, null);
+    vmaDestroyImage(global_renderer.allocator, texture.image, texture.memory);
+    texture.view = null;
     texture.image = null;
-    vkFreeMemory(global_renderer.device, texture.memory, null);
     texture.memory = null;
 }
 
-transition_image_layout :: (image: VkImage, $old_layout: VkImageLayout, $new_layout: VkImageLayout, cmd: VkCommandBuffer = VK_NULL_HANDLE) {
-    src_access: VkAccessFlagBits;
-    dst_access: VkAccessFlagBits;
-    src_stage: VkPipelineStageFlagBits;
-    dst_stage: VkPipelineStageFlagBits;
+pipeline_barrier :: (image: VkImage, command_buffer: VkCommandBuffer,
+    old_layout: VkImageLayout, src_stage: VkPipelineStageFlagBits, src_access: VkAccessFlagBits,
+    new_layout: VkImageLayout, dst_stage: VkPipelineStageFlagBits, dst_access: VkAccessFlagBits, aspect_mask : VkImageAspectFlags = .COLOR_BIT) {
+
     barrier := VkImageMemoryBarrier.{
         oldLayout = old_layout,
         newLayout = new_layout,
@@ -75,7 +94,7 @@ transition_image_layout :: (image: VkImage, $old_layout: VkImageLayout, $new_lay
         dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         image = image,
         subresourceRange = .{
-            aspectMask = .COLOR_BIT,
+            aspectMask = aspect_mask,
             baseMipLevel = 0,
             levelCount = 1,
             baseArrayLayer = 0,
@@ -85,39 +104,6 @@ transition_image_layout :: (image: VkImage, $old_layout: VkImageLayout, $new_lay
         dstAccessMask = dst_access,
     };
 
-    #if old_layout == .UNDEFINED {
-        src_access = 0;
-        src_stage = .TOP_OF_PIPE_BIT;
-    } else #if old_layout == .TRANSFER_DST_OPTIMAL {
-        src_access = .TRANSFER_WRITE_BIT;
-        src_stage = .TRANSFER_BIT;
-    } else #if old_layout == .COLOR_ATTACHMENT_OPTIMAL { 
-        src_access = .COLOR_ATTACHMENT_WRITE_BIT;
-        src_stage = .COLOR_ATTACHMENT_OUTPUT_BIT;
-    } else {
-        #assert false, "Unsupported image layout transition.";
-    }
-
-    #if new_layout == .TRANSFER_DST_OPTIMAL {
-        dst_access = .TRANSFER_WRITE_BIT;
-        dst_stage = .TRANSFER_BIT;
-    } else #if new_layout == .SHADER_READ_ONLY_OPTIMAL {
-        dst_access = .SHADER_READ_BIT;
-        dst_stage = .FRAGMENT_SHADER_BIT;
-    } else #if new_layout == .PRESENT_SRC_KHR {
-        dst_stage = .BOTTOM_OF_PIPE_BIT;
-    } else #if new_layout == .COLOR_ATTACHMENT_OPTIMAL {
-        dst_access = .COLOR_ATTACHMENT_WRITE_BIT;
-        dst_stage = .COLOR_ATTACHMENT_OUTPUT_BIT;
-    } else #if new_layout == .DEPTH_STENCIL_ATTACHMENT_OPTIMAL {
-        dst_access = .DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | .DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-        dst_stage  = .EARLY_FRAGMENT_TESTS_BIT;
-        barrier.subresourceRange.aspectMask = .DEPTH_BIT | .STENCIL_BIT;
-    } else {
-        #assert false, "Unsupported image layout transition.";
-    }
-
-    command_buffer := ifx cmd == VK_NULL_HANDLE then begin_single_time_command_buffer() else cmd;
     vkCmdPipelineBarrier(
         command_buffer,
         src_stage, dst_stage,
@@ -126,8 +112,60 @@ transition_image_layout :: (image: VkImage, $old_layout: VkImageLayout, $new_lay
         0, null,
         1, *barrier);
 
+}
+
+transition_texture_layout :: (texture: *Texture, new_layout: VkImageLayout, cmd: VkCommandBuffer = VK_NULL_HANDLE) {
+    assert(texture.current_layout != new_layout, "Trying to transition to the same state!");
+
+    src_stage, src_access := get_src_stage_and_access_from_layout(texture.current_layout);
+    dst_stage, dst_access := get_dst_stage_and_access_from_layout(new_layout);
+
+    command_buffer := ifx cmd == VK_NULL_HANDLE then begin_single_time_command_buffer() else cmd;
+    pipeline_barrier(texture.image, command_buffer, texture.current_layout, src_stage, src_access, new_layout, dst_stage, dst_access, texture.aspect);
+
     if cmd == VK_NULL_HANDLE {
         end_single_time_command_buffer(command_buffer);
+    }
+    texture.current_layout = new_layout;
+}
+
+get_src_stage_and_access_from_layout :: (layout: VkImageLayout) -> (VkPipelineStageFlags, VkAccessFlagBits) {
+    if layout == {
+        case .UNDEFINED;            
+            return .TOP_OF_PIPE_BIT, 0;
+        case .TRANSFER_DST_OPTIMAL;
+            return .TRANSFER_BIT, .TRANSFER_WRITE_BIT;
+        case .COLOR_ATTACHMENT_OPTIMAL;
+            return .COLOR_ATTACHMENT_OUTPUT_BIT, .COLOR_ATTACHMENT_WRITE_BIT;
+        case .DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+            return .LATE_FRAGMENT_TESTS_BIT, .DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        case .SHADER_READ_ONLY_OPTIMAL;
+            return .FRAGMENT_SHADER_BIT, .SHADER_READ_BIT;
+        case .DEPTH_ATTACHMENT_OPTIMAL;
+            return .LATE_FRAGMENT_TESTS_BIT, .DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        case; 
+            assert(false, "Unhandled source layout: %", layout);
+            return 0, 0;
+    }
+}
+
+get_dst_stage_and_access_from_layout :: (layout: VkImageLayout) -> (VkPipelineStageFlags, VkAccessFlagBits) {
+    if layout == {
+        case .TRANSFER_DST_OPTIMAL; 
+            return .TRANSFER_BIT, .TRANSFER_WRITE_BIT;
+        case .SHADER_READ_ONLY_OPTIMAL;
+            return .FRAGMENT_SHADER_BIT, .SHADER_READ_BIT;
+        case .PRESENT_SRC_KHR; 
+            return .BOTTOM_OF_PIPE_BIT, 0;
+        case .COLOR_ATTACHMENT_OPTIMAL;
+            return .COLOR_ATTACHMENT_OUTPUT_BIT, .COLOR_ATTACHMENT_WRITE_BIT;
+        case .DEPTH_STENCIL_ATTACHMENT_OPTIMAL; 
+            return .EARLY_FRAGMENT_TESTS_BIT, .DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        case .DEPTH_ATTACHMENT_OPTIMAL;
+            return .EARLY_FRAGMENT_TESTS_BIT, .DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        case; 
+            assert(false, "Unhanded destination layout: %", layout);
+            return 0, 0;
     }
 }
 

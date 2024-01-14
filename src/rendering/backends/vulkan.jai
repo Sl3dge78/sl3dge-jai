@@ -1,4 +1,5 @@
 #import,dir "../../../modules/Vulkan";
+#load "../../../modules/VMA/module.jai";
 #load "vulkan/initialization.jai";
 #load "vulkan/renderer.jai";
 #load "vulkan/utils.jai";
@@ -10,3 +11,4 @@
 #load "vulkan/descriptor_set.jai";
 #load "vulkan/swapchain.jai";
 #load "vulkan/frame_data.jai";
+#load "vulkan/shaders.jai";

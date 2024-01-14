@@ -39,3 +39,7 @@ Render_Pass_Builder :: struct {
         return render_pass;
     }
 }
+
+Render_Pass_Key :: struct {
+    attachments: [8] VkAttachmentDescription;
+}

@@ -40,6 +40,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 { return version & 0xfff; }
 VK_API_VERSION_1_0 :: #run VK_MAKE_VERSION(1, 0, 0);
 VK_API_VERSION_1_1 :: #run VK_MAKE_VERSION(1, 1, 0);
 VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
+VK_API_VERSION_1_3 :: #run VK_MAKE_VERSION(1, 3, 0);
 
 // These are the new versions:
 VK_MAKE_API_VERSION :: (variant:u32, major: u32, minor: u32, patch: u32) -> u32 {
@@ -50,6 +51,7 @@ VK_API_VERSION_VARIANT :: (version: u32) -> u32 { return (version >> 29); }
 VK_API_VERSION_MAJOR   :: (version: u32) -> u32 { return (version >> 22) & 0x3ff; }
 VK_API_VERSION_MINOR   :: (version: u32) -> u32 { return (version >> 12) & 0x3ff; }
 VK_API_VERSION_PATCH   :: (version: u32) -> u32 { return version & 0xfff; }
+
 
 #if OS == .WINDOWS {
     #load "generated_windows.jai";

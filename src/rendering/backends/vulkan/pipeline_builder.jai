@@ -54,6 +54,10 @@ Pipeline_Builder :: struct {
     descriptor_set_layouts: [..]VkDescriptorSetLayout;
     push_constant: VkPushConstantRange;
 
+    color_attachment_formats: [..]VkFormat;
+    depth_attachment_format: VkFormat = 0;
+    stencil_attachment_format: VkFormat = 0;
+
     add_shader :: (self: *Pipeline_Builder, stage: VkShaderStageFlagBits, module: VkShaderModule, entry_point: string) {
         self.stages.allocator = temp;
         array_add(*self.stages, .{stage = stage, module = module, pName = temp_c_string(entry_point)});
@@ -110,8 +114,8 @@ Pipeline_Builder :: struct {
 
     viewport_state :: (self: *Pipeline_Builder, w: u32, h: u32) {
         using self.viewport;
-        pViewports = New(VkViewport, false, allocator = temp);
-        pScissors = New(VkRect2D, false, allocator = temp);
+        pViewports = New(VkViewport, false,, allocator = temp);
+        pScissors = New(VkRect2D, false,, allocator = temp);
         pViewports.* = .{0, 0, xx w,  cast(float)h, 0, 1};
         pScissors.* = .{offset = .{0, 0}, extent = .{w, h}};
         viewportCount = 1;
@@ -136,7 +140,15 @@ Pipeline_Builder :: struct {
         };
     }
 
-    build :: (self: *Pipeline_Builder, device: VkDevice, render_pass: VkRenderPass) -> Pipeline #must {
+    color_format :: (self: *Pipeline_Builder, formats: ..VkFormat) {
+        array_add(*self.color_attachment_formats, ..formats);
+    }
+
+    depth_format :: (self: *Pipeline_Builder, format: VkFormat) {
+        self.depth_attachment_format = format;
+    }
+
+    build :: (self: *Pipeline_Builder, device: VkDevice) -> Pipeline #must {
         layout_ci := VkPipelineLayoutCreateInfo.{
             pushConstantRangeCount = 1,
             pPushConstantRanges = *self.push_constant,
@@ -181,7 +193,20 @@ Pipeline_Builder :: struct {
             pAttachments = *color_blend_attachment
         };
 
+        pipeline_rendering := VkPipelineRenderingCreateInfo.{
+            viewMask = 0, // @TODO: Figure out what this is?
+            colorAttachmentCount    = xx self.color_attachment_formats.count,
+            pColorAttachmentFormats = self.color_attachment_formats.data,
+            depthAttachmentFormat   = self.depth_attachment_format,
+            stencilAttachmentFormat = self.stencil_attachment_format,
+        };
+
+        dynamic_state := VkPipelineDynamicStateCreateInfo.{
+            dynamicStateCount = xx self.dynamic_state.count,
+            pDynamicStates = self.dynamic_state.data,
+        };
         create_info := VkGraphicsPipelineCreateInfo.{
+            pNext = *pipeline_rendering,
             stageCount = xx self.stages.count,
             pStages = self.stages.data,
             pVertexInputState = *vertex_input,
@@ -190,13 +215,10 @@ Pipeline_Builder :: struct {
             pRasterizationState = *self.rasterization,
             pMultisampleState = *self.multisample,
             pColorBlendState = *color_blend,
-            pDynamicState = *VkPipelineDynamicStateCreateInfo.{
-                dynamicStateCount = xx self.dynamic_state.count,
-                pDynamicStates = self.dynamic_state.data,
-            },
+            pDynamicState = *dynamic_state,
             pDepthStencilState = *self.depth_stencil,
             layout = layout,
-            renderPass = render_pass,
+            renderPass = null,
         };
 
         pipeline: VkPipeline = ---;

@@ -64,12 +64,12 @@ begin_single_time_command_buffer :: () -> VkCommandBuffer {
     };
 
     cmd: VkCommandBuffer = ---;
-    vkAllocateCommandBuffers(global_renderer.device, *alloc_info, *cmd);
+    Vk_Check(vkAllocateCommandBuffers(global_renderer.device, *alloc_info, *cmd));
 
     begin_info := VkCommandBufferBeginInfo.{
         flags = .ONE_TIME_SUBMIT_BIT,
     };
-    vkBeginCommandBuffer(cmd, *begin_info);
+    Vk_Check(vkBeginCommandBuffer(cmd, *begin_info));
 
     return cmd;
 }
@@ -86,10 +86,10 @@ end_single_time_command_buffer :: (cmd: VkCommandBuffer) {
     vkFreeCommandBuffers(global_renderer.device, global_renderer.command_pool, 1, *cmd);
 }
 
-vkCreateDebugUtilsMessengerEXT: PFN_vkCreateDebugUtilsMessengerEXT;
-vkDestroyDebugUtilsMessengerEXT: PFN_vkDestroyDebugUtilsMessengerEXT;
-// vkCmdBeginRenderingKHR : PFN_vkCmdBeginRenderingKHR;
-// vkCmdEndRenderingKHR : PFN_vkCmdEndRenderingKHR;
+vkCmdInsertDebugUtilsLabelEXT : PFN_vkCmdInsertDebugUtilsLabelEXT;
+vkCreateDebugUtilsMessengerEXT : PFN_vkCreateDebugUtilsMessengerEXT;
+vkDestroyDebugUtilsMessengerEXT : PFN_vkDestroyDebugUtilsMessengerEXT;
+vkSetDebugUtilsObjectNameEXT : PFN_vkSetDebugUtilsObjectNameEXT;
 
 load_function_pointers :: (instance: VkInstance) {
     load :: (name: string) -> *void #expand {
@@ -97,11 +97,53 @@ load_function_pointers :: (instance: VkInstance) {
         assert(result != null, "Unable to load pfn %", name);
         return xx result;
     }
+    vkCmdInsertDebugUtilsLabelEXT = xx load("vkCmdInsertDebugUtilsLabelEXT");
     vkCreateDebugUtilsMessengerEXT = xx load("vkCreateDebugUtilsMessengerEXT");
     vkDestroyDebugUtilsMessengerEXT = xx load("vkDestroyDebugUtilsMessengerEXT");
-    // vkCmdBeginRenderingKHR = xx load("vkCmdBeginRenderingKHR");
-    // vkCmdEndRenderingKHR = xx load("vkCmdEndRenderingKHR");
+    vkSetDebugUtilsObjectNameEXT = xx load("vkSetDebugUtilsObjectNameEXT");
 }
 
 SDL_Vulkan_GetInstanceExtensions :: (window: *SDL_Window, pCount: *u32, pNames: **u8) -> bool #foreign SDL2;
 SDL_Vulkan_CreateSurface :: (window: *SDL_Window, instance: VkInstance, surface: *VkSurfaceKHR) -> bool #foreign SDL2;
+
+debug_callback :: (severity: VkDebugUtilsMessageSeverityFlagsEXT, type: VkDebugUtilsMessageTypeFlagsEXT, callback_data: *VkDebugUtilsMessengerCallbackDataEXT,  data: *void) -> VkBool32 #c_call {
+    ctx := (cast(*Context)data).*;
+    push_context ctx {
+        msg := to_string(callback_data.pMessage);
+        log("%: %\n", severity, msg);
+        if severity >= .ERROR_BIT_EXT {
+            assert(false);
+        }
+    }
+    return VK_TRUE;
+}
+
+debug_marker :: (command_buffer: VkCommandBuffer, label: string) {
+    marker_info := VkDebugUtilsLabelEXT.{
+        pLabelName = temp_c_string(label),
+    };
+
+    vkCmdInsertDebugUtilsLabelEXT(command_buffer, *marker_info);
+}
+
+debug_name_object :: (handle: $T, name: string) {
+    name_info := VkDebugUtilsObjectNameInfoEXT.{
+        objectType = get_vk_object_type(T),
+        objectHandle = xx handle,
+        pObjectName = temp_c_string(name),
+
+    };
+    Vk_Check(vkSetDebugUtilsObjectNameEXT(global_renderer.device, *name_info));
+}
+
+get_vk_object_type :: ($object: Type) -> VkObjectType {
+    #if object == VkCommandBuffer {
+        return .COMMAND_BUFFER;
+    } else #if object == VkImageView {
+        return .IMAGE_VIEW;
+    } else #if object == VkImage {
+        return .IMAGE;
+    } else #if object == VkBuffer {
+        return .BUFFER;
+    } else #assert(false, "Unregistered object");
+}

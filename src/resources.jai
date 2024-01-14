@@ -29,7 +29,6 @@ extension_infos := Extension_Info.[
     .{"var", load_var_file, unload_var, get_var_type},
     .{"ttf", load_font_file, unload_font, get_font_type},
     // .{"glsl", load_shader, get_shader_type},
-    .{"wgsl", load_wgsl, unload_wgsl, get_wgsl_type},
     .{"png", load_image, unload_image, get_image_type},
 ];
 
@@ -122,18 +121,16 @@ Resources :: struct {
 
     load_all :: () {
         for *resources.infos {
+            log("[RESOURCES] Loading %", it.path);
             it.load(it);
         }
     }
 
     unload_all :: () {
         for *resources.infos {
+            log("[RESOURCES] Destroying %", it.path);
             it.unload(it);
         }
-    }
-
-    get_resource_info :: (path: string) -> *Resource_Info {
-        return null;
     }
 
     on_file_change :: (watcher: *File_Watcher.File_Watcher(void), change: *File_Watcher.File_Change, user_data: *void) {
@@ -145,7 +142,7 @@ Resources :: struct {
             }
         }
         if !info then return;
-        log("File % has changed", change.full_path);
+        log("[RESOURCES] Reloading %", info.path);
         info.unload(info);
         info.load(info);
     }
@@ -205,7 +202,8 @@ unload_var :: (info: *Resource_Info) {
 
 // .ttf files
 load_font_file :: (info: *Resource_Info) -> bool {
-    (cast(*Font)info.pointer).* = font_from_file(info.path, 8); // @Todo: Find a way to specify a font size
+    font : *Font = cast(*Font)info.pointer;
+    font.* = font_from_file(info.path, 8); // @Todo: Find a way to specify a font size
     return true;
 }
 
@@ -244,19 +242,4 @@ unload_image :: (info: *Resource_Info) {
 
 get_image_type :: (path: string) -> string {
     return "Texture";
-}
-
-load_wgsl :: (info: *Resource_Info) -> bool {
-    file, success := read_entire_file(info.path);
-    pipeline := create_ui_pipeline(*global_renderer, file);
-    (cast(*wgpu.RenderPipeline)info.pointer).* = pipeline;
-   return true;
-}
-
-unload_wgsl :: (info: *Resource_Info) {
-    wgpu.RenderPipelineRelease((cast(*wgpu.RenderPipeline)info.pointer).*);
-}
-
-get_wgsl_type :: (path: string) -> string {
-    return "wgpu.RenderPipeline";
 }

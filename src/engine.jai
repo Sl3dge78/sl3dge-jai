@@ -1,7 +1,7 @@
 Engine :: struct {
 
     window: *SDL_Window;
-    renderer: Renderer;
+    renderer: *Renderer;
     default_font: Font;
 
     draw_perf_overlay := true;
@@ -20,15 +20,10 @@ engine_create :: () {
     w := 1280;
     h := 720;
     flags := SDL_WINDOW_RESIZABLE;
-    #if OS == .MACOS {
-        SDL_WINDOW_METAL :: 0x20000000;
-        flags |= SDL_WINDOW_METAL;
-    } else #if OS == .LINUX {
-        flags |= SDL_WINDOW_VULKAN;
-    }
+    flags |= SDL_WINDOW_VULKAN;
     global_engine.window = SDL_CreateWindow("Demo", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, xx w, xx h, flags);
     global_engine.renderer = renderer_create(global_engine.window);
-    global_engine.default_font = font_from_data(default_font_data, 8);
+    global_engine.default_font = font_from_data(default_font_data, 8, "default_font");
 
     Resources.create();
 }
@@ -37,7 +32,7 @@ engine_destroy :: () {
     destroy(*global_engine.default_font);
     Resources.destroy();
     console_destroy();
-    renderer_destroy(*global_engine.renderer);
+    destroy(global_engine.renderer);
     SDL_DestroyWindow(global_engine.window);
     SDL_Quit();
 }

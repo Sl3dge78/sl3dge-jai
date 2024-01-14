@@ -13,11 +13,11 @@ font_from_file :: (path: string, size: float) -> Font, bool {
         assert(false, "Unable to load font from %", path);
         return .{}, false;
     }
-    result, success2 := font_from_data(font_data, size);
+    result, success2 := font_from_data(font_data, size, path_filename(path));
     return result, success2;
 }
 
-font_from_data :: (font_data: string, size: float) -> Font, bool {
+font_from_data :: (font_data: string, size: float, resource_name: string) -> Font, bool {
     self : Font = ---;
     bitmap : [512*512]u8 = ---;
     
@@ -31,18 +31,8 @@ font_from_data :: (font_data: string, size: float) -> Font, bool {
     self.first_char = 0;
     stbtt_PackFontRange(*pack_context, font_data.data, 0, size, xx self.first_char, 437, self.char_data.data);
     stbtt_PackEnd(*pack_context);
-    // @HACK: We do this so that we don't need to change textures when drawing a plain color
-    x := bitmap.count - 1;
-    bitmap[x] = 255;
-    x -= 1;
-    bitmap[x] = 255;
-    x -= 512;
-    bitmap[x] = 255;
-    x += 1;
-    bitmap[x] = 255;
 
-    self.texture = texture_from_data(bitmap.data, 512, 512, 1, u8);
-    texture_set_label(*self.texture, "Font Atlas");
+    self.texture = texture_from_data(bitmap.data, 512, 512, 1, u8, resource_name);
 
     self.uniform = uniform_texture_create(*self.texture);
     
@@ -63,8 +53,7 @@ font_from_data :: (font_data: string, size: float) -> Font, bool {
 }
 
 destroy :: (font: *Font) {
-    destroy(*font.texture);
-    destroy(*font.uniform);
+    destroy(*(font.texture));
 }
 
 size_text :: (text: string, font: *Font) -> float {
