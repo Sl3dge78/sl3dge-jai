@@ -404,31 +404,31 @@ create_instance :: (window: *SDL_Window) -> VkInstance {
     extensions.count += nb;
 
     array_add(*extensions, VK_EXT_DEBUG_UTILS_EXTENSION_NAME.data);
-    array_add(*extensions, VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME.data);
+    // array_add(*extensions, VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME.data);
 
     log("Extensions:");
     for ext : extensions {
         log("\t%", to_string(ext));
     }
 
-    enabled_features := VkValidationFeatureEnableEXT.[
-        // .GPU_ASSISTED_EXT,
-        // .GPU_ASSISTED_RESERVE_BINDING_SLOT_EXT,
-        .BEST_PRACTICES_EXT,
-        // .DEBUG_PRINTF_EXT,
-        .SYNCHRONIZATION_VALIDATION_EXT,
-    ];
-    validation_features := VkValidationFeaturesEXT.{
-        enabledValidationFeatureCount = xx enabled_features.count,
-        pEnabledValidationFeatures = enabled_features.data,
-    };
+    // enabled_features := VkValidationFeatureEnableEXT.[
+    //     // .GPU_ASSISTED_EXT,
+    //     // .GPU_ASSISTED_RESERVE_BINDING_SLOT_EXT,
+    //     .BEST_PRACTICES_EXT,
+    //     // .DEBUG_PRINTF_EXT,
+    //     .SYNCHRONIZATION_VALIDATION_EXT,
+    // ];
+    // validation_features := VkValidationFeaturesEXT.{
+    //     enabledValidationFeatureCount = xx enabled_features.count,
+    //     pEnabledValidationFeatures = enabled_features.data,
+    // };
     
     app_info := VkApplicationInfo.{
         apiVersion = VK_MAKE_API_VERSION(0, 1, 3, 0),
     };
 
     create_info := VkInstanceCreateInfo.{
-        pNext = *validation_features,
+        // pNext = *validation_features,
         enabledLayerCount = xx layers.count,
         ppEnabledLayerNames = layers.data,
         enabledExtensionCount = xx extensions.count,

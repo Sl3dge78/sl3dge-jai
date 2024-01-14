@@ -386,4 +386,9 @@ vmaFreeStatsString :: (allocator: VmaAllocator, pStatsString: *u8) -> void #fore
 
 #scope_file
 
-vk_mem_alloc :: #library,no_dll "./vk_mem_alloc";
+#if OS == .WINDOWS {
+    vk_mem_alloc :: #library,no_dll "win/vk_mem_alloc";
+} else #if OS == .LINUX {
+
+    vk_mem_alloc :: #library,no_dll "linux/vk_mem_alloc";
+}

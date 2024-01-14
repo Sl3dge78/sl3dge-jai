@@ -63,8 +63,11 @@ buffer_write_data :: (buffer: Buffer, data: *void, size: u64, offset: VkDeviceSi
     ptr: *void;
     Vk_Check(vmaMapMemory(global_renderer.allocator, buffer.memory, *ptr));
     defer vmaUnmapMemory(global_renderer.allocator, buffer.memory);
+    assert(ptr != null, "Unable to map memory");
+    ptr += offset;
 
     memcpy(ptr, data, xx size);
+    Vk_Check(vmaFlushAllocation(global_renderer.allocator, buffer.memory, 0, VK_WHOLE_SIZE));
 }
 
 buffer_map :: (buffer: *Buffer) -> *void {

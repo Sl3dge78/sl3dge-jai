@@ -71,7 +71,7 @@ texture_from_data :: (ptr: *void, w: u32, h: u32, channels: int, $data_type: Typ
     return texture;
 }
 
-render_texture_create :: (w: u32, h: u32, name: string) -> Texture {
+render_texture_create :: (w: u32, h: u32, name := "") -> Texture {
     return texture_create(w, h, global_renderer.swapchain.format.format, .COLOR_ATTACHMENT_BIT | .SAMPLED_BIT, name = name);
 }
 

@@ -2,7 +2,12 @@
 
 #run {
     set_build_options_dc(.{do_output=false});
-    build_cpp_static_lib("vk_mem_alloc", "vk_mem_alloc.cpp", extra = .["-I", "C:\\VulkanSDK\\1.3.268.0\\Include"]);
+    #if OS == .WINDOWS {
+        build_cpp_dynamic_lib("vk_mem_alloc", "vk_mem_alloc.cpp", extra = .["-I", "C:\\VulkanSDK\\1.3.268.0\\Include"]);
+    } else #if OS == .LINUX {
+        build_cpp_dynamic_lib("vk_mem_alloc", "vk_mem_alloc.cpp", extra = .["-x", "c++", "-stdlib=libc++", "-std=c++14", "-lc++", "-lvulkan", "-fno-exceptions", "-fno-rtti"]);
+    }
+    return;
     log("Built!");
     if !generate_bindings() {
         compiler_set_workspace_status(.FAILED);
