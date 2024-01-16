@@ -93,7 +93,6 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
     renderer := *global_renderer;
 
     renderer.window = window;
-    // load_vulkan_loader_procedures();
 
     api_version: u32 = ---;
     Vk_Check(vkEnumerateInstanceVersion(*api_version));
@@ -111,7 +110,6 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
     vkGetPhysicalDeviceProperties(renderer.physical_device, *renderer.physical_device_properties);
     log("Physical device: %", cast(string)(renderer.physical_device_properties.deviceName));
     vkGetPhysicalDeviceFeatures(renderer.physical_device, *renderer.physical_device_features);
-
 
     // Setup limits where needed
     renderer.uniform_buffer_pool.alignement = renderer.physical_device_properties.limits.minUniformBufferOffsetAlignment;
@@ -392,7 +390,7 @@ create_instance :: (window: *SDL_Window) -> VkInstance {
     
     layers: [..]*u8; 
     layers.allocator = temp;
-    // array_add(*layers, temp_c_string("VK_LAYER_KHRONOS_validation"));
+    array_add(*layers, temp_c_string("VK_LAYER_KHRONOS_validation"));
 
     extensions: [..]*u8;
     extensions.allocator = temp;
@@ -404,31 +402,31 @@ create_instance :: (window: *SDL_Window) -> VkInstance {
     extensions.count += nb;
 
     array_add(*extensions, VK_EXT_DEBUG_UTILS_EXTENSION_NAME.data);
-    // array_add(*extensions, VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME.data);
+    array_add(*extensions, VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME.data);
 
     log("Extensions:");
     for ext : extensions {
         log("\t%", to_string(ext));
     }
 
-    // enabled_features := VkValidationFeatureEnableEXT.[
-    //     // .GPU_ASSISTED_EXT,
-    //     // .GPU_ASSISTED_RESERVE_BINDING_SLOT_EXT,
-    //     .BEST_PRACTICES_EXT,
-    //     // .DEBUG_PRINTF_EXT,
-    //     .SYNCHRONIZATION_VALIDATION_EXT,
-    // ];
-    // validation_features := VkValidationFeaturesEXT.{
-    //     enabledValidationFeatureCount = xx enabled_features.count,
-    //     pEnabledValidationFeatures = enabled_features.data,
-    // };
+    enabled_features := VkValidationFeatureEnableEXT.[
+        // .GPU_ASSISTED_EXT,
+        // .GPU_ASSISTED_RESERVE_BINDING_SLOT_EXT,
+        .BEST_PRACTICES_EXT,
+        // .DEBUG_PRINTF_EXT,
+        .SYNCHRONIZATION_VALIDATION_EXT,
+    ];
+    validation_features := VkValidationFeaturesEXT.{
+        enabledValidationFeatureCount = xx enabled_features.count,
+        pEnabledValidationFeatures = enabled_features.data,
+    };
     
     app_info := VkApplicationInfo.{
         apiVersion = VK_MAKE_API_VERSION(0, 1, 3, 0),
     };
 
     create_info := VkInstanceCreateInfo.{
-        // pNext = *validation_features,
+        pNext = *validation_features,
         enabledLayerCount = xx layers.count,
         ppEnabledLayerNames = layers.data,
         enabledExtensionCount = xx extensions.count,
