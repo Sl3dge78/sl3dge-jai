@@ -147,8 +147,10 @@ bind_material :: (command_buffer: VkCommandBuffer, material: Material, $kind: Pi
     } else #if kind == .COLOR {
         pipeline := material.color;
         vkCmdBindPipeline(command_buffer, .GRAPHICS, pipeline.pipeline);
-        vkCmdSetViewport(command_buffer, 0, 1, *VkViewport.{0, xx global_renderer.swapchain.extent.height, xx global_renderer.swapchain.extent.width, -(cast(float)global_renderer.swapchain.extent.height), 0, 1});
-        vkCmdSetScissor(command_buffer, 0, 1, *VkRect2D.{.{0, 0}, global_renderer.swapchain.extent});
+        viewport := VkViewport.{0, xx global_renderer.swapchain.extent.height, xx global_renderer.swapchain.extent.width, -(cast(float)global_renderer.swapchain.extent.height), 0, 1};
+        vkCmdSetViewport(command_buffer, 0, 1, *viewport);
+        rect := VkRect2D.{.{0, 0}, global_renderer.swapchain.extent};
+        vkCmdSetScissor(command_buffer, 0, 1, *rect);
         sets := VkDescriptorSet.[
             global_renderer.frame_data[global_renderer.frame_index].camera_descriptor.descriptor_set,
             global_renderer.shadowmap_uniform_texture.descriptor_set,

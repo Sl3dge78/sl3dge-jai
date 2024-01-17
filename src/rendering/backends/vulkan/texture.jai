@@ -4,7 +4,7 @@ Texture :: struct {
     view: VkImageView;
     w : u32;
     h : u32;
-    current_layout: VkImageLayout = .UNDEFINED;
+    // current_layout: VkImageLayout = .UNDEFINED;
     aspect: VkImageAspectFlags;
 }
 
@@ -38,17 +38,17 @@ texture_create :: (w: u32, h: u32, format: VkFormat, $usage: VkImageUsageFlags, 
     return texture;
 }
 
-texture_from_file :: (path: string) -> Texture {
+texture_from_file :: (path: string, layout : VkImageLayout = .SHADER_READ_ONLY_OPTIMAL) -> Texture {
     channels: s32;
     w: s32;
     h: s32;
     img := stbi_load(temp_c_string(path), *w, *h, *channels, 4);
     assert(img != null, "Unable to load %.", path);
     defer stbi_image_free(img);
-    return texture_from_data(img, xx w, xx h, channels, u8, path_filename(path));
+    return texture_from_data(img, xx w, xx h, channels, u8, path_filename(path), layout);
 }
 
-texture_from_data :: (ptr: *void, w: u32, h: u32, channels: int, $data_type: Type, name: string) -> Texture {
+texture_from_data :: (ptr: *void, w: u32, h: u32, channels: int, $data_type: Type, name: string, layout: VkImageLayout) -> Texture {
     format : VkFormat = ---;
     #if data_type == u8 {
         if channels == {
@@ -65,8 +65,11 @@ texture_from_data :: (ptr: *void, w: u32, h: u32, channels: int, $data_type: Typ
     defer destroy(*staging_buffer);
     buffer_write_data(staging_buffer, ptr, image_size);
 
-    transition_texture_layout(*texture, .TRANSFER_DST_OPTIMAL);
-    copy_buffer_to_image(staging_buffer.handle, texture.image, xx texture.w, xx texture.h);
+    cmd := begin_single_time_command_buffer();
+    defer end_single_time_command_buffer(cmd);
+    transition_texture_layout(*texture, .UNDEFINED, .TRANSFER_DST_OPTIMAL, cmd);
+    copy_buffer_to_image(staging_buffer.handle, texture.image, xx texture.w, xx texture.h, cmd);
+    transition_texture_layout(*texture, .TRANSFER_DST_OPTIMAL, layout, cmd);
 
     return texture;
 }
@@ -114,20 +117,24 @@ pipeline_barrier :: (image: VkImage, command_buffer: VkCommandBuffer,
 
 }
 
-transition_texture_layout :: (texture: *Texture, new_layout: VkImageLayout, cmd: VkCommandBuffer = VK_NULL_HANDLE) {
-    assert(texture.current_layout != new_layout, "Trying to transition to the same state!");
-
-    src_stage, src_access := get_src_stage_and_access_from_layout(texture.current_layout);
+transition_texture_layout :: (texture: *Texture, old_layout: VkImageLayout, new_layout: VkImageLayout, cmd: VkCommandBuffer = VK_NULL_HANDLE) {
+    assert(old_layout != new_layout, "Trying to transition to the same state!");
+    src_stage, src_access := get_src_stage_and_access_from_layout(old_layout);
     dst_stage, dst_access := get_dst_stage_and_access_from_layout(new_layout);
 
     command_buffer := ifx cmd == VK_NULL_HANDLE then begin_single_time_command_buffer() else cmd;
-    pipeline_barrier(texture.image, command_buffer, texture.current_layout, src_stage, src_access, new_layout, dst_stage, dst_access, texture.aspect);
+    pipeline_barrier(texture.image, command_buffer, old_layout, src_stage, src_access, new_layout, dst_stage, dst_access, texture.aspect);
 
     if cmd == VK_NULL_HANDLE {
         end_single_time_command_buffer(command_buffer);
     }
-    texture.current_layout = new_layout;
 }
+
+// transition_texture_layout :: (texture: *Texture, new_layout: VkImageLayout, cmd: VkCommandBuffer = VK_NULL_HANDLE) {
+
+//     assert(texture.current_layout != new_layout, "Trying to transition to the same state!");
+//     transition_texture_layout(texture, texture.current_layout, new_layout, cmd);
+// }
 
 get_src_stage_and_access_from_layout :: (layout: VkImageLayout) -> (VkPipelineStageFlags, VkAccessFlagBits) {
     if layout == {
@@ -169,9 +176,7 @@ get_dst_stage_and_access_from_layout :: (layout: VkImageLayout) -> (VkPipelineSt
     }
 }
 
-copy_buffer_to_image :: (buffer: VkBuffer, image: VkImage, w: u32, h: u32) {
-    cmd := begin_single_time_command_buffer();
-    defer end_single_time_command_buffer(cmd);
+copy_buffer_to_image :: (buffer: VkBuffer, image: VkImage, w: u32, h: u32, cmd: VkCommandBuffer) {
     region := VkBufferImageCopy.{
         imageSubresource = .{
             aspectMask = .COLOR_BIT,

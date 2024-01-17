@@ -15,7 +15,9 @@ swapchain_create_or_update :: (self: *Swapchain, device: VkDevice, physical_devi
 
     present_modes := fill_array(VkPresentModeKHR, vkGetPhysicalDeviceSurfacePresentModesKHR, physical_device, surface);
     present_mode : VkPresentModeKHR = .FIFO_KHR;
+    log("Present modes:"); 
     for present_modes {
+        log("\t%", it);
         if it == .MAILBOX_KHR {
             present_mode = .MAILBOX_KHR;
             break;

@@ -217,18 +217,17 @@ update_framebuffer :: () {
     this_frame.framebuffer = .{
         image = swapchain.images[this_frame.swapchain_image_index],
         view = swapchain.image_views[this_frame.swapchain_image_index],
-        current_layout = .UNDEFINED,
         w = swapchain.extent.width,
         h = swapchain.extent.height,
         aspect = .COLOR_BIT,
     };
 
     command_buffer := begin_single_time_command_buffer();
-    transition_texture_layout(*this_frame.framebuffer, .TRANSFER_DST_OPTIMAL, command_buffer);
+    transition_texture_layout(*this_frame.framebuffer, .UNDEFINED, .TRANSFER_DST_OPTIMAL, command_buffer);
     clear := VkClearColorValue.{ _float32 = .[0, 0, 0, 1] };
     range := VkImageSubresourceRange.{ .COLOR_BIT, 0, 1, 0, 1 };
-    vkCmdClearColorImage(command_buffer, this_frame.framebuffer.image, this_frame.framebuffer.current_layout, *clear, 1, *range);
-    transition_texture_layout(*this_frame.framebuffer, .COLOR_ATTACHMENT_OPTIMAL, command_buffer);
+    vkCmdClearColorImage(command_buffer, this_frame.framebuffer.image, .TRANSFER_DST_OPTIMAL, *clear, 1, *range);
+    transition_texture_layout(*this_frame.framebuffer, .TRANSFER_DST_OPTIMAL, .COLOR_ATTACHMENT_OPTIMAL, command_buffer);
     vkEndCommandBuffer(command_buffer);
     array_add(*command_buffers, command_buffer);
 }
@@ -282,7 +281,7 @@ end_frame :: () {
 
     // Transition swapchain image to present
     command_buffer := begin_single_time_command_buffer();
-    transition_texture_layout(*this_frame.framebuffer, .PRESENT_SRC_KHR, command_buffer);
+    transition_texture_layout(*this_frame.framebuffer, .COLOR_ATTACHMENT_OPTIMAL, .PRESENT_SRC_KHR, command_buffer);
     Vk_Check(vkEndCommandBuffer(command_buffer));
     array_add(*command_buffers, command_buffer);
 
@@ -412,7 +411,7 @@ create_instance :: (window: *SDL_Window) -> VkInstance {
     enabled_features := VkValidationFeatureEnableEXT.[
         // .GPU_ASSISTED_EXT,
         // .GPU_ASSISTED_RESERVE_BINDING_SLOT_EXT,
-        .BEST_PRACTICES_EXT,
+        // .BEST_PRACTICES_EXT,
         // .DEBUG_PRINTF_EXT,
         .SYNCHRONIZATION_VALIDATION_EXT,
     ];
@@ -615,8 +614,7 @@ create_descriptor_sets :: (renderer: *Renderer) {
     Vk_Check(vkAllocateDescriptorSets(global_renderer.device, *alloc_info, *renderer.empty_descriptor_set));
 
     data := u8.[255, 255, 255, 255];
-    renderer.empty_texture = texture_from_data(data.data, 1, 1, 4, u8, "empty_texture");
-    transition_texture_layout(*renderer.empty_texture, .SHADER_READ_ONLY_OPTIMAL);
+    renderer.empty_texture = texture_from_data(data.data, 1, 1, 4, u8, "empty_texture", .SHADER_READ_ONLY_OPTIMAL);
     renderer.empty_texture_uniform = uniform_texture_create(renderer.empty_texture, renderer.single_texture_layout);
 
     renderer.shadowmap_texture = texture_create(Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_FORMAT, .DEPTH_STENCIL_ATTACHMENT_BIT | .SAMPLED_BIT, .DEPTH_BIT, "shadowmap_texture");

@@ -45,7 +45,7 @@ ray_intersects :: (ray: Ray, v0: Vector3, v1: Vector3, v2: Vector3) -> bool, Vec
     if ((v < 0) || ((v + u) > 1)) then return false, .{};
 
     t := f * dot(edge2, q);
-    if t < FLOAT32_MIN then return false, . {};
+    if t < FLOAT32_MIN then return false, .{};
 
     intersection := ray.origin + ray.dir * t;
     return true, intersection;

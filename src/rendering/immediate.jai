@@ -99,8 +99,10 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
         vkCmdBindPipeline(cmd, .GRAPHICS, global_renderer.ui_pipeline.pipeline);
         result.current_pipelines[0] = global_renderer.ui_pipeline;
 
-        vkCmdSetViewport(cmd, 0, 1, *VkViewport.{0, xx result.target.h, xx result.target.w, -(cast(float)result.target.h), 0, 1});
-        vkCmdSetScissor(cmd, 0, 1, *VkRect2D.{.{0, 0}, .{result.target.w, result.target.w}});
+        viewport := VkViewport.{0, xx result.target.h, xx result.target.w, -(cast(float)result.target.h), 0, 1};
+        vkCmdSetViewport(cmd, 0, 1, *viewport);
+        rect :=VkRect2D.{.{0, 0} , .{result.target.w, result.target.w}};
+        vkCmdSetScissor(cmd, 0, 1, *rect);
 
         pc := UI_Push_Constants.{.{2.0 / cast(float)result.target.w, -2.0 / cast(float)result.target.h}, .{-1, 1}};
         vkCmdPushConstants(cmd, global_renderer.ui_pipeline.layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
@@ -240,7 +242,7 @@ push_vertices :: (imm: *Immediate, vertices: []$T) {
     imm.vertices.count += vertices.count;
 }
 
-draw_2d_rect :: (immediate: *Immediate2D, p0: Vector2, p1: Vector2, color: Vector4 = . {1, 1, 1, 1}) {
+draw_2d_rect :: (immediate: *Immediate2D, p0: Vector2, p1: Vector2, color: Vector4 = .{1, 1, 1, 1}) {
     v : [6]UI_Vertex; 
     n := Vector3.{0, 0, 1};
     v[0] = .{ p0, .{0, 0}, color};
