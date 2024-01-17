@@ -4,8 +4,12 @@ Texture :: struct {
     view: VkImageView;
     w : u32;
     h : u32;
-    // current_layout: VkImageLayout = .UNDEFINED;
     aspect: VkImageAspectFlags;
+}
+
+Render_Texture :: struct {
+    using #as texture: Texture;
+    render_finished_semaphore: VkSemaphore;
 }
 
 texture_create :: (w: u32, h: u32, format: VkFormat, $usage: VkImageUsageFlags, aspect: VkImageAspectFlags = .COLOR_BIT, name: string, initial_layout : VkImageLayout = .UNDEFINED) -> Texture {
@@ -74,8 +78,11 @@ texture_from_data :: (ptr: *void, w: u32, h: u32, channels: int, $data_type: Typ
     return texture;
 }
 
-render_texture_create :: (w: u32, h: u32, name := "") -> Texture {
-    return texture_create(w, h, global_renderer.swapchain.format.format, .COLOR_ATTACHMENT_BIT | .SAMPLED_BIT, name = name);
+render_texture_create :: (w: u32, h: u32, name := "") -> Render_Texture {
+    self: Render_Texture = ---;
+    self.texture = texture_create(w, h, global_renderer.swapchain.format.format, .COLOR_ATTACHMENT_BIT | .SAMPLED_BIT, name = name);
+    self.render_finished_semaphore = create_semaphore(global_renderer.device);
+    return self;
 }
 
 destroy :: (texture: *Texture) {

@@ -85,7 +85,7 @@ load_skinned_gltf :: (path: string) -> Skinned_Mesh {
 
     gltf_load_buffers(*gltf_data);
 
-    result.mesh = load_mesh_from_data(gltf_data);
+    result.mesh = load_mesh_from_gltf_data(gltf_data);
 
     for mesh: gltf_data.meshes {
         assert(mesh.primitives.count == 1, "No or multiple primitives found in mesh %", it_index);

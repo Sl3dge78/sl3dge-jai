@@ -21,7 +21,13 @@ draw :: inline (using self: Mesh, command_buffer: VkCommandBuffer) {
     }
 }
 
-load_mesh_from_data :: (gltf_data : GLTF_Data) -> Mesh {
+load_mesh_from_vertices :: (vertices: []Standard_Vertex, indices: []u32) -> Mesh {
+    result: Mesh;
+    array_add(*result.submeshes, buffer_pool_load_mesh(*global_renderer.vertex_buffer_pool, vertices, indices));
+    return result;
+}
+
+load_mesh_from_gltf_data :: (gltf_data : GLTF_Data) -> Mesh {
     result : Mesh;
 
     for mesh: gltf_data.meshes {
@@ -61,13 +67,13 @@ load_mesh_from_data :: (gltf_data : GLTF_Data) -> Mesh {
     return result;
 }
 
-load_gltf :: (path: string) -> Mesh {
+load_mesh_from_file :: (path: string) -> Mesh {
     gltf_data := gltf_parse_file(path);
     defer gltf_free(*gltf_data);
 
     gltf_load_buffers(*gltf_data);
 
-    return load_mesh_from_data(gltf_data);
+    return load_mesh_from_gltf_data(gltf_data);
 }
 
 read_accessor_into_array :: (dst: *void, dst_offset: u64, dst_stride: u64, gltf_data: GLTF_Data, accessor_id: int) {

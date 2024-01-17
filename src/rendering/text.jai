@@ -75,7 +75,7 @@ draw_char :: inline (immediate: *Immediate, it: u8, font: *Font, line_start: flo
     draw_char_raw(immediate, it, font, x, y.*, color);
 }
 
-draw_char_raw :: inline (immediate: *Immediate2D, it: u8, font: *Font, x: *float, y: float, color: Vector4) {
+draw_char_raw :: inline (immediate: *Immediate, it: u8, font: *Font, x: *float, y: float, color: Vector4) {
      q : stbtt_aligned_quad = ---;
     stbtt_GetPackedQuad(font.char_data.data, 512, 512, xx(it - font.first_char), x, *y, *q, 0);
     v : [6] UI_Vertex = ---; // = prepare_vertices(immediate, 6);
@@ -88,7 +88,7 @@ draw_char_raw :: inline (immediate: *Immediate2D, it: u8, font: *Font, x: *float
     push_vertices(immediate, v);
 }
 
-draw_text :: (immediate: *Immediate2D, text: string, x: float, y: float, font: *Font, color: Vector4 = .{1, 1, 1, 1}) -> x: float, y: float{
+draw_text :: (immediate: *Immediate, text: string, x: float, y: float, font: *Font, color: Vector4 = .{1, 1, 1, 1}) -> x: float, y: float{
     immediate_bind_texture(immediate, font.uniform);
     i := 0;
     start_x := x;
@@ -101,7 +101,7 @@ draw_text :: (immediate: *Immediate2D, text: string, x: float, y: float, font: *
     return x, y;
 }
 
-draw_wrapped_text :: (immediate: *Immediate2D, text: string, x: float, w: float, y: float, font: *Font, color: Vector4 = .{1, 1, 1, 1}) -> x: float, y: float{
+draw_wrapped_text :: (immediate: *Immediate, text: string, x: float, w: float, y: float, font: *Font, color: Vector4 = .{1, 1, 1, 1}) -> x: float, y: float{
     immediate_bind_texture(immediate, font.uniform);
     i := 0;
     start_x := x;

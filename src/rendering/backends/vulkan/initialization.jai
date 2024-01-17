@@ -47,3 +47,10 @@ create_descriptor_set_layout :: (device: VkDevice, bindings: []VkDescriptorSetLa
     Vk_Check(vkCreateDescriptorSetLayout(device, *layout_info, null, *result));
     return result;
 }
+
+create_semaphore :: (device: VkDevice) -> VkSemaphore {
+    semaphore : VkSemaphore = ---;
+    create_info := VkSemaphoreCreateInfo.{};
+    Vk_Check(vkCreateSemaphore(device, *create_info, null, *semaphore));
+    return semaphore;
+}

@@ -1,10 +1,12 @@
-Immediate :: struct(Vertex_Type: Type)  {
-    command_buffers : [..]VkCommandBuffer;
-    current_pipelines : [..]Pipeline;
-    target: *Texture;
+// This offers an api for easy drawing to a render target in a single pass
+// Perfect for UIs
+Immediate :: struct  {
+    command_buffer : VkCommandBuffer;
+    current_pipeline : Pipeline;
+    target: *Render_Texture;
     
     locs : [..]Buffer_Location;
-    vertices : [..]Vertex_Type;
+    vertices : [..]UI_Vertex;
     BUFFER_SIZE :: 1024 * 1024;
 }
 
@@ -15,220 +17,107 @@ flush :: (using immediate: *Immediate) {
         size : u64 = xx (vertices.count * size_of(type_of(vertices[0])));
         loc := buffer_pool_get(*global_renderer.immediate_buffer_pool, size);
         buffer_write_data(loc.buffer, vertices.data, size, loc.offset);
-        for command_buffers {
-            vkCmdBindVertexBuffers(it, 0, 1, *loc.buffer.handle, *(loc.offset));
-            vkCmdDraw(it, xx vertices.count, 1, 0, 0);
-        }
+        vkCmdBindVertexBuffers(command_buffer, 0, 1, *loc.buffer.handle, *(loc.offset));
+        vkCmdDraw(command_buffer, xx vertices.count, 1, 0, 0);
         vertices.count = 0;
     }
 }
 
 #scope_export
 
-Immediate2D :: Immediate(UI_Vertex);
-Immediate3D :: Immediate(Standard_Vertex);
+immediate_begin :: (render_target: *Render_Texture, label : string = "") -> Immediate {
+    result : Immediate;
+    result.target = render_target;
 
-immediate_2d :: #bake_arguments immediate_begin(vertex_type = UI_Vertex);
-immediate_3d :: #bake_arguments immediate_begin(vertex_type = Standard_Vertex);
-
-immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : string = "") -> Immediate(vertex_type) {
-    result : Immediate(vertex_type);
-
-    if render_target == null {
-        result.target = *global_renderer.frame_data[global_renderer.frame_index].framebuffer;
-    } else {
-        result.target = render_target;
-    }
-
-    count : u32 = 0;
-    #if vertex_type == UI_Vertex {
-        count = 1;
-    } else #if vertex_type == Standard_Vertex {
-        count = 2;
-    }
-
-    array_reserve(*result.current_pipelines, count);
-    result.current_pipelines.count = count;
-
-    array_reserve(*result.command_buffers, count);
     // @TODO: maybe look into secondary command buffers?
     alloc_info := VkCommandBufferAllocateInfo.{
         commandPool = global_renderer.command_pool,
         level = .PRIMARY,
-        commandBufferCount = count,
+        commandBufferCount = 1,
     };
-    Vk_Check(vkAllocateCommandBuffers(global_renderer.device, *alloc_info, result.command_buffers.data));
-    result.command_buffers.count = count;
+    Vk_Check(vkAllocateCommandBuffers(global_renderer.device, *alloc_info, *result.command_buffer));
+    debug_name_object(result.command_buffer, label);
 
     begin_info := VkCommandBufferBeginInfo.{
         flags = .ONE_TIME_SUBMIT_BIT,
     };
-    for result.command_buffers {
-        Vk_Check(vkBeginCommandBuffer(it, *begin_info));
-    }
+    Vk_Check(vkBeginCommandBuffer(result.command_buffer, *begin_info));
 
     // Prepare the render target for rendering
-    transition_texture_layout(result.target, .SHADER_READ_ONLY_OPTIMAL, .COLOR_ATTACHMENT_OPTIMAL, result.command_buffers[0]);
+    transition_texture_layout(result.target, .SHADER_READ_ONLY_OPTIMAL, .COLOR_ATTACHMENT_OPTIMAL, result.command_buffer);
 
-    #if vertex_type == UI_Vertex {
-        cmd := result.command_buffers[0];
-        debug_name_object(cmd, "UI Command Buffer");
+    color_attachment := VkRenderingAttachmentInfo.{
+        imageView = result.target.view,
+        imageLayout = .COLOR_ATTACHMENT_OPTIMAL,
+        loadOp = .LOAD,
+        storeOp = .STORE,
+        clearValue = .{color = .{ _float32 = .[0, 0, 0, 1]}},
+    };
 
-        color_attachment := VkRenderingAttachmentInfo.{
-            imageView = result.target.view,
-            imageLayout = .COLOR_ATTACHMENT_OPTIMAL,
-            loadOp = .LOAD,
-            storeOp = .STORE,
-            clearValue = .{color = .{ _float32 = .[0, 0, 0, 1]}},
-        };
+    rendering_info := VkRenderingInfo.{
+        renderArea = .{
+            offset = .{0, 0},
+            extent = .{result.target.w, result.target.h},
+        },
+        layerCount = 1,
+        colorAttachmentCount = 1,
+        pColorAttachments = *color_attachment,
+    };
+    vkCmdBeginRendering(result.command_buffer, *rendering_info);
 
-        rendering_info := VkRenderingInfo.{
-            renderArea = .{
-                offset = .{0, 0},
-                extent = .{result.target.w, result.target.h},
-            },
-            layerCount = 1,
-            colorAttachmentCount = 1,
-            pColorAttachments = *color_attachment,
-        };
-        vkCmdBeginRendering(cmd, *rendering_info);
+    debug_marker(result.command_buffer, label);
+    vkCmdBindPipeline(result.command_buffer, .GRAPHICS, global_renderer.ui_pipeline.pipeline);
+    result.current_pipeline = global_renderer.ui_pipeline;
 
-        debug_marker(cmd, label);
-        vkCmdBindPipeline(cmd, .GRAPHICS, global_renderer.ui_pipeline.pipeline);
-        result.current_pipelines[0] = global_renderer.ui_pipeline;
+    viewport := VkViewport.{0, xx result.target.h, xx result.target.w, -(cast(float)result.target.h), 0, 1};
+    vkCmdSetViewport(result.command_buffer, 0, 1, *viewport);
+    rect :=VkRect2D.{.{0, 0} , .{result.target.w, result.target.w}};
+    vkCmdSetScissor(result.command_buffer, 0, 1, *rect);
 
-        viewport := VkViewport.{0, xx result.target.h, xx result.target.w, -(cast(float)result.target.h), 0, 1};
-        vkCmdSetViewport(cmd, 0, 1, *viewport);
-        rect :=VkRect2D.{.{0, 0} , .{result.target.w, result.target.w}};
-        vkCmdSetScissor(cmd, 0, 1, *rect);
+    pc := UI_Push_Constants.{.{2.0 / cast(float)result.target.w, -2.0 / cast(float)result.target.h}, .{-1, 1}};
+    vkCmdPushConstants(result.command_buffer, global_renderer.ui_pipeline.layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
+    vkCmdBindDescriptorSets(result.command_buffer, .GRAPHICS, global_renderer.ui_pipeline.layout, 0, 1, *global_renderer.empty_texture_uniform.descriptor_set, 0, null);
 
-        pc := UI_Push_Constants.{.{2.0 / cast(float)result.target.w, -2.0 / cast(float)result.target.h}, .{-1, 1}};
-        vkCmdPushConstants(cmd, global_renderer.ui_pipeline.layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
-        vkCmdBindDescriptorSets(cmd, .GRAPHICS, global_renderer.ui_pipeline.layout, 0, 1, *global_renderer.empty_texture_uniform.descriptor_set, 0, null);
-
-    } else #if vertex_type == Standard_Vertex {
-        {   // Color
-            cmd := result.command_buffers[0];
-
-            // Prepare the shadowmap texture for sampling
-            transition_texture_layout(*global_renderer.shadowmap_texture, .DEPTH_ATTACHMENT_OPTIMAL, .SHADER_READ_ONLY_OPTIMAL, cmd);
-
-            debug_name_object(cmd, "3D Color Command Buffer");
-            depth_attachment := VkRenderingAttachmentInfo.{
-                imageView = global_renderer.swapchain.depth_texture.view, 
-                imageLayout = .DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                loadOp = .CLEAR,
-                storeOp = .STORE,
-                clearValue = .{depthStencil = .{1, 0}},
-            };
-            color_attachment := VkRenderingAttachmentInfo.{
-                imageView = result.target.view,
-                imageLayout = .COLOR_ATTACHMENT_OPTIMAL,
-                loadOp = .LOAD,
-                storeOp = .STORE,
-                clearValue = .{color = .{ _float32 = .[0, 0, 0, 1]}},
-            };
-            rendering_info := VkRenderingInfo.{
-                renderArea = .{
-                    offset = .{0, 0},
-                    extent = .{result.target.w, result.target.h}, 
-                },
-                layerCount = 1,
-                colorAttachmentCount = 1,
-                pColorAttachments = *color_attachment, 
-                pDepthAttachment = *depth_attachment,
-            };
-            vkCmdBeginRendering(cmd, *rendering_info);
-            result.current_pipelines[0] = global_renderer.static_mesh_material.color;
-            bind_material(cmd, global_renderer.static_mesh_material, .COLOR);
-        }
-        {   // Directionnal Shadow
-            cmd := result.command_buffers[1];
-            debug_name_object(cmd, "3D Shadowmap Command Buffer");
-
-            // Prepare the shadowmap texture for rendering
-            transition_texture_layout(*global_renderer.shadowmap_texture, .SHADER_READ_ONLY_OPTIMAL, .DEPTH_ATTACHMENT_OPTIMAL, cmd);
-
-            depth_attachment := VkRenderingAttachmentInfo.{
-                imageView = global_renderer.shadowmap_texture.view, 
-                imageLayout = .DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                loadOp = .CLEAR,
-                storeOp = .STORE,
-                clearValue = .{depthStencil = .{1, 0}},
-            };
-            rendering_info := VkRenderingInfo.{
-                renderArea = .{
-                    offset = .{0, 0},
-                    extent = .{Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE}, 
-                },
-                layerCount = 1,
-                colorAttachmentCount = 0,
-                pDepthAttachment = *depth_attachment,
-            };
-            vkCmdBeginRendering(cmd, *rendering_info);
-            result.current_pipelines[1] = global_renderer.static_mesh_material.shadowmap;
-            bind_material(cmd, global_renderer.static_mesh_material, .SHADOWMAP);
-        }
-
-        set_model_matrix(*result, Matrix4_Identity);
-        
-    } else {
-        #assert false, "Unsupported vertex type %", vertex_type;
-    }
     return result;
 }
 
-// Only for 2d for now...
-immediate_use_shader :: (using immediate: *Immediate2D, pipeline: Pipeline) {
-    vkCmdBindPipeline(command_buffers[0], .GRAPHICS, pipeline.pipeline);
-    pc := UI_Push_Constants.{.{2.0 / cast(float)target.w, -2.0 / cast(float)target.h}, .{-1, 1}};
-    vkCmdPushConstants(command_buffers[0], pipeline.layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
-    vkCmdBindDescriptorSets(command_buffers[0], .GRAPHICS, pipeline.layout, 0, 1, *global_renderer.empty_texture_uniform.descriptor_set, 0, null);
-    immediate.current_pipelines[0] = pipeline;
-}
-
-immediate_default_texture :: (using immediate: *Immediate2D) {
-    immediate_bind_texture(immediate, global_renderer.empty_texture_uniform);
-}
-
-immediate_default_texture :: (using immediate: *Immediate3D) {
-    immediate_bind_texture(immediate, global_renderer.empty_texture_uniform);
-}
-
-immediate_bind_texture :: (using immediate: *Immediate2D, texture: Uniform_Texture) {
+immediate_end :: (using immediate: *Immediate) {
     flush(immediate);
-    vkCmdBindDescriptorSets(command_buffers[0], .GRAPHICS, current_pipelines[0].layout, 0, 1, *texture.descriptor_set, 0, null);
-}
+    vkCmdEndRendering(command_buffer);
 
-immediate_bind_texture :: (using immediate: *Immediate3D, texture: Uniform_Texture) {
-    flush(immediate);
-    vkCmdBindDescriptorSets(command_buffers[0], .GRAPHICS, current_pipelines[0].layout, Renderer.MATERIAL_SET, 1, *texture.descriptor_set, 0, null);
-}
+    transition_texture_layout(immediate.target, .COLOR_ATTACHMENT_OPTIMAL, .SHADER_READ_ONLY_OPTIMAL, command_buffer);
 
-set_model_matrix :: (immediate: *Immediate3D, mat: Matrix4) {
-    flush(immediate);
-    pc := Standard_Push_Constants.{
-        transform = transpose(mat),
-        inverse_transform = transpose(inverse(mat)),
+    vkEndCommandBuffer(command_buffer);
+
+    submit_info := VkSubmitInfo.{
+        waitSemaphoreCount = 0,
+        pWaitSemaphores = null,
+        pWaitDstStageMask = VkPipelineStageFlags.[.COLOR_ATTACHMENT_OUTPUT_BIT].data,
+        commandBufferCount = 1,
+        pCommandBuffers = *command_buffer,
+        signalSemaphoreCount = 1,
+        pSignalSemaphores = *target.render_finished_semaphore,
     };
-    for immediate.command_buffers {
-        vkCmdPushConstants(it, immediate.current_pipelines[it_index].layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
-    }
+    Vk_Check(vkQueueSubmit(global_renderer.graphics_queue, 1, *submit_info, VK_NULL_HANDLE));
 }
 
-immediate_end :: (using immediate: *Immediate2D) {
+immediate_use_shader :: (using immediate: *Immediate, pipeline: Pipeline) {
+    vkCmdBindPipeline(command_buffer, .GRAPHICS, pipeline.pipeline);
+    pc := UI_Push_Constants.{.{2.0 / cast(float)target.w, -2.0 / cast(float)target.h}, .{-1, 1}};
+    vkCmdPushConstants(command_buffer, pipeline.layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
+    vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.layout, 0, 1, *global_renderer.empty_texture_uniform.descriptor_set, 0, null);
+    immediate.current_pipeline = pipeline;
+}
+
+immediate_default_texture :: (using immediate: *Immediate) {
+    immediate_bind_texture(immediate, global_renderer.empty_texture_uniform);
+}
+
+immediate_bind_texture :: (using immediate: *Immediate, texture: Uniform_Texture) {
     flush(immediate);
-    for command_buffers {
-        vkCmdEndRendering(it);
-    }
-
-    transition_texture_layout(immediate.target, .COLOR_ATTACHMENT_OPTIMAL, .SHADER_READ_ONLY_OPTIMAL, command_buffers[0]);
-
-    for command_buffers {
-        vkEndCommandBuffer(it);
-    }
-    renderer_push_command_buffers(*global_renderer, immediate.command_buffers);
+    vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, current_pipeline.layout, 0, 1, *texture.descriptor_set, 0, null);
 }
+
 
 push_vertices :: (imm: *Immediate, vertices: []$T) {
     if imm.vertices.allocated < vertices.count + imm.vertices.count {
@@ -238,7 +127,7 @@ push_vertices :: (imm: *Immediate, vertices: []$T) {
     imm.vertices.count += vertices.count;
 }
 
-draw_2d_rect :: (immediate: *Immediate2D, p0: Vector2, p1: Vector2, color: Vector4 = .{1, 1, 1, 1}) {
+draw_2d_rect :: (immediate: *Immediate, p0: Vector2, p1: Vector2, color: Vector4 = .{1, 1, 1, 1}) {
     v : [6]UI_Vertex; 
     n := Vector3.{0, 0, 1};
     v[0] = .{ p0, .{0, 0}, color};
@@ -251,7 +140,7 @@ draw_2d_rect :: (immediate: *Immediate2D, p0: Vector2, p1: Vector2, color: Vecto
     push_vertices(immediate, v);
 }
 
-draw_2d_rect :: (immediate: *Immediate2D, x: float, y: float, w: float, h: float, color : Vector4 = .{1, 1, 1, 1}) {
+draw_2d_rect :: (immediate: *Immediate, x: float, y: float, w: float, h: float, color : Vector4 = .{1, 1, 1, 1}) {
     v : [6]UI_Vertex; 
     n := Vector3.{0, 0, 1};
     v[0] = .{ .{x, y},         .{0, 0}, color};
@@ -264,64 +153,64 @@ draw_2d_rect :: (immediate: *Immediate2D, x: float, y: float, w: float, h: float
     push_vertices(immediate, v);
 }
 
-draw_quad :: (immediate: *Immediate3D, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, normal: Vector3, color := Vector4.{1, 1, 1, 1}) {
-    v : [6]Standard_Vertex; 
+// draw_quad :: (immediate: *Immediate3D, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, normal: Vector3, color := Vector4.{1, 1, 1, 1}) {
+//     v : [6]Standard_Vertex; 
+// 
+//     v[0] = .{p0, normal, .{0, 0}, color};
+//     v[1] = .{p1, normal, .{1, 0}, color};
+//     v[2] = .{p2, normal, .{1, 1}, color};
+// 
+//     v[3] = .{p0, normal, .{0, 0}, color};
+//     v[4] = .{p2, normal, .{1, 1}, color};
+//     v[5] = .{p3, normal, .{0, 1}, color};
+// 
+//     push_vertices(immediate, v);
+// }
+// 
+// draw_plane :: (immediate: *Immediate3D, center: Vector3, size: Vector2) {
+//     hs := size / 2.0;
+//     draw_quad(
+//         immediate, 
+//         .{center.x + hs.x, center.y, center.z + hs.y},
+//         .{center.x + hs.x, center.y, center.z - hs.y},
+//         .{center.x - hs.x, center.y, center.z - hs.y},
+//         .{center.x - hs.x, center.y, center.z + hs.y},
+//         UP);
+//     
+// }
 
-    v[0] = .{p0, normal, .{0, 0}, color};
-    v[1] = .{p1, normal, .{1, 0}, color};
-    v[2] = .{p2, normal, .{1, 1}, color};
+// draw_cylinder :: (immediate: *Immediate3D) {
+//     NB_ITERATIONS :: 20;
+//     iter_size :: 2 * PI / (NB_ITERATIONS);
+//     radius :: 1;
+//     height :: 1;
+// 
+//     for 0..NB_ITERATIONS {
+//         angle := iter_size * it;
+//         x1 := cos(angle) * radius;
+//         x2 := cos(angle + iter_size) * radius;
+//         z1 := sin(angle) * radius;
+//         z2 := sin(angle + iter_size) * radius;
+//         p0 := xyz(x1, 0, z1);
+//         p3 := xyz(x2, 0, z2);
+//         draw_quad(immediate, p0, xyz(x1, height, z1), xyz(x2, height, z2), p3, 
+//         normal = cross(normalize(p3 - p0), UP));
+//     }
+// 
+//     // Draw floor & ceiling as simple quad
+//     draw_quad(immediate, xyz(-radius, 0, -radius), xyz(radius, 0, -radius), xyz(radius, 0, radius), xyz(-radius, 0, radius), UP); 
+//     draw_quad(immediate, xyz(-radius, height, -radius), xyz(radius, height, -radius), xyz(radius, height, radius), xyz(-radius, height, radius), DOWN); 
+// }
 
-    v[3] = .{p0, normal, .{0, 0}, color};
-    v[4] = .{p2, normal, .{1, 1}, color};
-    v[5] = .{p3, normal, .{0, 1}, color};
-
-    push_vertices(immediate, v);
-}
-
-draw_plane :: (immediate: *Immediate3D, center: Vector3, size: Vector2) {
-    hs := size / 2.0;
-    draw_quad(
-        immediate, 
-        .{center.x + hs.x, center.y, center.z + hs.y},
-        .{center.x + hs.x, center.y, center.z - hs.y},
-        .{center.x - hs.x, center.y, center.z - hs.y},
-        .{center.x - hs.x, center.y, center.z + hs.y},
-        UP);
-    
-}
-
-draw_cylinder :: (immediate: *Immediate3D) {
-    NB_ITERATIONS :: 20;
-    iter_size :: 2 * PI / (NB_ITERATIONS);
-    radius :: 1;
-    height :: 1;
-
-    for 0..NB_ITERATIONS {
-        angle := iter_size * it;
-        x1 := cos(angle) * radius;
-        x2 := cos(angle + iter_size) * radius;
-        z1 := sin(angle) * radius;
-        z2 := sin(angle + iter_size) * radius;
-        p0 := xyz(x1, 0, z1);
-        p3 := xyz(x2, 0, z2);
-        draw_quad(immediate, p0, xyz(x1, height, z1), xyz(x2, height, z2), p3, 
-        normal = cross(normalize(p3 - p0), UP));
-    }
-
-    // Draw floor & ceiling as simple quad
-    draw_quad(immediate, xyz(-radius, 0, -radius), xyz(radius, 0, -radius), xyz(radius, 0, radius), xyz(-radius, 0, radius), UP); 
-    draw_quad(immediate, xyz(-radius, height, -radius), xyz(radius, height, -radius), xyz(radius, height, radius), xyz(-radius, height, radius), DOWN); 
-}
-
-draw_cube :: (immediate: *Immediate3D, color : Vector4 = .{1, 1, 1, 1}) {
-    draw_quad(immediate, xyz(-.5, -.5, -.5), xyz(.5, -.5, -.5), xyz(.5, -.5, .5), xyz(-.5, -.5, .5), DOWN, color); 
-    draw_quad(immediate, xyz(-.5, .5, -.5), xyz(-.5, .5, .5),  xyz(.5, .5, .5), xyz(.5, .5, -.5), UP, color);
-    draw_quad(immediate, xyz(-.5, -.5, -.5), xyz(-.5, -.5, .5), xyz(-.5, .5, .5), xyz(-.5, .5, -.5), RIGHT, color); 
-    draw_quad(immediate, xyz(.5, -.5, -.5), xyz(.5, .5, -.5), xyz(.5, .5, .5), xyz(.5, -.5, .5), LEFT, color); 
-    draw_quad(immediate, xyz(-.5, -.5, -.5), xyz(-.5, .5, -.5), xyz(.5, .5, -.5), xyz(.5, -.5, -.5) , BACK, color); 
-    draw_quad(immediate, xyz(-.5, -.5, .5), xyz(.5, -.5, .5), xyz(.5, .5, .5), xyz(-.5, .5, .5) , FORWARD, color); 
-    
-}
+// draw_cube :: (immediate: *Immediate3D, color : Vector4 = .{1, 1, 1, 1}) {
+//     draw_quad(immediate, xyz(-.5, -.5, -.5), xyz(.5, -.5, -.5), xyz(.5, -.5, .5), xyz(-.5, -.5, .5), DOWN, color); 
+//     draw_quad(immediate, xyz(-.5, .5, -.5), xyz(-.5, .5, .5),  xyz(.5, .5, .5), xyz(.5, .5, -.5), UP, color);
+//     draw_quad(immediate, xyz(-.5, -.5, -.5), xyz(-.5, -.5, .5), xyz(-.5, .5, .5), xyz(-.5, .5, -.5), RIGHT, color); 
+//     draw_quad(immediate, xyz(.5, -.5, -.5), xyz(.5, .5, -.5), xyz(.5, .5, .5), xyz(.5, -.5, .5), LEFT, color); 
+//     draw_quad(immediate, xyz(-.5, -.5, -.5), xyz(-.5, .5, -.5), xyz(.5, .5, -.5), xyz(.5, -.5, -.5) , BACK, color); 
+//     draw_quad(immediate, xyz(-.5, -.5, .5), xyz(.5, -.5, .5), xyz(.5, .5, .5), xyz(-.5, .5, .5) , FORWARD, color); 
+//     
+// }
 // immediate_cube :: (offset: Vector3 = .{0, 0, 0}, color: Vector4 = .{1, 1, 1, 1}) {
 // }
 
@@ -500,3 +389,15 @@ draw_cube :: (immediate: *Immediate3D, color : Vector4 = .{1, 1, 1, 1}) {
 //     buffer_create_or_update(*dd.vertex_buffer, size, .Vertex | .CopyDst);
 //     buffer_write_data(dd.vertex_buffer, dd.vertices.data, size);
 // }
+
+// set_model_matrix :: (immediate: *Immediate3D, mat: Matrix4) {
+//     flush(immediate);
+//     pc := Standard_Push_Constants.{
+//         transform = transpose(mat),
+//         inverse_transform = transpose(inverse(mat)),
+//     };
+//     for immediate.command_buffers {
+//         vkCmdPushConstants(it, immediate.current_pipelines[it_index].layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
+//     }
+// }
+
