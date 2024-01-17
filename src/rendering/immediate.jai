@@ -68,9 +68,7 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
     }
 
     // Prepare the render target for rendering
-    if result.target.current_layout != .COLOR_ATTACHMENT_OPTIMAL {
-        transition_texture_layout(result.target, .COLOR_ATTACHMENT_OPTIMAL, result.command_buffers[0]);
-    }
+    transition_texture_layout(result.target, .SHADER_READ_ONLY_OPTIMAL, .COLOR_ATTACHMENT_OPTIMAL, result.command_buffers[0]);
 
     #if vertex_type == UI_Vertex {
         cmd := result.command_buffers[0];
@@ -113,7 +111,7 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
             cmd := result.command_buffers[0];
 
             // Prepare the shadowmap texture for sampling
-            transition_texture_layout(*global_renderer.shadowmap_texture, .SHADER_READ_ONLY_OPTIMAL, cmd);
+            transition_texture_layout(*global_renderer.shadowmap_texture, .DEPTH_ATTACHMENT_OPTIMAL, .SHADER_READ_ONLY_OPTIMAL, cmd);
 
             debug_name_object(cmd, "3D Color Command Buffer");
             depth_attachment := VkRenderingAttachmentInfo.{
@@ -149,7 +147,7 @@ immediate_begin :: (render_target: *Texture = null, $vertex_type: Type, label : 
             debug_name_object(cmd, "3D Shadowmap Command Buffer");
 
             // Prepare the shadowmap texture for rendering
-            transition_texture_layout(*global_renderer.shadowmap_texture, .DEPTH_ATTACHMENT_OPTIMAL, cmd);
+            transition_texture_layout(*global_renderer.shadowmap_texture, .SHADER_READ_ONLY_OPTIMAL, .DEPTH_ATTACHMENT_OPTIMAL, cmd);
 
             depth_attachment := VkRenderingAttachmentInfo.{
                 imageView = global_renderer.shadowmap_texture.view, 
@@ -218,15 +216,13 @@ set_model_matrix :: (immediate: *Immediate3D, mat: Matrix4) {
     }
 }
 
-immediate_end :: (using immediate: *Immediate, final: bool = false) {
+immediate_end :: (using immediate: *Immediate2D) {
     flush(immediate);
     for command_buffers {
         vkCmdEndRendering(it);
     }
 
-    if final { 
-        transition_texture_layout(immediate.target, .SHADER_READ_ONLY_OPTIMAL, command_buffers[0]);
-    }
+    transition_texture_layout(immediate.target, .COLOR_ATTACHMENT_OPTIMAL, .SHADER_READ_ONLY_OPTIMAL, command_buffers[0]);
 
     for command_buffers {
         vkEndCommandBuffer(it);

@@ -8,7 +8,7 @@ Texture :: struct {
     aspect: VkImageAspectFlags;
 }
 
-texture_create :: (w: u32, h: u32, format: VkFormat, $usage: VkImageUsageFlags, aspect: VkImageAspectFlags = .COLOR_BIT, name: string) -> Texture {
+texture_create :: (w: u32, h: u32, format: VkFormat, $usage: VkImageUsageFlags, aspect: VkImageAspectFlags = .COLOR_BIT, name: string, initial_layout : VkImageLayout = .UNDEFINED) -> Texture {
     texture: Texture;
     texture.w = w;
     texture.h = h;
@@ -20,7 +20,7 @@ texture_create :: (w: u32, h: u32, format: VkFormat, $usage: VkImageUsageFlags, 
         arrayLayers = 1,
         format = format,
         tiling = .OPTIMAL,
-        initialLayout = .UNDEFINED,
+        initialLayout = initial_layout,
         usage = usage,
         sharingMode = .EXCLUSIVE,
         samples = ._1_BIT

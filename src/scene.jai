@@ -5,6 +5,7 @@ Scene :: struct {
 }
 
 Mesh_Instance :: struct {
+    hidden:= false;
     transform: Matrix4;
     mesh: *Mesh;
 }
