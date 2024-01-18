@@ -1,7 +1,4 @@
 Frame_Data :: struct {
-    command_buffer: VkCommandBuffer;
-    // current_draw_data: *Draw_Data;
-    
     frame_fence: VkFence;
     image_available_semaphore: VkSemaphore;
     render_finished_semaphore: VkSemaphore;
@@ -14,13 +11,6 @@ Frame_Data :: struct {
 
 frame_data_create :: (device: VkDevice, command_pool: VkCommandPool, camera_dsl: VkDescriptorSetLayout) -> Frame_Data {
     self: Frame_Data;
-    cmd_buff_ci := VkCommandBufferAllocateInfo.{
-        commandPool = command_pool,
-        level = .PRIMARY,
-        commandBufferCount = 1,
-    };
-    vkAllocateCommandBuffers(device, *cmd_buff_ci, *self.command_buffer);
-
     semaphore_ci := VkSemaphoreCreateInfo.{};
     vkCreateSemaphore(device, *semaphore_ci, null, *self.image_available_semaphore);
     vkCreateSemaphore(device, *semaphore_ci, null, *self.render_finished_semaphore);

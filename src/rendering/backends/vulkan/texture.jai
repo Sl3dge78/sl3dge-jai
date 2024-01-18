@@ -12,7 +12,7 @@ Render_Texture :: struct {
     render_finished_semaphore: VkSemaphore;
 }
 
-texture_create :: (w: u32, h: u32, format: VkFormat, $usage: VkImageUsageFlags, aspect: VkImageAspectFlags = .COLOR_BIT, name: string, initial_layout : VkImageLayout = .UNDEFINED) -> Texture {
+texture_create :: (w: u32, h: u32, format: VkFormat, usage: VkImageUsageFlags, aspect: VkImageAspectFlags = .COLOR_BIT, name: string, initial_layout : VkImageLayout = .UNDEFINED) -> Texture {
     texture: Texture;
     texture.w = w;
     texture.h = h;
@@ -78,9 +78,9 @@ texture_from_data :: (ptr: *void, w: u32, h: u32, channels: int, $data_type: Typ
     return texture;
 }
 
-render_texture_create :: (w: u32, h: u32, name := "") -> Render_Texture {
+render_texture_create :: (w: u32, h: u32, format: VkFormat, usage: VkImageUsageFlags = .COLOR_ATTACHMENT_BIT | .SAMPLED_BIT, aspect : VkImageAspectFlags = .COLOR_BIT, name := "") -> Render_Texture {
     self: Render_Texture = ---;
-    self.texture = texture_create(w, h, global_renderer.swapchain.format.format, .COLOR_ATTACHMENT_BIT | .SAMPLED_BIT, name = name);
+    self.texture = texture_create(w, h, format, usage, aspect, name); // global_renderer.swapchain.format.format, , name = name);
     self.render_finished_semaphore = create_semaphore(global_renderer.device);
     return self;
 }
@@ -211,3 +211,4 @@ make_image_view :: (image: VkImage, format: VkFormat, aspect_mask : VkImageAspec
     Vk_Check(vkCreateImageView(global_renderer.device, *image_view_ci, null, *img_view));
     return img_view;
 }
+

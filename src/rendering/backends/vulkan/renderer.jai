@@ -22,8 +22,6 @@ Renderer :: struct {
 
     DEPTH_FORMAT : VkFormat : .D32_SFLOAT_S8_UINT;
     SHADOWMAP_FORMAT : VkFormat : .D32_SFLOAT;
-
-    current_framebuffer: Texture;
     
     // Descriptors
     descriptor_pool: VkDescriptorPool;
@@ -53,7 +51,7 @@ Renderer :: struct {
     // Shadowmap pass
     SHADOWMAP_SIZE :: 2048;
     shadowmap_render_pass: VkRenderPass;
-    shadowmap_texture: Texture;
+    shadowmap_texture: Render_Texture;
     shadowmap_uniform_texture: Uniform_Texture;
 
     // Standard pass
@@ -82,7 +80,7 @@ Renderer :: struct {
         name = "uniform_buffer_pool",
     };
 
-    command_buffers: [..]VkCommandBuffer;
+    // command_buffers: [..]VkCommandBuffer;
 }
 
 #if OS == .WINDOWS {
@@ -155,8 +153,6 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
     renderer.projection = make_projection_matrix(radians(45), cast(float)renderer.swapchain.extent.width/cast(float)renderer.swapchain.extent.height, 0.1, 1000);
     renderer.view = Matrix4_Identity;
 
-    update_framebuffer();
-
     log("Renderer successfully initialized!");
     return renderer;
 }
@@ -201,11 +197,23 @@ destroy :: (using self: *Renderer) {
     vkDestroyInstance(instance, null);
 }
 
-renderer_push_command_buffers :: (self: *Renderer, command_buffers: []VkCommandBuffer) {
-    array_add(*self.command_buffers, ..command_buffers);
+// renderer_push_command_buffers :: (self: *Renderer, command_buffers: []VkCommandBuffer) {
+//     array_add(*self.command_buffers, ..command_buffers);
+// }
+
+prepare_framebuffer :: (command_buffer: VkCommandBuffer, frame_data: *Frame_Data) {
+    transition_texture_layout(*frame_data.framebuffer, .UNDEFINED, .TRANSFER_DST_OPTIMAL, command_buffer);
+    clear := VkClearColorValue.{ _float32 = .[0, 0, 0, 1] };
+    range := VkImageSubresourceRange.{ .COLOR_BIT, 0, 1, 0, 1 };
+    vkCmdClearColorImage(command_buffer, frame_data.framebuffer.image, .TRANSFER_DST_OPTIMAL, *clear, 1, *range);
+    transition_texture_layout(*frame_data.framebuffer, .TRANSFER_DST_OPTIMAL, .COLOR_ATTACHMENT_OPTIMAL, command_buffer);
 }
 
-update_framebuffer :: () {
+end_framebuffer :: (command_buffer: VkCommandBuffer, frame_data: *Frame_Data) { 
+    transition_texture_layout(*frame_data.framebuffer, .COLOR_ATTACHMENT_OPTIMAL, .PRESENT_SRC_KHR, command_buffer);
+}
+
+begin_frame :: () -> *Frame_Data {
     using global_renderer;
 
     this_frame := *frame_data[frame_index];
@@ -222,19 +230,11 @@ update_framebuffer :: () {
         aspect = .COLOR_BIT,
     };
 
-    command_buffer := begin_single_time_command_buffer();
-    transition_texture_layout(*this_frame.framebuffer, .UNDEFINED, .TRANSFER_DST_OPTIMAL, command_buffer);
-    clear := VkClearColorValue.{ _float32 = .[0, 0, 0, 1] };
-    range := VkImageSubresourceRange.{ .COLOR_BIT, 0, 1, 0, 1 };
-    vkCmdClearColorImage(command_buffer, this_frame.framebuffer.image, .TRANSFER_DST_OPTIMAL, *clear, 1, *range);
-    transition_texture_layout(*this_frame.framebuffer, .TRANSFER_DST_OPTIMAL, .COLOR_ATTACHMENT_OPTIMAL, command_buffer);
-    vkEndCommandBuffer(command_buffer);
-    array_add(*command_buffers, command_buffer);
+    return this_frame;
 }
 
-end_frame :: () {
+end_frame :: (this_frame: *Frame_Data) {
     using global_renderer;
-    this_frame := *frame_data[frame_index];
 
     {   // Update uniforms
         size:: 20;
@@ -259,44 +259,7 @@ end_frame :: () {
 
     }
 
-    // {   // Record Command Buffer
-    //     vkBeginCommandBuffer(this_frame.command_buffer, *VkCommandBufferBeginInfo.{flags = .ONE_TIME_SUBMIT_BIT});
-
-    //     // Shadowmap
-    //     begin_shadowmap_renderpass(*global_renderer, this_frame.command_buffer);
-    //     Immediate.draw_3d(this_frame.command_buffer, .SHADOWMAP);
-    //     Scene.draw(scene, this_frame.command_buffer, .SHADOWMAP);
-    //     vkCmdEndRenderPass(this_frame.command_buffer);
-
-    //     // Standard
-    //     begin_standard_renderpass(*global_renderer, this_frame.command_buffer, swapchain.framebuffers[image_index]);
-    //     Immediate.draw_3d(this_frame.command_buffer, .COLOR);
-    //     Scene.draw(scene, this_frame.command_buffer, .COLOR);
-
-    //     Immediate.draw_2d(this_frame.command_buffer, global_renderer.ui_pipeline);
-    //     vkCmdEndRenderPass(this_frame.command_buffer);
-    //     Vk_Check(vkEndCommandBuffer(this_frame.command_buffer));
-    // }
-
-
-    // Transition swapchain image to present
-    command_buffer := begin_single_time_command_buffer();
-    transition_texture_layout(*this_frame.framebuffer, .COLOR_ATTACHMENT_OPTIMAL, .PRESENT_SRC_KHR, command_buffer);
-    Vk_Check(vkEndCommandBuffer(command_buffer));
-    array_add(*command_buffers, command_buffer);
-
-    {   // Submit and Present
-        submit_info := VkSubmitInfo.{
-            waitSemaphoreCount = 1,
-            pWaitSemaphores = *this_frame.image_available_semaphore,
-            pWaitDstStageMask = VkPipelineStageFlags.[.COLOR_ATTACHMENT_OUTPUT_BIT].data,
-            commandBufferCount = xx command_buffers.count,
-            pCommandBuffers = command_buffers.data,
-            signalSemaphoreCount = 1,
-            pSignalSemaphores = *this_frame.render_finished_semaphore,
-        };
-        Vk_Check(vkQueueSubmit(graphics_queue, 1, *submit_info, this_frame.frame_fence));
-
+    {   // Present
         present_info := VkPresentInfoKHR.{
             waitSemaphoreCount = 1,
             pWaitSemaphores = *this_frame.render_finished_semaphore,
@@ -315,16 +278,12 @@ end_frame :: () {
     {   // Prepare next frame
         frame_index = (frame_index + 1) % FRAME_COUNT;
         idx := frame_index;
-        command_buffers.count = 0;
-        // Vk_Check(vkResetCommandPool(device, command_pool, 0));
     }
 
     buffer_pool_reset(*immediate_buffer_pool);
 
     // And some perf data
     global_engine.frame_time = cast(float)(SDL_GetPerformanceCounter() - global_engine.frame_start) / cast(float)(SDL_GetPerformanceFrequency() / 1000);
-
-    update_framebuffer();
 }
 
 set_view_matrix :: (view: Matrix4) {
@@ -617,7 +576,7 @@ create_descriptor_sets :: (renderer: *Renderer) {
     renderer.empty_texture = texture_from_data(data.data, 1, 1, 4, u8, "empty_texture", .SHADER_READ_ONLY_OPTIMAL);
     renderer.empty_texture_uniform = uniform_texture_create(renderer.empty_texture, renderer.single_texture_layout);
 
-    renderer.shadowmap_texture = texture_create(Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_FORMAT, .DEPTH_STENCIL_ATTACHMENT_BIT | .SAMPLED_BIT, .DEPTH_BIT, "shadowmap_texture");
+    renderer.shadowmap_texture = render_texture_create(Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_FORMAT, .DEPTH_STENCIL_ATTACHMENT_BIT | .SAMPLED_BIT, .DEPTH_BIT, "shadowmap_texture");
     renderer.shadowmap_uniform_texture = uniform_texture_create(renderer.shadowmap_texture, renderer.single_texture_layout);
 
 }

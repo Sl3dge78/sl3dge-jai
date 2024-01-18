@@ -82,6 +82,10 @@ uniform_texture_create :: (texture: Texture, layout: VkDescriptorSetLayout = nul
     return uniform_texture_create(global_renderer.sampler, texture.view, layout);
 }
 
+uniform_texture_bind :: (using self: *Uniform_Texture, command_buffer: VkCommandBuffer, layout: VkPipelineLayout) {
+    vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, layout, 0, 1, *self.descriptor_set, 0, null);
+}
+
 destroy :: (using self: *Uniform_Texture) {
     // Nothing to destroy we don't own the texture
 }
