@@ -25,8 +25,8 @@ maybe_grow :: (using buffer_pool: *Buffer_Pool, size: VkDeviceSize) {
     }
 
     if buffers.count == 0 || size > (BUFFER_SIZE - current_position_in_buffer) {
-        buffer := buffer_create(BUFFER_SIZE, kind, tprint("%_%", name, buffers.count));
-        array_add(*buffers, buffer);
+        buffer := buffer_create(BUFFER_SIZE, kind, tprint("%_%", name, buffers.count),, context.default_allocator);
+        array_add(*buffers, buffer,, context.default_allocator);
         current_position_in_buffer = 0;
         current_buffer = buffers.count - 1;
         return;

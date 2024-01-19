@@ -66,7 +66,7 @@ console_message :: (msg: string, args: .. Any) {
     if global_console.current_message { // @Speed
         free(global_console.current_message);
     }
-    global_console.current_message = sprint(msg, args);
+    global_console.current_message = sprint(msg, args,, context.default_allocator);
     global_console.message_timer = 2;
 }
 

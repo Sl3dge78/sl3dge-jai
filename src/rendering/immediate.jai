@@ -124,11 +124,12 @@ immediate_bind_texture :: (using immediate: *Immediate, texture: Uniform_Texture
 
 
 push_vertices :: (imm: *Immediate, vertices: []$T) {
-    if imm.vertices.allocated < vertices.count + imm.vertices.count {
-        array_reserve(*imm.vertices, vertices.count + imm.vertices.count);
-    }
-    memcpy(imm.vertices.data + imm.vertices.count, vertices.data, size_of(T) * vertices.count);
-    imm.vertices.count += vertices.count;
+    // if imm.vertices.allocated < vertices.count + imm.vertices.count {
+    //     array_reserve(*imm.vertices, vertices.count + imm.vertices.count);
+    // }
+    // memcpy(imm.vertices.data + imm.vertices.count, vertices.data, size_of(T) * vertices.count);
+    // imm.vertices.count += vertices.count;
+    array_add(*imm.vertices, ..vertices);
 }
 
 draw_2d_rect :: (immediate: *Immediate, p0: Vector2, p1: Vector2, color: Vector4 = .{1, 1, 1, 1}) {
