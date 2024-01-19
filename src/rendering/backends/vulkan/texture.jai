@@ -7,12 +7,7 @@ Texture :: struct {
     aspect: VkImageAspectFlags;
 }
 
-Render_Texture :: struct {
-    using #as texture: Texture;
-    render_finished_semaphore: VkSemaphore;
-}
-
-texture_create :: (w: u32, h: u32, format: VkFormat, usage: VkImageUsageFlags, aspect: VkImageAspectFlags = .COLOR_BIT, name: string, initial_layout : VkImageLayout = .UNDEFINED) -> Texture {
+texture_create :: (w: u32, h: u32, format: VkFormat, usage: VkImageUsageFlags, aspect: VkImageAspectFlags = .COLOR_BIT, name: string) -> Texture {
     texture: Texture;
     texture.w = w;
     texture.h = h;
@@ -24,7 +19,7 @@ texture_create :: (w: u32, h: u32, format: VkFormat, usage: VkImageUsageFlags, a
         arrayLayers = 1,
         format = format,
         tiling = .OPTIMAL,
-        initialLayout = initial_layout,
+        initialLayout = .UNDEFINED,
         usage = usage,
         sharingMode = .EXCLUSIVE,
         samples = ._1_BIT
@@ -42,17 +37,17 @@ texture_create :: (w: u32, h: u32, format: VkFormat, usage: VkImageUsageFlags, a
     return texture;
 }
 
-texture_from_file :: (path: string, layout : VkImageLayout = .SHADER_READ_ONLY_OPTIMAL) -> Texture {
+texture_from_file :: (path: string, final_layout: VkImageLayout = .SHADER_READ_ONLY_OPTIMAL) -> Texture {
     channels: s32;
     w: s32;
     h: s32;
     img := stbi_load(temp_c_string(path), *w, *h, *channels, 4);
     assert(img != null, "Unable to load %.", path);
     defer stbi_image_free(img);
-    return texture_from_data(img, xx w, xx h, channels, u8, path_filename(path), layout);
+    return texture_from_data(img, xx w, xx h, channels, u8, path_filename(path), final_layout);
 }
 
-texture_from_data :: (ptr: *void, w: u32, h: u32, channels: int, $data_type: Type, name: string, layout: VkImageLayout) -> Texture {
+texture_from_data :: (ptr: *void, w: u32, h: u32, channels: int, $data_type: Type, name: string, final_layout: VkImageLayout) -> Texture {
     format : VkFormat = ---;
     #if data_type == u8 {
         if channels == {
@@ -73,17 +68,11 @@ texture_from_data :: (ptr: *void, w: u32, h: u32, channels: int, $data_type: Typ
     defer end_single_time_command_buffer(cmd);
     transition_texture_layout(*texture, .UNDEFINED, .TRANSFER_DST_OPTIMAL, cmd);
     copy_buffer_to_image(staging_buffer.handle, texture.image, xx texture.w, xx texture.h, cmd);
-    transition_texture_layout(*texture, .TRANSFER_DST_OPTIMAL, layout, cmd);
+    transition_texture_layout(*texture, .TRANSFER_DST_OPTIMAL, final_layout, cmd);
 
     return texture;
 }
 
-render_texture_create :: (w: u32, h: u32, format: VkFormat, usage: VkImageUsageFlags = .COLOR_ATTACHMENT_BIT | .SAMPLED_BIT, aspect : VkImageAspectFlags = .COLOR_BIT, name := "") -> Render_Texture {
-    self: Render_Texture = ---;
-    self.texture = texture_create(w, h, format, usage, aspect, name); // global_renderer.swapchain.format.format, , name = name);
-    self.render_finished_semaphore = create_semaphore(global_renderer.device);
-    return self;
-}
 
 destroy :: (texture: *Texture) {
     vkDestroyImageView(global_renderer.device, texture.view, null);
@@ -145,7 +134,8 @@ transition_texture_layout :: (texture: *Texture, old_layout: VkImageLayout, new_
 
 get_src_stage_and_access_from_layout :: (layout: VkImageLayout) -> (VkPipelineStageFlags, VkAccessFlagBits) {
     if layout == {
-        case .UNDEFINED;            
+        case .UNDEFINED;      #through;
+        case .PREINITIALIZED;
             return .TOP_OF_PIPE_BIT, 0;
         case .TRANSFER_DST_OPTIMAL;
             return .TRANSFER_BIT, .TRANSFER_WRITE_BIT;

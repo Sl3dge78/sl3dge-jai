@@ -167,6 +167,7 @@ get_var_type :: (file: string) -> string {
 }
 
 load_var_file :: (info: *Resource_Info) -> bool {
+    push_allocator(temp);
     contents := read_entire_file(info.path);
     defer free(contents);
     ti: *Type_Info_Struct = xx info.type;

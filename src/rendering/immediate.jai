@@ -28,6 +28,7 @@ flush :: (using immediate: *Immediate) {
 immediate_begin :: (render_target: *Render_Texture, label : string = "") -> Immediate {
     result : Immediate;
     result.target = render_target;
+    result.vertices.allocator = temp;
 
     // @TODO: maybe look into secondary command buffers?
     alloc_info := VkCommandBufferAllocateInfo.{
@@ -44,7 +45,10 @@ immediate_begin :: (render_target: *Render_Texture, label : string = "") -> Imme
     Vk_Check(vkBeginCommandBuffer(result.command_buffer, *begin_info));
 
     // Prepare the render target for rendering
-    transition_texture_layout(result.target, .SHADER_READ_ONLY_OPTIMAL, .COLOR_ATTACHMENT_OPTIMAL, result.command_buffer);
+    // According to the spec : 
+    // This layout [UNDEFINED] can be used in place of the current image layout in a layout transition,
+    // but doing so will cause the contents of the image’s memory to be undefined.
+    transition_texture_layout(result.target, .UNDEFINED, .COLOR_ATTACHMENT_OPTIMAL, result.command_buffer);
 
     color_attachment := VkRenderingAttachmentInfo.{
         imageView = result.target.view,

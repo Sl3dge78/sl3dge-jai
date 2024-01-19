@@ -141,6 +141,7 @@ Pipeline_Builder :: struct {
     }
 
     color_format :: (self: *Pipeline_Builder, formats: ..VkFormat) {
+        self.color_attachment_formats.allocator = temp;
         array_add(*self.color_attachment_formats, ..formats);
     }
 

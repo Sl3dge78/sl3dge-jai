@@ -6,6 +6,7 @@
 #load "vulkan/buffer.jai";
 #load "vulkan/buffer_pool.jai";
 #load "vulkan/texture.jai";
+#load "vulkan/render_texture.jai";
 #load "vulkan/pipelines.jai";
 #load "vulkan/pipeline_builder.jai";
 #load "vulkan/descriptor_set.jai";

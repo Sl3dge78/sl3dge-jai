@@ -8,7 +8,7 @@ Font :: struct {
 }
 
 font_from_file :: (path: string, size: float) -> Font, bool {
-    font_data, success := read_entire_file(path);
+    font_data, success := read_entire_file(path,, temp);
     if !success {
         assert(false, "Unable to load font from %", path);
         return .{}, false;

@@ -112,7 +112,8 @@ debug_callback :: (severity: VkDebugUtilsMessageSeverityFlagsEXT, type: VkDebugU
         msg := to_string(callback_data.pMessage);
         log("%: %\n", severity, msg);
         if severity >= .ERROR_BIT_EXT {
-            assert(false);
+            // assert(false);
+            debug_break();
         }
     }
     return VK_TRUE;

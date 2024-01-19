@@ -190,8 +190,8 @@ destroy :: (using self: *Renderer) {
     vkDestroyCommandPool(device, command_pool, null);
 
     vmaDestroyAllocator(allocator);
-
     vkDestroyDevice(device, null);
+
     vkDestroyDebugUtilsMessengerEXT(instance, debug_messenger, null);
     vkDestroySurfaceKHR(instance, surface, null);
     vkDestroyInstance(instance, null);
@@ -348,7 +348,7 @@ create_instance :: (window: *SDL_Window) -> VkInstance {
     
     layers: [..]*u8; 
     layers.allocator = temp;
-    array_add(*layers, temp_c_string("VK_LAYER_KHRONOS_validation"));
+    // array_add(*layers, temp_c_string("VK_LAYER_KHRONOS_validation"));
 
     extensions: [..]*u8;
     extensions.allocator = temp;
@@ -360,7 +360,7 @@ create_instance :: (window: *SDL_Window) -> VkInstance {
     extensions.count += nb;
 
     array_add(*extensions, VK_EXT_DEBUG_UTILS_EXTENSION_NAME.data);
-    array_add(*extensions, VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME.data);
+    // array_add(*extensions, VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME.data);
 
     log("Extensions:");
     for ext : extensions {
@@ -384,7 +384,7 @@ create_instance :: (window: *SDL_Window) -> VkInstance {
     };
 
     create_info := VkInstanceCreateInfo.{
-        pNext = *validation_features,
+        // pNext = *validation_features,
         enabledLayerCount = xx layers.count,
         ppEnabledLayerNames = layers.data,
         enabledExtensionCount = xx extensions.count,
