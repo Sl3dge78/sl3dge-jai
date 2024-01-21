@@ -80,7 +80,7 @@ immediate_begin :: (render_target: *Render_Texture, label : string = "") -> Imme
 
     pc := UI_Push_Constants.{.{2.0 / cast(float)result.target.w, -2.0 / cast(float)result.target.h}, .{-1, 1}};
     vkCmdPushConstants(result.command_buffer, global_renderer.ui_pipeline.layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
-    vkCmdBindDescriptorSets(result.command_buffer, .GRAPHICS, global_renderer.ui_pipeline.layout, 0, 1, *global_renderer.empty_texture_uniform.descriptor_set, 0, null);
+    vkCmdBindDescriptorSets(result.command_buffer, .GRAPHICS, global_renderer.ui_pipeline.layout, 0, 1, *global_renderer.empty_texture_descriptor_set, 0, null);
 
     return result;
 }
@@ -109,17 +109,17 @@ immediate_use_shader :: (using immediate: *Immediate, pipeline: Pipeline) {
     vkCmdBindPipeline(command_buffer, .GRAPHICS, pipeline.pipeline);
     pc := UI_Push_Constants.{.{2.0 / cast(float)target.w, -2.0 / cast(float)target.h}, .{-1, 1}};
     vkCmdPushConstants(command_buffer, pipeline.layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
-    vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.layout, 0, 1, *global_renderer.empty_texture_uniform.descriptor_set, 0, null);
+    vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.layout, 0, 1, *global_renderer.empty_texture_descriptor_set, 0, null);
     immediate.current_pipeline = pipeline;
 }
 
 immediate_default_texture :: (using immediate: *Immediate) {
-    immediate_bind_texture(immediate, global_renderer.empty_texture_uniform);
+    immediate_bind_texture(immediate, global_renderer.empty_texture_descriptor_set);
 }
 
-immediate_bind_texture :: (using immediate: *Immediate, texture: Uniform_Texture) {
+immediate_bind_texture :: (using immediate: *Immediate, descriptor_set: VkDescriptorSet) {
     flush(immediate);
-    vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, current_pipeline.layout, 0, 1, *texture.descriptor_set, 0, null);
+    vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, current_pipeline.layout, 0, 1, *descriptor_set, 0, null);
 }
 
 

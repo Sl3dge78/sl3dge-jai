@@ -42,19 +42,14 @@ destroy :: (using self: *Uniform_Buffer) {
     // @TODO: release buffer location
 }
 
-Uniform_Texture :: struct {
-    descriptor_set: VkDescriptorSet;
-}
-
-uniform_texture_create :: (sampler: VkSampler, view: VkImageView, layout: VkDescriptorSetLayout) -> Uniform_Texture {
-    self: Uniform_Texture = ---;
-
+create_texture_descriptor_set :: (sampler: VkSampler, view: VkImageView, layout: VkDescriptorSetLayout) -> VkDescriptorSet {
+    result: VkDescriptorSet = ---;
     alloc_info := VkDescriptorSetAllocateInfo.{
         descriptorPool = global_renderer.descriptor_pool,
         descriptorSetCount = 1,
         pSetLayouts = *layout,
     };
-    Vk_Check(vkAllocateDescriptorSets(global_renderer.device, *alloc_info, *self.descriptor_set));
+    Vk_Check(vkAllocateDescriptorSets(global_renderer.device, *alloc_info, *result));
 
     image_info := VkDescriptorImageInfo.{
         sampler = sampler, 
@@ -62,7 +57,7 @@ uniform_texture_create :: (sampler: VkSampler, view: VkImageView, layout: VkDesc
         imageLayout = .SHADER_READ_ONLY_OPTIMAL,
     };
     descriptor_writes := VkWriteDescriptorSet.[.{
-        dstSet = self.descriptor_set,
+        dstSet = result,
         dstBinding = 0,
         dstArrayElement = 0,
         descriptorType = .COMBINED_IMAGE_SAMPLER,
@@ -71,21 +66,13 @@ uniform_texture_create :: (sampler: VkSampler, view: VkImageView, layout: VkDesc
     }];
     vkUpdateDescriptorSets(global_renderer.device, descriptor_writes.count, descriptor_writes.data, 0, null);
 
-    return self;
+    return result;
 }
 
-uniform_texture_create :: (texture: Texture, layout: VkDescriptorSetLayout = null) -> Uniform_Texture { 
+create_texture_descriptor_set :: (texture: Texture, layout: VkDescriptorSetLayout = null) -> VkDescriptorSet { 
     if layout == null {
         layout = global_renderer.single_texture_layout;
     }
 
-    return uniform_texture_create(global_renderer.sampler, texture.view, layout);
-}
-
-uniform_texture_bind :: (using self: *Uniform_Texture, command_buffer: VkCommandBuffer, layout: VkPipelineLayout) {
-    vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, layout, 1, 1, *self.descriptor_set, 0, null);
-}
-
-destroy :: (using self: *Uniform_Texture) {
-    // Nothing to destroy we don't own the texture
+    return create_texture_descriptor_set(global_renderer.sampler, texture.view, layout);
 }

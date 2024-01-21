@@ -52,7 +52,7 @@ Renderer :: struct {
     SHADOWMAP_SIZE :: 2048;
     shadowmap_render_pass: VkRenderPass;
     shadowmap_texture: Render_Texture;
-    shadowmap_uniform_texture: Uniform_Texture;
+    shadowmap_descriptor_set: VkDescriptorSet;
 
     // Standard pass
     standard_render_pass: VkRenderPass;
@@ -61,7 +61,7 @@ Renderer :: struct {
 
     sampler: VkSampler;
     empty_texture: Texture;
-    empty_texture_uniform: Uniform_Texture;
+    empty_texture_descriptor_set: VkDescriptorSet;
 
     projection: Matrix4;
     view: Matrix4;
@@ -197,10 +197,6 @@ destroy :: (using self: *Renderer) {
     vkDestroyInstance(instance, null);
 }
 
-// renderer_push_command_buffers :: (self: *Renderer, command_buffers: []VkCommandBuffer) {
-//     array_add(*self.command_buffers, ..command_buffers);
-// }
-
 prepare_framebuffer :: (command_buffer: VkCommandBuffer, frame_data: *Frame_Data) {
     transition_texture_layout(*frame_data.framebuffer, .UNDEFINED, .TRANSFER_DST_OPTIMAL, command_buffer);
     clear := VkClearColorValue.{ _float32 = .[0, 0, 0, 1] };
@@ -290,28 +286,20 @@ set_view_matrix :: (view: Matrix4) {
     global_renderer.view = view;
 }
 
-// set_projection_matrix :: (proj: Matrix4) {
-//     global_renderer.projection = proj;
-// }
+set_push_constants :: inline (mat: Matrix4, cmd: VkCommandBuffer, layout: VkPipelineLayout) {
+    pc := Standard_Push_Constants.{
+        transform = transpose(mat),
+        inverse_transform = transpose(inverse(mat)),
+    };
+    vkCmdPushConstants(cmd, layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
+}
 
-// set_projection_matrix :: (fov: float) {
-//     set_projection_matrix(make_projection_matrix(radians(fov), cast(float)global_renderer.swapchain.extent.width/cast(float)global_renderer.swapchain.extent.height, 0.1, 1000));
-// }
-
-// set_scene :: (scene: *Scene) {
-//     global_renderer.scene = scene;
-// }
+bind_diffuse :: (desc: VkDescriptorSet, cmd: VkCommandBuffer, layout: VkPipelineLayout) {
+    vkCmdBindDescriptorSets(cmd, .GRAPHICS, layout, 2, 1, *desc, 0, null);
+}
 
 change_light_vector :: (dir: Vector3) {
     global_renderer.light_dir = dir;
-}
-
-// get_window_dims :: () -> Vector2i {
-//     return .{global_renderer.swapchain.extent.width, global_renderer.swapchain.extent.height};
-// }
-
-wait_idle :: () {
-    vkDeviceWaitIdle(global_renderer.device);
 }
 
 MemoryType :: enum {
@@ -574,11 +562,10 @@ create_descriptor_sets :: (renderer: *Renderer) {
 
     data := u8.[255, 255, 255, 255];
     renderer.empty_texture = texture_from_data(data.data, 1, 1, 4, u8, "empty_texture", .SHADER_READ_ONLY_OPTIMAL);
-    renderer.empty_texture_uniform = uniform_texture_create(renderer.empty_texture, renderer.single_texture_layout);
+    renderer.empty_texture_descriptor_set = create_texture_descriptor_set(renderer.empty_texture, renderer.single_texture_layout);
 
     renderer.shadowmap_texture = render_texture_create(Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_FORMAT, .DEPTH_STENCIL_ATTACHMENT_BIT | .SAMPLED_BIT, .DEPTH_BIT, "shadowmap_texture");
-    renderer.shadowmap_uniform_texture = uniform_texture_create(renderer.shadowmap_texture, renderer.single_texture_layout);
-
+    renderer.shadowmap_descriptor_set = create_texture_descriptor_set(renderer.shadowmap_texture, renderer.single_texture_layout);
 }
 
 // create_standard_renderpass :: (device: VkDevice) -> VkRenderPass {

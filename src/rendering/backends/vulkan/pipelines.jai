@@ -153,8 +153,8 @@ bind_material :: (command_buffer: VkCommandBuffer, material: Material, $kind: Pi
         vkCmdSetScissor(command_buffer, 0, 1, *rect);
         sets := VkDescriptorSet.[
             global_renderer.frame_data[global_renderer.frame_index].camera_descriptor.descriptor_set,
-            global_renderer.shadowmap_uniform_texture.descriptor_set,
-            global_renderer.empty_texture_uniform.descriptor_set
+            global_renderer.shadowmap_descriptor_set,
+            global_renderer.empty_texture_descriptor_set
         ];
         vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, pipeline.layout, 0, sets.count, sets.data, 0, null);
     } else {

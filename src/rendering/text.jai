@@ -4,7 +4,7 @@ Font :: struct {
     texture: Texture;
     line_height : float;
     width : float;
-    uniform : Uniform_Texture;
+    descriptor_set : VkDescriptorSet;
 }
 
 font_from_file :: (path: string, size: float) -> Font, bool {
@@ -34,7 +34,7 @@ font_from_data :: (font_data: string, size: float, resource_name: string) -> Fon
 
     self.texture = texture_from_data(bitmap.data, 512, 512, 1, u8, resource_name, .SHADER_READ_ONLY_OPTIMAL);
 
-    self.uniform = uniform_texture_create(*self.texture);
+    self.descriptor_set = create_texture_descriptor_set(*self.texture);
     
     // Get additional font info
     info : stbtt_fontinfo = ---;
@@ -89,7 +89,7 @@ draw_char_raw :: inline (immediate: *Immediate, it: u8, font: *Font, x: *float, 
 }
 
 draw_text :: (immediate: *Immediate, text: string, x: float, y: float, font: *Font, color: Vector4 = .{1, 1, 1, 1}) -> x: float, y: float{
-    immediate_bind_texture(immediate, font.uniform);
+    immediate_bind_texture(immediate, font.descriptor_set);
     i := 0;
     start_x := x;
     while(i < text.count) {
@@ -102,7 +102,7 @@ draw_text :: (immediate: *Immediate, text: string, x: float, y: float, font: *Fo
 }
 
 draw_wrapped_text :: (immediate: *Immediate, text: string, x: float, w: float, y: float, font: *Font, color: Vector4 = .{1, 1, 1, 1}) -> x: float, y: float{
-    immediate_bind_texture(immediate, font.uniform);
+    immediate_bind_texture(immediate, font.descriptor_set);
     i := 0;
     start_x := x;
     while(i < text.count) {
