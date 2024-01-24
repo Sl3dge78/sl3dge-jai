@@ -1,9 +1,9 @@
 // This offers an api for easy drawing to a render target in a single pass
 // Perfect for UIs
 Immediate :: struct  {
+    target: *Render_Texture;
     command_buffer : VkCommandBuffer;
     current_pipeline : Pipeline;
-    target: *Render_Texture;
     
     locs : [..]Buffer_Location;
     vertices : [..]UI_Vertex;
@@ -50,38 +50,7 @@ immediate_begin :: (render_target: *Render_Texture, label : string = "") -> Imme
     // but doing so will cause the contents of the image’s memory to be undefined.
     transition_texture_layout(result.target, .UNDEFINED, .COLOR_ATTACHMENT_OPTIMAL, result.command_buffer);
 
-    color_attachment := VkRenderingAttachmentInfo.{
-        imageView = result.target.view,
-        imageLayout = .COLOR_ATTACHMENT_OPTIMAL,
-        loadOp = .LOAD,
-        storeOp = .STORE,
-        clearValue = .{color = .{ _float32 = .[0, 0, 0, 1]}},
-    };
-
-    rendering_info := VkRenderingInfo.{
-        renderArea = .{
-            offset = .{0, 0},
-            extent = .{result.target.w, result.target.h},
-        },
-        layerCount = 1,
-        colorAttachmentCount = 1,
-        pColorAttachments = *color_attachment,
-    };
-    vkCmdBeginRendering(result.command_buffer, *rendering_info);
-
-    debug_marker(result.command_buffer, label);
-    vkCmdBindPipeline(result.command_buffer, .GRAPHICS, global_renderer.ui_pipeline.pipeline);
-    result.current_pipeline = global_renderer.ui_pipeline;
-
-    viewport := VkViewport.{0, xx result.target.h, xx result.target.w, -(cast(float)result.target.h), 0, 1};
-    vkCmdSetViewport(result.command_buffer, 0, 1, *viewport);
-    rect :=VkRect2D.{.{0, 0} , .{result.target.w, result.target.w}};
-    vkCmdSetScissor(result.command_buffer, 0, 1, *rect);
-
-    pc := UI_Push_Constants.{.{2.0 / cast(float)result.target.w, -2.0 / cast(float)result.target.h}, .{-1, 1}};
-    vkCmdPushConstants(result.command_buffer, global_renderer.ui_pipeline.layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
-    vkCmdBindDescriptorSets(result.command_buffer, .GRAPHICS, global_renderer.ui_pipeline.layout, 0, 1, *global_renderer.empty_texture_descriptor_set, 0, null);
-
+    immediate_begin_rendering(*result);
     return result;
 }
 
@@ -103,6 +72,55 @@ immediate_end :: (using immediate: *Immediate) {
         pSignalSemaphores = *target.render_finished_semaphore,
     };
     Vk_Check(vkQueueSubmit(global_renderer.graphics_queue, 1, *submit_info, VK_NULL_HANDLE));
+}
+
+immediate_begin_rendering :: (using self: *Immediate) {
+    color_attachment := VkRenderingAttachmentInfo.{
+        imageView = target.view,
+        imageLayout = .COLOR_ATTACHMENT_OPTIMAL,
+        loadOp = .LOAD,
+        storeOp = .STORE,
+        clearValue = .{color = .{ _float32 = .[0, 0, 0, 1]}},
+    };
+
+    rendering_info := VkRenderingInfo.{
+        renderArea = .{
+            offset = .{0, 0},
+            extent = .{target.w, target.h},
+        },
+        layerCount = 1,
+        colorAttachmentCount = 1,
+        pColorAttachments = *color_attachment,
+    };
+    vkCmdBeginRendering(command_buffer, *rendering_info);
+
+    vkCmdBindPipeline(command_buffer, .GRAPHICS, global_renderer.ui_pipeline.pipeline);
+    current_pipeline = global_renderer.ui_pipeline;
+
+    viewport := VkViewport.{0, xx target.h, xx target.w, -(cast(float)target.h), 0, 1};
+    vkCmdSetViewport(command_buffer, 0, 1, *viewport);
+    rect :=VkRect2D.{.{0, 0} , .{target.w, target.w}};
+    vkCmdSetScissor(command_buffer, 0, 1, *rect);
+
+    pc := UI_Push_Constants.{.{2.0 / cast(float)target.w, -2.0 / cast(float)target.h}, .{-1, 1}};
+    vkCmdPushConstants(command_buffer, global_renderer.ui_pipeline.layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
+    vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, global_renderer.ui_pipeline.layout, 0, 1, *global_renderer.empty_texture_descriptor_set, 0, null);
+}
+
+// Variant to embed the immediate in a command buffer
+immediate_begin_in_place :: (render_target: *Render_Texture, command_buffer: VkCommandBuffer) -> Immediate {
+    self: Immediate;
+    self.target = render_target;
+    self.command_buffer = command_buffer;
+    self.vertices.allocator = temp;
+
+    immediate_begin_rendering(*self);
+    return self;
+}
+
+immediate_end_in_place :: (using self: *Immediate) {
+    flush(self);
+    vkCmdEndRendering(command_buffer);
 }
 
 immediate_use_shader :: (using immediate: *Immediate, pipeline: Pipeline) {

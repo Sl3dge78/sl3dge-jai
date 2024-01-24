@@ -11,7 +11,7 @@ Engine :: struct {
 
 engine_create :: () {
     log("Init engine");
-    path := path_strip_filename(get_path_of_running_executable());
+    path := path_strip_filename(get_path_of_running_executable(,, temp));
     set_working_directory(path);
 
     console_create();
@@ -44,14 +44,14 @@ engine_update :: (delta_time: float) {
     update_tweens(delta_time);
 }
 
-engine_draw :: () {
+engine_draw :: (framebuffer: *Render_Texture, command_buffer: VkCommandBuffer) {
     // @TODO
-    // imm := immediate_2d();
-    // console_draw(*imm, *global_engine.default_font);
-    // if global_engine.draw_perf_overlay {
-    //     draw_text(*imm, tprint("Frametime: %ms", global_engine.frame_time), 0, 8, *global_engine.default_font);
-    // }
-    // immediate_end(*imm);
+    imm := immediate_begin_in_place(framebuffer, command_buffer);
+    defer immediate_end_in_place(*imm);
+    console_draw(*imm, *global_engine.default_font);
+    if global_engine.draw_perf_overlay {
+        draw_text(*imm, tprint("Frametime: %ms", global_engine.frame_time), 0, 8, *global_engine.default_font);
+    }
 }
 
 window_dims :: () -> Vector2i {
