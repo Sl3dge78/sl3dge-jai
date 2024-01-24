@@ -218,7 +218,7 @@ begin_frame :: () -> *Frame_Data {
     vkWaitForFences(device, 1, *this_frame.frame_fence, VK_TRUE, U64_MAX);
     vkResetFences(device, 1, *this_frame.frame_fence);
     Vk_Check(vkAcquireNextImageKHR(device, swapchain.handle, U64_MAX, this_frame.image_available_semaphore, VK_NULL_HANDLE, *this_frame.swapchain_image_index));
-    this_frame.framebuffer = .{
+    this_frame.framebuffer.texture = .{
         image = swapchain.images[this_frame.swapchain_image_index],
         view = swapchain.image_views[this_frame.swapchain_image_index],
         w = swapchain.extent.width,
@@ -258,7 +258,7 @@ end_frame :: (this_frame: *Frame_Data) {
     {   // Present
         present_info := VkPresentInfoKHR.{
             waitSemaphoreCount = 1,
-            pWaitSemaphores = *this_frame.render_finished_semaphore,
+            pWaitSemaphores = *this_frame.framebuffer.render_finished_semaphore,
             swapchainCount = 1,
             pSwapchains = *global_renderer.swapchain.handle,
             pImageIndices = *this_frame.swapchain_image_index

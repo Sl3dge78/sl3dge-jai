@@ -1,8 +1,7 @@
 Frame_Data :: struct {
     frame_fence: VkFence;
     image_available_semaphore: VkSemaphore;
-    render_finished_semaphore: VkSemaphore;
-    framebuffer: Texture;
+    framebuffer: Render_Texture;
 
     camera_descriptor: Uniform_Buffer;
     shadowmap_camera_descriptor: Uniform_Buffer;
@@ -12,8 +11,8 @@ Frame_Data :: struct {
 frame_data_create :: (device: VkDevice, command_pool: VkCommandPool, camera_dsl: VkDescriptorSetLayout) -> Frame_Data {
     self: Frame_Data;
     semaphore_ci := VkSemaphoreCreateInfo.{};
-    vkCreateSemaphore(device, *semaphore_ci, null, *self.image_available_semaphore);
-    vkCreateSemaphore(device, *semaphore_ci, null, *self.render_finished_semaphore);
+    Vk_Check(vkCreateSemaphore(device, *semaphore_ci, null, *self.image_available_semaphore));
+    Vk_Check(vkCreateSemaphore(device, *semaphore_ci, null, *self.framebuffer.render_finished_semaphore));
 
     fence_ci := VkFenceCreateInfo.{ flags = .SIGNALED_BIT, };
     vkCreateFence(device, *fence_ci, null, *self.frame_fence);
@@ -26,6 +25,6 @@ frame_data_create :: (device: VkDevice, command_pool: VkCommandPool, camera_dsl:
 
 destroy :: (using self: *Frame_Data, device: VkDevice) {
     vkDestroyFence(device, frame_fence, null);
-    vkDestroySemaphore(device, render_finished_semaphore, null);
+    vkDestroySemaphore(device, framebuffer.render_finished_semaphore, null);
     vkDestroySemaphore(device, image_available_semaphore, null);
 }
