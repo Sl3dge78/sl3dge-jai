@@ -65,7 +65,6 @@ Renderer :: struct {
 
     projection: Matrix4;
     view: Matrix4;
-    light_dir: Vector3;
 
     vertex_buffer_pool: Buffer_Pool = .{
         kind = .VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT,
@@ -233,25 +232,33 @@ end_frame :: (this_frame: *Frame_Data) {
     using global_renderer;
 
     {   // Update uniforms
+        lights : [16]Vector4;
+        lights[0] = xyzw(0, 1, 0, 0);
+        lights[1] = xyzw(0, 1, -15, 0);
+        // lights[0] = xyzw(0, 1, 2, 3);
+        // lights[1] = xyzw(4, 5, 6, -7);
+
         size:: 20;
         light_proj := orthographic_projection_matrix(size, -size, -size, size, -size, size, true);
-        light_view := make_look_at_matrix(.{0, 0, 0}, light_dir, .{0, 1, 0}, false);
+        light_view := make_look_at_matrix(.{0, 0, 0}, lights[0].xyz, .{0, 1, 0}, false);
 
-        cam := Camera_Data.{
-            proj = transpose(projection),
+        cam := Global_Matrices.{
+            projection = transpose(projection),
             view = transpose(view),
             light = transpose(light_proj * light_view),
-            light_dir = light_dir,
+            light_count = 2,
+            light_vec = lights,
         };
         uniform_buffer_write(*this_frame.camera_descriptor, *cam);
         
-        shadow_cam := Camera_Data.{
-            proj = transpose(light_proj),
+        shadow_cam := Global_Matrices.{
+            projection = transpose(light_proj),
             view = transpose(light_view),
             light = cam.light,
-            light_dir = light_dir,
+            light_count = 2,
+            light_vec = lights,
         };
-        uniform_buffer_write(*this_frame.shadowmap_camera_descriptor, *cam);
+        uniform_buffer_write(*this_frame.shadowmap_camera_descriptor, *shadow_cam);
 
     }
 
@@ -298,10 +305,6 @@ bind_diffuse :: (desc: VkDescriptorSet, cmd: VkCommandBuffer, layout: VkPipeline
     vkCmdBindDescriptorSets(cmd, .GRAPHICS, layout, 2, 1, *desc, 0, null);
 }
 
-change_light_vector :: (dir: Vector3) {
-    global_renderer.light_dir = dir;
-}
-
 MemoryType :: enum {
     READBACK :: 0; // HOST_VISIBLE_BIT | .HOST_CACHED_BIT
     UPLOAD;        // HOST_VISIBLE_BIT | .HOST_COHERENT_BIT
@@ -310,18 +313,6 @@ MemoryType :: enum {
 }
 
 global_renderer: Renderer;
-
-Camera_Data :: struct {
-    view: Matrix4;
-    proj: Matrix4;
-    light: Matrix4;
-    light_dir: Vector3;
-}
-
-PushConstantData :: struct {
-    transform: Matrix4;
-    inv_transform: Matrix4;
-}
 
 panic :: () {
     write_string("Panic");

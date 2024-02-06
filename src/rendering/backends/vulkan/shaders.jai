@@ -30,8 +30,8 @@ Global_Matrices :: struct {
     projection: Matrix4;
     view      : Matrix4;
     light     : Matrix4;
-    light_vec : Vector3;
-    __align : float;
+    light_vec : [16]Vector4;
+    light_count: u32;
 }
 
 Instance_Data :: struct {

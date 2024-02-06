@@ -55,7 +55,7 @@ create_static_mesh_material :: (device : VkDevice) -> Material {
     {   // Shadowmap   
         builder: Pipeline_Builder;
         Pipeline_Builder.add_descriptor_set_layouts(*builder, global_renderer.camera_set_layout);
-        Pipeline_Builder.set_push_constants(*builder, .VERTEX_BIT, size_of(PushConstantData));
+        Pipeline_Builder.set_push_constants(*builder, .VERTEX_BIT, size_of(Standard_Push_Constants));
         Pipeline_Builder.add_vertex_input(*builder, Standard_Vertex);
         Pipeline_Builder.add_shader(*builder, .VERTEX_BIT, vtx, "main");
         Pipeline_Builder.rasterization_state_depth_bias(*builder, 1.25, 0, 1.75);
@@ -71,7 +71,7 @@ create_static_mesh_material :: (device : VkDevice) -> Material {
             global_renderer.camera_set_layout,
             global_renderer.shadowmap_layout,
             global_renderer.single_texture_layout);
-        Pipeline_Builder.set_push_constants(*builder, .VERTEX_BIT, size_of(PushConstantData));
+        Pipeline_Builder.set_push_constants(*builder, .VERTEX_BIT, size_of(Standard_Push_Constants));
         Pipeline_Builder.add_vertex_input(*builder, Standard_Vertex);
         Pipeline_Builder.add_shader(*builder, .VERTEX_BIT, vtx, "main");
         Pipeline_Builder.add_shader(*builder, .FRAGMENT_BIT, frag, "main");
@@ -100,7 +100,7 @@ create_skinned_mesh_material :: (device : VkDevice) -> Material {
             global_renderer.empty_set_layout,
             global_renderer.empty_set_layout,
             global_renderer.skinned_mesh_layout);
-        Pipeline_Builder.set_push_constants(*builder, .VERTEX_BIT, size_of(PushConstantData));
+        Pipeline_Builder.set_push_constants(*builder, .VERTEX_BIT, size_of(Standard_Push_Constants));
         Pipeline_Builder.add_vertex_input(*builder, Standard_Vertex);
         Pipeline_Builder.add_vertex_input(*builder, Skinned_Vertex);
         Pipeline_Builder.add_shader(*builder, .VERTEX_BIT, vtx, "main");
@@ -119,7 +119,7 @@ create_skinned_mesh_material :: (device : VkDevice) -> Material {
             global_renderer.shadowmap_layout,
             global_renderer.single_texture_layout,
             global_renderer.skinned_mesh_layout);
-        Pipeline_Builder.set_push_constants(*builder, .VERTEX_BIT, size_of(PushConstantData));
+        Pipeline_Builder.set_push_constants(*builder, .VERTEX_BIT, size_of(Standard_Push_Constants));
         Pipeline_Builder.add_vertex_input(*builder, Standard_Vertex);
         Pipeline_Builder.add_vertex_input(*builder, Skinned_Vertex);
         Pipeline_Builder.add_shader(*builder, .VERTEX_BIT, vtx, "main");

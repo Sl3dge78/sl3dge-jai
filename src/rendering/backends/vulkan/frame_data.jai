@@ -18,8 +18,8 @@ frame_data_create :: (device: VkDevice, command_pool: VkCommandPool, camera_dsl:
     vkCreateFence(device, *fence_ci, null, *self.frame_fence);
 
     // Camera uniforms
-    self.shadowmap_camera_descriptor = uniform_buffer_create(camera_dsl, size_of(Camera_Data));
-    self.camera_descriptor = uniform_buffer_create(camera_dsl, size_of(Camera_Data));
+    self.shadowmap_camera_descriptor = uniform_buffer_create(camera_dsl, size_of(Global_Matrices));
+    self.camera_descriptor = uniform_buffer_create(camera_dsl, size_of(Global_Matrices));
     return self;
 }
 

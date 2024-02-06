@@ -43,23 +43,25 @@ console_update :: (delta_time: float) {
 console_draw :: (immediate: *Immediate, font: *Font) {
     using global_console;
 
+    // Message
+    if message_timer > 0 {
+        text_w := size_text(current_message, font);
+        alpha := ifx message_timer < 1 then message_timer else 1;
+        draw_text(immediate, current_message, window_dims().x / 2 - text_w / 2, 16, font, .{1, 1, 1, alpha});
+    }
+
     if console_y_position > 0 {
         win := window_dims();
 
         draw_2d_rect(immediate, .{0, 0}, .{ xx win.x, xx console_y_position }, .{0, 0, 0, 0.75});
 
-        // Message
-        if message_timer > 0 {
-            text_w := size_text(current_message, font);
-            alpha := ifx message_timer < 1 then message_timer else 1;
-            draw_text(immediate, current_message, window_dims().x / 2 - text_w / 2, 16, font, .{1, 1, 1, alpha});
-        }
 
         y : float = xx (console_y_position - last_line * font.line_height);
         for lines {
             new_x:, y = draw_wrapped_text(immediate, it, 0, xx win.x, xx y, font);
         }
     }
+
 }
 
 console_message :: (msg: string, args: .. Any) {
