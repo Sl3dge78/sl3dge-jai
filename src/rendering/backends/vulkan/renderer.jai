@@ -64,7 +64,6 @@ Renderer :: struct {
     empty_texture_descriptor_set: VkDescriptorSet;
 
     projection: Matrix4;
-    view: Matrix4;
 
     vertex_buffer_pool: Buffer_Pool = .{
         kind = .VERTEX_BUFFER_BIT | .INDEX_BUFFER_BIT,
@@ -150,7 +149,6 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
 
     // Default projection
     renderer.projection = make_projection_matrix(radians(45), cast(float)renderer.swapchain.extent.width/cast(float)renderer.swapchain.extent.height, 0.1, 1000);
-    renderer.view = Matrix4_Identity;
 
     log("Renderer successfully initialized!");
     return renderer;
@@ -231,37 +229,6 @@ begin_frame :: () -> *Frame_Data {
 end_frame :: (this_frame: *Frame_Data) {
     using global_renderer;
 
-    {   // Update uniforms
-        lights : [16]Vector4;
-        lights[0] = xyzw(0, 1, 0, 0);
-        lights[1] = xyzw(0, 1, -15, 0);
-        // lights[0] = xyzw(0, 1, 2, 3);
-        // lights[1] = xyzw(4, 5, 6, -7);
-
-        size:: 20;
-        light_proj := orthographic_projection_matrix(size, -size, -size, size, -size, size, true);
-        light_view := make_look_at_matrix(.{0, 0, 0}, lights[0].xyz, .{0, 1, 0}, false);
-
-        cam := Global_Matrices.{
-            projection = transpose(projection),
-            view = transpose(view),
-            light = transpose(light_proj * light_view),
-            light_count = 2,
-            light_vec = lights,
-        };
-        uniform_buffer_write(*this_frame.camera_descriptor, *cam);
-        
-        shadow_cam := Global_Matrices.{
-            projection = transpose(light_proj),
-            view = transpose(light_view),
-            light = cam.light,
-            light_count = 2,
-            light_vec = lights,
-        };
-        uniform_buffer_write(*this_frame.shadowmap_camera_descriptor, *shadow_cam);
-
-    }
-
     {   // Present
         present_info := VkPresentInfoKHR.{
             waitSemaphoreCount = 1,
@@ -287,10 +254,6 @@ end_frame :: (this_frame: *Frame_Data) {
 
     // And some perf data
     global_engine.frame_time = cast(float)(SDL_GetPerformanceCounter() - global_engine.frame_start) / cast(float)(SDL_GetPerformanceFrequency() / 1000);
-}
-
-set_view_matrix :: (view: Matrix4) {
-    global_renderer.view = view;
 }
 
 set_push_constants :: inline (mat: Matrix4, cmd: VkCommandBuffer, layout: VkPipelineLayout) {
