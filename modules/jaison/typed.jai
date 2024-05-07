@@ -112,6 +112,11 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 			} else {
 				append(builder, "null");
 			}
+		case .VARIANT;
+			any_val: Any;
+			any_val.type = info;
+			any_val.value_pointer = data;
+			print_item_to_builder(builder, any_val);
 		case;
 			assert(false, "Unsupported type: %", info.type);
 	}
