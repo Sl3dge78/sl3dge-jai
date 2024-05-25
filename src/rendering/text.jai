@@ -20,9 +20,9 @@ font_from_file :: (path: string, size: float) -> Font, bool {
 font_from_data :: (font_data: string, size: float, resource_name: string) -> Font, bool {
     self : Font = ---;
     bitmap : [512*512]u8 = ---;
-    
+
     pack_context : stbtt_pack_context = ---;
-    
+
     if !stbtt_PackBegin(*pack_context, bitmap.data, 512, 512, 0, 1, null) {
         assert(false, "Unable to begin font packing");
         return .{}, false;
@@ -35,7 +35,7 @@ font_from_data :: (font_data: string, size: float, resource_name: string) -> Fon
     self.texture = texture_from_data(bitmap.data, 512, 512, 1, u8, resource_name, .SHADER_READ_ONLY_OPTIMAL);
 
     self.descriptor_set = create_texture_descriptor_set(*self.texture);
-    
+
     // Get additional font info
     info : stbtt_fontinfo = ---;
     stbtt_InitFont(*info, font_data.data, 0);
@@ -98,6 +98,13 @@ draw_text :: (immediate: *Immediate, text: string, x: float, y: float, font: *Fo
         draw_char(immediate, it, font, start_x, *x, *y, color);
     }
     y += font.line_height;
+    return x, y;
+}
+
+draw_text_right_aligned :: (immediate: *Immediate, text: string, x: float, y: float, font: *Font, color: Vector4 = .{1, 1, 1, 1}) -> x: float, y: float {
+
+    size := size_text(text, font);
+    x, y := draw_text(immediate, text, immediate.target.w - size, y, font, color);
     return x, y;
 }
 
