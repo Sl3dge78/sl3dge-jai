@@ -54,3 +54,42 @@ create_semaphore :: (device: VkDevice) -> VkSemaphore {
     Vk_Check(vkCreateSemaphore(device, *create_info, null, *semaphore));
     return semaphore;
 }
+
+create_and_begin_command_buffers :: (nb: int, result: *VkCommandBuffer) {
+    alloc_info := VkCommandBufferAllocateInfo.{
+        commandPool = global_renderer.command_pool,
+        level = .PRIMARY,
+        commandBufferCount = 1,
+    };
+    Vk_Check(vkAllocateCommandBuffers(global_renderer.device, *alloc_info, result));
+
+    begin_info := VkCommandBufferBeginInfo.{
+        flags = .ONE_TIME_SUBMIT_BIT,
+    };
+    
+    for 0..nb - 1 {
+        Vk_Check(vkBeginCommandBuffer(result[it], *begin_info));
+    }
+}
+
+end_command_buffers :: (cmds: []VkCommandBuffer) {
+    for cmds {
+        Vk_Check(vkEndCommandBuffer(it));
+    }
+}
+
+submit_command_buffers :: (cmds: []VkCommandBuffer, semaphores: []VkSemaphore, stages: []VkPipelineStageFlags, signal: []VkSemaphore, fence: VkFence) {
+
+    assert(semaphores.count == stages.count);
+
+    submit_info := VkSubmitInfo.{
+        waitSemaphoreCount = xx semaphores.count,
+        pWaitSemaphores = semaphores.data,
+        pWaitDstStageMask = stages.data,
+        commandBufferCount = xx cmds.count,
+        pCommandBuffers = cmds.data,
+        signalSemaphoreCount = xx signal.count,
+        pSignalSemaphores = signal.data,
+    };
+    Vk_Check(vkQueueSubmit(global_renderer.graphics_queue, 1, *submit_info, fence));
+}
