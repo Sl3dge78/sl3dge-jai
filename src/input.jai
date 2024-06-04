@@ -1,13 +1,18 @@
 Input :: struct {
     previous_keyboard: [512]u8;
     keyboard: [512]u8;
-    mouse : struct {
-        buttons : u32;
-        xrel: s32;
-        yrel: s32;
-    };
+    mouse_rel_state : u32;
+    mouse_rel_position : Vector2i;
+    mouse_state : u32;
+    mouse_position : Vector2i;
     controller: *SDL_GameController;
     controller_id: s32;
+}
+
+Mouse_Button :: enum {
+    LEFT :: SDL_BUTTON_LEFT;
+    MIDDLE :: SDL_BUTTON_MIDDLE;
+    RIGHT :: SDL_BUTTON_RIGHT;
 }
 
 // Call once per frame 
@@ -15,8 +20,8 @@ input_update :: () {
     memcpy(input.previous_keyboard.data, input.keyboard.data, input.keyboard.count * size_of(u8));
     kb := SDL_GetKeyboardState(null);
     memcpy(input.keyboard.data, kb, input.keyboard.count * size_of(u8));
-    input.mouse.buttons = SDL_GetRelativeMouseState(*input.mouse.xrel, *input.mouse.yrel);
-
+    input.mouse_rel_state = SDL_GetRelativeMouseState(xx *input.mouse_rel_position.x, xx *input.mouse_rel_position.y);
+    input.mouse_state = SDL_GetMouseState(xx *input.mouse_position.x, xx *input.mouse_position.y);
     // open_controller();
 }
 
@@ -40,12 +45,16 @@ input_handle_event :: (event: *SDL_Event) {
     }
 }
 
-mouse_left :: () -> bool {
-    return (input.mouse.buttons & SDL_BUTTON(SDL_BUTTON_LEFT)) != 0;
+mouse_left_just_pressed :: () -> bool {
+    return (input.mouse_rel_state & SDL_BUTTON(SDL_BUTTON_LEFT)) != 0;
 }
 
-mouse_middle :: () -> bool {
-    return (input.mouse.buttons & SDL_BUTTON(SDL_BUTTON_MIDDLE)) != 0;
+mouse_middle_just_pressed :: () -> bool {
+    return (input.mouse_rel_state & SDL_BUTTON(SDL_BUTTON_MIDDLE)) != 0;
+}
+
+mouse_down :: (button: Mouse_Button) -> bool {
+    return (input.mouse_state & SDL_BUTTON(xx button)) != 0;
 }
 
 key_down :: (scancode: SDL_Scancode) -> bool {
@@ -64,8 +73,12 @@ key_just_released :: (scancode: SDL_Scancode) -> bool {
     return !a && b;
 }
 
-mouse_delta_x :: () -> s32 { return input.mouse.xrel;};
-mouse_delta_y :: () -> s32 { return input.mouse.yrel;};
+mouse_delta_x :: () -> int { return input.mouse_rel_position.x;};
+mouse_delta_y :: () -> int { return input.mouse_rel_position.y;};
+
+mouse_position :: () -> Vector2i {
+    return input.mouse_position;
+}
 
 // Controller stuff
 
@@ -78,11 +91,6 @@ open_controller :: () {
         log("Opened controller: %", to_string(cast(*u8)SDL_GameControllerNameForIndex(0)));
         return;
     }
-    
-
-    
-    
-    
 }
 
 #scope_file

@@ -13,8 +13,3 @@ BLUE  :: Vector4.{0, 0, 1, 1};
 
 DEG_TO_RAD :: PI / 180;
 RAD_TO_DEG :: 180 / PI;
-
-Vector2i :: struct {
-    x: int;
-    y: int;
-}
