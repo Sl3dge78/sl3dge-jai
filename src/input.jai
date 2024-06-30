@@ -20,8 +20,15 @@ input_update :: () {
     memcpy(input.previous_keyboard.data, input.keyboard.data, input.keyboard.count * size_of(u8));
     kb := SDL_GetKeyboardState(null);
     memcpy(input.keyboard.data, kb, input.keyboard.count * size_of(u8));
-    input.mouse_rel_state = SDL_GetRelativeMouseState(xx *input.mouse_rel_position.x, xx *input.mouse_rel_position.y);
-    input.mouse_state = SDL_GetMouseState(xx *input.mouse_position.x, xx *input.mouse_position.y);
+    x: s32 = ---;
+    y: s32 = ---;
+    input.mouse_rel_state = SDL_GetRelativeMouseState(*x, *y);
+    input.mouse_rel_position.x = x;
+    input.mouse_rel_position.y = y;
+
+    input.mouse_state = SDL_GetMouseState(*x, *y);
+    input.mouse_position.x = x;
+    input.mouse_position.y = y;
     // open_controller();
 }
 
