@@ -4,6 +4,7 @@ Immediate :: struct  {
     target: *Render_Texture;
     command_buffer : VkCommandBuffer;
     current_pipeline : Pipeline;
+    // current_texture: VkDescriptorSet;
     
     locs : [..]Buffer_Location;
     vertices : [..]UI_Vertex;
@@ -136,8 +137,10 @@ immediate_default_texture :: (using immediate: *Immediate) {
 }
 
 immediate_bind_texture :: (using immediate: *Immediate, descriptor_set: VkDescriptorSet) {
+    // if current_texture == descriptor_set then return;
     flush(immediate);
     vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, current_pipeline.layout, 0, 1, *descriptor_set, 0, null);
+    // current_texture = descriptor_set;
 }
 
 

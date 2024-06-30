@@ -2,11 +2,13 @@ Console :: struct {
     current_message: string;
     message_timer: float;
 
-    lines: [32]string;
+    lines: [NB_LINES]string;
     last_line: int;
 
     console_y_position: int;
     console_y_target: int;
+
+    NB_LINES :: 16;
 }
 
 console_create :: () {
@@ -29,14 +31,14 @@ console_update :: (delta_time: float) {
     }
 
     if key_just_pressed(SDL_SCANCODE_GRAVE) {
-        console_y_target = ifx console_y_target == 0 then 200 else 0;
+        console_y_target = ifx console_y_target == 0 then lines.count * 8 else 0;
         log("Show console!");
     }
 
     if console_y_position < console_y_target {
-        console_y_position += 20;
+        console_y_position += 16;
     } else if console_y_position > console_y_target {
-        console_y_position -= 20;
+        console_y_position -= 16;
     }
 }
 
@@ -53,13 +55,21 @@ console_draw :: (immediate: *Immediate, font: *Font) {
     if console_y_position > 0 {
         win := window_dims();
 
+        immediate_default_texture(immediate);
         draw_2d_rect(immediate, .{0, 0}, .{ xx win.x, xx console_y_position }, .{0, 0, 0, 0.75});
 
-
-        y : float = xx (console_y_position - last_line * font.line_height);
-        for lines {
-            new_x:, y = draw_wrapped_text(immediate, it, 0, xx win.x, xx y, font);
+        immediate_bind_texture(immediate, font.descriptor_set);
+        // y : float = xx (console_y_position - last_line * font.line_height + 8);
+        y : float = xx console_y_position;
+        i := last_line - 1;
+        while i > 0 {
+            draw_text(immediate, lines[i], 0, xx y, font, bind = false);
+            y -= font.line_height;
+            i -= 1;
         }
+        // for lines {
+        //     new_x:, y = draw_text(immediate, it, 0, xx y, font, bind = false);
+        // }
     }
 
 }

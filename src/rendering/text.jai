@@ -61,6 +61,10 @@ size_text :: (text: string, font: *Font) -> float {
     return text.count * font.width;
 }
 
+bind_font :: (immediate: *Immediate, font: *Font) {
+    immediate_bind_texture(immediate, font.descriptor_set);
+}
+
 draw_char :: inline (immediate: *Immediate, it: u8, font: *Font, line_start: float, x: *float, y: *float, color: Vector4) {
     if it == #char "\n" {
         x.* = line_start;
@@ -88,8 +92,10 @@ draw_char_raw :: inline (immediate: *Immediate, it: u8, font: *Font, x: *float, 
     push_vertices(immediate, v);
 }
 
-draw_text :: (immediate: *Immediate, text: string, x: float, y: float, font: *Font, color: Vector4 = .{1, 1, 1, 1}) -> x: float, y: float{
-    immediate_bind_texture(immediate, font.descriptor_set);
+draw_text :: (immediate: *Immediate, text: string, x: float, y: float, font: *Font, color: Vector4 = .{1, 1, 1, 1}, $bind:= true) -> x: float, y: float{
+    #if bind {
+        bind_font(immediate, font);
+    }
     i := 0;
     start_x := x;
     while(i < text.count) {
@@ -108,8 +114,10 @@ draw_text_right_aligned :: (immediate: *Immediate, text: string, x: float, y: fl
     return x, y;
 }
 
-draw_wrapped_text :: (immediate: *Immediate, text: string, x: float, w: float, y: float, font: *Font, color: Vector4 = .{1, 1, 1, 1}) -> x: float, y: float{
-    immediate_bind_texture(immediate, font.descriptor_set);
+draw_wrapped_text :: (immediate: *Immediate, text: string, x: float, w: float, y: float, font: *Font, color: Vector4 = .{1, 1, 1, 1}, $bind := true) -> x: float, y: float{
+    #if bind {
+        bind_font(immediate, font);
+    }
     i := 0;
     start_x := x;
     while(i < text.count) {
