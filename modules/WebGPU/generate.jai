@@ -1,11 +1,3 @@
-
-// if the lib path is empty system_library will be used.
-#if OS == .WINDOWS {
-    lib_path :: "windows";
-}  else {
-    lib_path :: "linux";
-}
-
 #run {
     set_build_options_dc(.{do_output=false});
     if !generate_bindings() {
@@ -24,7 +16,7 @@ generate_bindings :: () -> bool {
             array_add(*libpaths, "windows");
         } else #if OS == .LINUX {
             array_add(*libnames, "libwgpu_native");
-            array_add(*libpaths, ".");
+            array_add(*libpaths, "linux");
         } else #if OS == .MACOS {
             assert(false);
         } else {
@@ -63,13 +55,13 @@ generate_bindings :: () -> bool {
 #import "Hash_Table";
 
 FOOTER :: #string END
-// Generated with wgpu-native v0.18.1.2
+// Generated with wgpu-native v0.19.4.1
 #scope_file
 
 #if OS == .WINDOWS {
     wgpu_native :: #library,no_dll "wgpu_native";
 } else #if OS == .LINUX {
-    wgpu_native :: #library,no_dll "libwgpu_native";
+    wgpu_native :: #library,no_dll "linux/libwgpu_native";
 } else {
     #assert(false);
 }

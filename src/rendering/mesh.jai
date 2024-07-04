@@ -13,17 +13,17 @@ destroy :: (using mesh : *Mesh) {
     array_reset(*submeshes);
 }
 
-draw :: inline (using self: Mesh, command_buffer: VkCommandBuffer) {
+draw :: inline (using self: Mesh, rp_enc: wgpu.RenderPassEncoder) {
     for submeshes {
-        vkCmdBindVertexBuffers(command_buffer, 0, 1, *it.vertices.buffer.handle, *it.vertices.offset);
-        vkCmdBindIndexBuffer(command_buffer, it.indices.buffer.handle, it.indices.offset, .UINT32);
-        vkCmdDrawIndexed(command_buffer, it.index_count, 1, 0, 0, 0);
+        wgpu.RenderPassEncoderSetVertexBuffer(rp_enc, 0, it.vertices.buffer.handle, it.vertices.offset, it.vertices.size);
+        wgpu.RenderPassEncoderSetIndexBuffer(rp_enc, it.indices.buffer.handle, .Uint32, it.indices.offset, it.indices.size);
+        wgpu.RenderPassEncoderDrawIndexed(rp_enc, it.index_count, 1, 0, 0, 0);
     }
 }
 
 load_mesh_from_vertices :: (vertices: []Standard_Vertex, indices: []u32) -> Mesh {
     result: Mesh;
-    array_add(*result.submeshes, buffer_pool_load_mesh(*global_renderer.vertex_buffer_pool, vertices, indices));
+    array_add(*result.submeshes, buffer_pool_load_mesh(*global_renderer.vertex_pool, vertices, indices));
     return result;
 }
 
@@ -62,7 +62,7 @@ load_mesh_from_gltf_data :: (gltf_data : GLTF_Data) -> Mesh {
         idx_accessor := gltf_data.accessors[indices_accessor];
         indices := NewArray(idx_accessor.count, u32,, allocator = temp);
         read_accessor_into_array(indices.data, 0, size_of(u32), gltf_data, indices_accessor);
-        array_add(*result.submeshes, buffer_pool_load_mesh(*global_renderer.vertex_buffer_pool, vertices, indices));
+        array_add(*result.submeshes, buffer_pool_load_mesh(*global_renderer.vertex_pool, vertices, indices));
     }
     return result;
 }

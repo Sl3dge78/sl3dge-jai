@@ -40,7 +40,7 @@ Skinned_Mesh_Instance :: struct {
     transform: Matrix4;
 
     current_pose: Skeleton_Pose;
-    joint_uniform: Uniform_Buffer;
+    joint_uniform: Uniform;
 }
 
 destroy :: (using self: *Skeleton_Definition) {
@@ -63,13 +63,12 @@ destroy :: (using self : *Skinned_Mesh) {
     self.* = .{};
 }
 
-draw :: inline (using self: Skinned_Mesh, command_buffer: VkCommandBuffer) {
+draw :: inline (using self: Skinned_Mesh, rp_enc: wgpu.RenderPassEncoder) {
     for submeshes {
-        buffers := VkBuffer.[it.vertices.buffer.handle, skins[it_index].buffer.handle];
-        offsets := VkDeviceSize.[it.vertices.offset, skins[it_index].offset];
-        vkCmdBindVertexBuffers(command_buffer, 0, 2, buffers.data, offsets.data);
-        vkCmdBindIndexBuffer(command_buffer, it.indices.buffer.handle, it.indices.offset, .UINT32);
-        vkCmdDrawIndexed(command_buffer, it.index_count, 1, 0, 0, 0);
+        wgpu.RenderPassEncoderSetVertexBuffer(rp_enc, 0, it.vertices.buffer.handle, it.vertices.offset, it.vertices.size);
+        wgpu.RenderPassEncoderSetVertexBuffer(rp_enc, 0, skins[it_index].buffer.handle, skins[it_index].offset, skins[it_index].size);
+        wgpu.RenderPassEncoderSetIndexBuffer(rp_enc, it.indices.buffer.handle, .Uint32, it.indices.offset, it.indices.size);
+        wgpu.RenderPassEncoderDrawIndexed(rp_enc, it.index_count, 1, 0, 0, 0);
     }
 }
 
@@ -109,7 +108,7 @@ load_skinned_gltf :: (path: string) -> Skinned_Mesh {
             read_accessor_into_array(vertices.data, xx *offset.weights, size_of(Skinned_Vertex), gltf_data, primitive.weights_accessor);
         }
 
-        skinned_loc := buffer_pool_load_data(*global_renderer.vertex_buffer_pool, vertices);
+        skinned_loc := buffer_pool_load_data(*global_renderer.vertex_pool, vertices);
         array_add(*result.skins, skinned_loc);
     }
     assert(gltf_data.skins.count == 1, "No or multiple skins found in gltf, this isn't supported"); // @TODO

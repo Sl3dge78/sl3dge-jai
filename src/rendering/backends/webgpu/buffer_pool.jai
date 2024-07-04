@@ -30,7 +30,7 @@ buffer_pool_maybe_grow :: (using buffer_pool: *Buffer_Pool, size: u64) {
 
 buffer_pool_get :: (using buffer_pool: *Buffer_Pool, size: u64) -> Buffer_Location {
     loc : Buffer_Location;
-    aligned := aligned_size(size, global_renderer.uniform_buffer_alignement);
+    aligned := get_aligned_size(size, global_renderer.uniform_buffer_alignement);
     buffer_pool_maybe_grow(buffer_pool, xx aligned);
     loc.buffer = *buffers[current_buffer];
     loc.offset = current_position_in_buffer;

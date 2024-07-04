@@ -5,7 +5,9 @@ Texture :: struct {
     h: u32;
 }
 
-texture_from_data :: (data: *void, w: u32, h: u32, channels: int, $data_type: Type) -> Texture {
+Render_Texture :: #type Texture;
+
+texture_from_data :: (data: *void, w: u32, h: u32, channels: int, $data_type: Type, name := "") -> Texture {
 
     format : wgpu.TextureFormat = ---;
     #if data_type == u8 {
@@ -45,11 +47,12 @@ texture_from_file :: (path: string) -> Texture {
     return texture_from_data(img, xx w, xx h, channels, u8);
 }
 
-texture_create :: (w: u32, h: u32, usage: wgpu.TextureUsage, format: wgpu.TextureFormat) -> Texture {
+texture_create :: (w: u32, h: u32, usage: wgpu.TextureUsage, format: wgpu.TextureFormat, name := "") -> Texture {
     result : Texture;
     result.w = w;
     result.h = h;
     desc := wgpu.TextureDescriptor.{
+        label = to_c_string(name),
         usage = xx usage,
         dimension = ._2D,
         size = .{w, h, 1},
@@ -115,8 +118,8 @@ cubemap_create :: (w: u32, h: u32, usage: wgpu.TextureUsage, format: wgpu.Textur
     return result;
 }
 
-render_texture_create :: (w: u32, h: u32) -> Texture {
-    return texture_create(w, h, .TextureBinding | .RenderAttachment, global_renderer.surface_format);
+render_texture_create :: (w: u32, h: u32, name : string = "") -> Render_Texture {
+    return texture_create(w, h, .TextureBinding | .RenderAttachment, global_renderer.surface_format, name);
 }
 
 destroy :: (texture: *Texture) {

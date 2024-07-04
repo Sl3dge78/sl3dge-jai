@@ -54,7 +54,7 @@ Renderer :: struct {
     light_vec : Vector3;            // Direction or Position if point light
 
     current_scene: *Scene;
-    mesh_buffer_pool: Buffer_Pool = .{
+    vertex_pool: Buffer_Pool = .{
         kind =  .Vertex | .Index | .CopyDst
     };
 
@@ -87,7 +87,7 @@ device_cb :: (status: wgpu.RequestDeviceStatus, device: wgpu.Device, message: *u
     (cast(*wgpu.Device) userdata).* = device;
 }
 
-renderer_create :: (window: *SDL_Window) -> Renderer {
+renderer_create :: (window: *SDL_Window) -> *Renderer {
     renderer := *global_renderer;
 
     wgpu.SetLogCallback(wgpu_log_callback, null);
@@ -281,8 +281,7 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
         renderer.empty_uniform = WGPU_Check(wgpu.DeviceCreateBindGroup(renderer.device, *desc));
 
         data := u8.[255, 255, 255, 255];
-        renderer.empty_texture = texture_from_data(data.data, 1, 1, 4, u8);
-        texture_set_label(*renderer.empty_texture, "Empty Texture");
+        renderer.empty_texture = texture_from_data(data.data, 1, 1, 4, u8, "Empty Texture");
         renderer.empty_texture_uniform = uniform_texture_create(*renderer.empty_texture);
     }   
 
@@ -307,7 +306,7 @@ renderer_create :: (window: *SDL_Window) -> Renderer {
 }
 
 renderer_destroy :: (using renderer: *Renderer) {
-    buffer_pool_reset(*mesh_buffer_pool);
+    buffer_pool_reset(*vertex_pool);
     buffer_pool_reset(*uniform_pool);
     buffer_pool_reset(*immediate_pool);
 
@@ -432,15 +431,15 @@ set_scene :: (scene: *Scene) {
 }
 
 report_gpu_leaks :: (instance: wgpu.Instance) {
-    storage_report :: (s: wgpu.StorageReport, name: string, builder: *String_Builder) -> bool {
-        if s.numOccupied == 0 then return false;
-        print_to_builder(builder, "%: %\n", name, s.numOccupied);
+    storage_report :: (s: wgpu.RegistryReport, name: string, builder: *String_Builder) -> bool {
+        if s.numAllocated == 0 then return false;
+        print_to_builder(builder, "%: %\n", name, s.numAllocated);
         return true;
     }
 
     hub_report :: (h: wgpu.HubReport, builder: *String_Builder) -> bool {
         found := false;
-        arr : [15]wgpu.StorageReport = xx *h;
+        arr : [15]wgpu.RegistryReport = xx *h;
         ti := type_info(wgpu.HubReport);
         
         // Skip the first 2 members (adapters & devices)

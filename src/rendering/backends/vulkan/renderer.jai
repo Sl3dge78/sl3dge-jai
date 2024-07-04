@@ -290,7 +290,7 @@ create_instance :: (window: *SDL_Window) -> VkInstance {
     
     layers: [..]*u8; 
     layers.allocator = temp;
-    // array_add(*layers, temp_c_string("VK_LAYER_KHRONOS_validation"));
+    array_add(*layers, temp_c_string("VK_LAYER_KHRONOS_validation"));
 
     extensions: [..]*u8;
     extensions.allocator = temp;
@@ -343,7 +343,7 @@ create_instance :: (window: *SDL_Window) -> VkInstance {
 create_debug_messenger :: (instance: VkInstance) -> VkDebugUtilsMessengerEXT {
     create_info := VkDebugUtilsMessengerCreateInfoEXT.{
         messageSeverity = .WARNING_BIT_EXT | .ERROR_BIT_EXT | .INFO_BIT_EXT, 
-        messageType = .GENERAL_BIT_EXT | .VALIDATION_BIT_EXT | .PERFORMANCE_BIT_EXT | .DEVICE_ADDRESS_BINDING_BIT_EXT,
+        messageType = .GENERAL_BIT_EXT | .VALIDATION_BIT_EXT | .PERFORMANCE_BIT_EXT, 
         pfnUserCallback = debug_callback,
         pUserData = *context,
     };

@@ -13,7 +13,7 @@ File_Watcher :: #import "File_Watcher";
 #import "stb_image";
 #import,dir "modules/stb_truetype";
 
-#if 0 {
+#if 1 {
     #load "src/rendering/backends/webgpu.jai";
 } else {
     #load "src/rendering/backends/vulkan.jai";

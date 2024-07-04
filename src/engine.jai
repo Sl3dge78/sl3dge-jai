@@ -44,9 +44,9 @@ engine_update :: (delta_time: float) {
     update_tweens(delta_time);
 }
 
-engine_draw :: (framebuffer: *Render_Texture, command_buffer: VkCommandBuffer) {
+engine_draw :: (framebuffer: *Render_Texture, cmd: wgpu.CommandEncoder, rp_cmd: wgpu.RenderPassEncoder) {
     // @TODO
-    imm := immediate_begin_in_place(framebuffer, command_buffer);
+    imm := immediate_begin_in_place(framebuffer, cmd, rp_cmd);
     defer immediate_end_in_place(*imm);
     console_draw(*imm, *global_engine.default_font);
     if global_engine.draw_perf_overlay {

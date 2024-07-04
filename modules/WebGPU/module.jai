@@ -1,7 +1,7 @@
 //
 // This file was auto-generated using the following command:
 //
-// jai C:/Users/Guigui/Work/ship_os/modules/sl3dge-jai/modules/WebGPU/generate.jai
+// jai generate.jai
 //
 
 
@@ -60,7 +60,7 @@ Texture :: *TextureImpl;
 TextureViewImpl :: struct {}
 TextureView :: *TextureViewImpl;
 
-AdapterType :: enum s32 {
+AdapterType :: enum u32 {
     DiscreteGPU   :: 0;
     IntegratedGPU :: 1;
     CPU           :: 2;
@@ -74,7 +74,7 @@ AdapterType :: enum s32 {
     WGPUAdapterType_Force32       :: Force32;
 }
 
-AddressMode :: enum s32 {
+AddressMode :: enum u32 {
     Repeat       :: 0;
     MirrorRepeat :: 1;
     ClampToEdge  :: 2;
@@ -86,7 +86,7 @@ AddressMode :: enum s32 {
     WGPUAddressMode_Force32      :: Force32;
 }
 
-BackendType :: enum s32 {
+BackendType :: enum u32 {
     Undefined :: 0;
     Null      :: 1;
     WebGPU    :: 2;
@@ -110,7 +110,7 @@ BackendType :: enum s32 {
     WGPUBackendType_Force32   :: Force32;
 }
 
-BlendFactor :: enum s32 {
+BlendFactor :: enum u32 {
     Zero              :: 0;
     One               :: 1;
     Src               :: 2;
@@ -142,7 +142,7 @@ BlendFactor :: enum s32 {
     WGPUBlendFactor_Force32           :: Force32;
 }
 
-BlendOperation :: enum s32 {
+BlendOperation :: enum u32 {
     Add             :: 0;
     Subtract        :: 1;
     ReverseSubtract :: 2;
@@ -158,7 +158,7 @@ BlendOperation :: enum s32 {
     WGPUBlendOperation_Force32         :: Force32;
 }
 
-BufferBindingType :: enum s32 {
+BufferBindingType :: enum u32 {
     Undefined       :: 0;
     Uniform         :: 1;
     Storage         :: 2;
@@ -172,7 +172,7 @@ BufferBindingType :: enum s32 {
     WGPUBufferBindingType_Force32         :: Force32;
 }
 
-BufferMapAsyncStatus :: enum s32 {
+BufferMapAsyncStatus :: enum u32 {
     Success                 :: 0;
     ValidationError         :: 1;
     Unknown                 :: 2;
@@ -196,7 +196,7 @@ BufferMapAsyncStatus :: enum s32 {
     WGPUBufferMapAsyncStatus_Force32                 :: Force32;
 }
 
-BufferMapState :: enum s32 {
+BufferMapState :: enum u32 {
     Unmapped :: 0;
     Pending  :: 1;
     Mapped   :: 2;
@@ -208,7 +208,7 @@ BufferMapState :: enum s32 {
     WGPUBufferMapState_Force32  :: Force32;
 }
 
-CompareFunction :: enum s32 {
+CompareFunction :: enum u32 {
     Undefined    :: 0;
     Never        :: 1;
     Less         :: 2;
@@ -232,7 +232,7 @@ CompareFunction :: enum s32 {
     WGPUCompareFunction_Force32      :: Force32;
 }
 
-CompilationInfoRequestStatus :: enum s32 {
+CompilationInfoRequestStatus :: enum u32 {
     Success    :: 0;
     Error      :: 1;
     DeviceLost :: 2;
@@ -246,7 +246,7 @@ CompilationInfoRequestStatus :: enum s32 {
     WGPUCompilationInfoRequestStatus_Force32    :: Force32;
 }
 
-CompilationMessageType :: enum s32 {
+CompilationMessageType :: enum u32 {
     Error   :: 0;
     Warning :: 1;
     Info    :: 2;
@@ -258,7 +258,7 @@ CompilationMessageType :: enum s32 {
     WGPUCompilationMessageType_Force32 :: Force32;
 }
 
-CompositeAlphaMode :: enum s32 {
+CompositeAlphaMode :: enum u32 {
     Auto            :: 0;
     Opaque          :: 1;
     Premultiplied   :: 2;
@@ -274,7 +274,7 @@ CompositeAlphaMode :: enum s32 {
     WGPUCompositeAlphaMode_Force32         :: Force32;
 }
 
-CreatePipelineAsyncStatus :: enum s32 {
+CreatePipelineAsyncStatus :: enum u32 {
     Success         :: 0;
     ValidationError :: 1;
     InternalError   :: 2;
@@ -292,7 +292,7 @@ CreatePipelineAsyncStatus :: enum s32 {
     WGPUCreatePipelineAsyncStatus_Force32         :: Force32;
 }
 
-CullMode :: enum s32 {
+CullMode :: enum u32 {
     None    :: 0;
     Front   :: 1;
     Back    :: 2;
@@ -304,7 +304,7 @@ CullMode :: enum s32 {
     WGPUCullMode_Force32 :: Force32;
 }
 
-DeviceLostReason :: enum s32 {
+DeviceLostReason :: enum u32 {
     Undefined :: 0;
     Destroyed :: 1;
     Force32   :: 2147483647;
@@ -314,7 +314,7 @@ DeviceLostReason :: enum s32 {
     WGPUDeviceLostReason_Force32   :: Force32;
 }
 
-ErrorFilter :: enum s32 {
+ErrorFilter :: enum u32 {
     Validation  :: 0;
     OutOfMemory :: 1;
     Internal    :: 2;
@@ -326,7 +326,7 @@ ErrorFilter :: enum s32 {
     WGPUErrorFilter_Force32     :: Force32;
 }
 
-ErrorType :: enum s32 {
+ErrorType :: enum u32 {
     NoError     :: 0;
     Validation  :: 1;
     OutOfMemory :: 2;
@@ -344,7 +344,7 @@ ErrorType :: enum s32 {
     WGPUErrorType_Force32     :: Force32;
 }
 
-FeatureName :: enum s32 {
+FeatureName :: enum u32 {
     Undefined               :: 0;
     DepthClipControl        :: 1;
     Depth32FloatStencil8    :: 2;
@@ -357,12 +357,6 @@ FeatureName :: enum s32 {
     RG11B10UfloatRenderable :: 9;
     BGRA8UnormStorage       :: 10;
     Float32Filterable       :: 11;
-    // Native Features
-    PushConstants                        :: 1610612737;
-    TextureAdapterSpecificFormatFeatures :: 1610612738;
-    MultiDrawIndirect                    :: 1610612739;
-    MultiDrawIndirectCount               :: 1610612740;
-    VertexWritableStorage                :: 1610612741;
     Force32                 :: 2147483647;
 
     WGPUFeatureName_Undefined               :: Undefined;
@@ -378,16 +372,9 @@ FeatureName :: enum s32 {
     WGPUFeatureName_BGRA8UnormStorage       :: BGRA8UnormStorage;
     WGPUFeatureName_Float32Filterable       :: Float32Filterable;
     WGPUFeatureName_Force32                 :: Force32;
-
-    WGPUNativeFeature_PushConstants                        :: PushConstants;
-    WGPUNativeFeature_TextureAdapterSpecificFormatFeatures :: TextureAdapterSpecificFormatFeatures;
-    WGPUNativeFeature_MultiDrawIndirect                    :: MultiDrawIndirect;
-    WGPUNativeFeature_MultiDrawIndirectCount               :: MultiDrawIndirectCount;
-    WGPUNativeFeature_VertexWritableStorage                :: VertexWritableStorage;
-    WGPUNativeFeature_Force32                              :: Force32;
 }
 
-FilterMode :: enum s32 {
+FilterMode :: enum u32 {
     Nearest :: 0;
     Linear  :: 1;
     Force32 :: 2147483647;
@@ -397,7 +384,7 @@ FilterMode :: enum s32 {
     WGPUFilterMode_Force32 :: Force32;
 }
 
-FrontFace :: enum s32 {
+FrontFace :: enum u32 {
     CCW     :: 0;
     CW      :: 1;
     Force32 :: 2147483647;
@@ -407,7 +394,7 @@ FrontFace :: enum s32 {
     WGPUFrontFace_Force32 :: Force32;
 }
 
-IndexFormat :: enum s32 {
+IndexFormat :: enum u32 {
     Undefined :: 0;
     Uint16    :: 1;
     Uint32    :: 2;
@@ -419,7 +406,7 @@ IndexFormat :: enum s32 {
     WGPUIndexFormat_Force32   :: Force32;
 }
 
-LoadOp :: enum s32 {
+LoadOp :: enum u32 {
     Undefined :: 0;
     Clear     :: 1;
     Load      :: 2;
@@ -431,7 +418,7 @@ LoadOp :: enum s32 {
     WGPULoadOp_Force32   :: Force32;
 }
 
-MipmapFilterMode :: enum s32 {
+MipmapFilterMode :: enum u32 {
     Nearest :: 0;
     Linear  :: 1;
     Force32 :: 2147483647;
@@ -441,7 +428,7 @@ MipmapFilterMode :: enum s32 {
     WGPUMipmapFilterMode_Force32 :: Force32;
 }
 
-PowerPreference :: enum s32 {
+PowerPreference :: enum u32 {
     Undefined       :: 0;
     LowPower        :: 1;
     HighPerformance :: 2;
@@ -453,7 +440,7 @@ PowerPreference :: enum s32 {
     WGPUPowerPreference_Force32         :: Force32;
 }
 
-PresentMode :: enum s32 {
+PresentMode :: enum u32 {
     Fifo        :: 0;
     FifoRelaxed :: 1;
     Immediate   :: 2;
@@ -467,7 +454,7 @@ PresentMode :: enum s32 {
     WGPUPresentMode_Force32     :: Force32;
 }
 
-PrimitiveTopology :: enum s32 {
+PrimitiveTopology :: enum u32 {
     PointList     :: 0;
     LineList      :: 1;
     LineStrip     :: 2;
@@ -483,7 +470,7 @@ PrimitiveTopology :: enum s32 {
     WGPUPrimitiveTopology_Force32       :: Force32;
 }
 
-QueryType :: enum s32 {
+QueryType :: enum u32 {
     Occlusion :: 0;
     Timestamp :: 1;
     Force32   :: 2147483647;
@@ -493,7 +480,7 @@ QueryType :: enum s32 {
     WGPUQueryType_Force32   :: Force32;
 }
 
-QueueWorkDoneStatus :: enum s32 {
+QueueWorkDoneStatus :: enum u32 {
     Success    :: 0;
     Error      :: 1;
     Unknown    :: 2;
@@ -507,7 +494,7 @@ QueueWorkDoneStatus :: enum s32 {
     WGPUQueueWorkDoneStatus_Force32    :: Force32;
 }
 
-RequestAdapterStatus :: enum s32 {
+RequestAdapterStatus :: enum u32 {
     Success     :: 0;
     Unavailable :: 1;
     Error       :: 2;
@@ -521,7 +508,7 @@ RequestAdapterStatus :: enum s32 {
     WGPURequestAdapterStatus_Force32     :: Force32;
 }
 
-RequestDeviceStatus :: enum s32 {
+RequestDeviceStatus :: enum u32 {
     Success :: 0;
     Error   :: 1;
     Unknown :: 2;
@@ -533,7 +520,7 @@ RequestDeviceStatus :: enum s32 {
     WGPURequestDeviceStatus_Force32 :: Force32;
 }
 
-SType :: enum s32 {
+SType :: enum u32 {
     Invalid                                  :: 0;
     SurfaceDescriptorFromMetalLayer          :: 1;
     SurfaceDescriptorFromWindowsHWND         :: 2;
@@ -546,17 +533,7 @@ SType :: enum s32 {
     SurfaceDescriptorFromAndroidNativeWindow :: 9;
     SurfaceDescriptorFromXcbWindow           :: 10;
     RenderPassDescriptorMaxDrawCount         :: 15;
-
-    DeviceExtras               :: 196609;
-    RequiredLimitsExtras       :: 196610;
-    PipelineLayoutExtras       :: 196611;
-    ShaderModuleGLSLDescriptor :: 196612;
-    SupportedLimitsExtras      :: 196613;
-    InstanceExtras             :: 196614;
-    BindGroupEntryExtras       :: 196615;
-    BindGroupLayoutEntryExtras :: 196616;
-    QuerySetDescriptorExtras   :: 196617;
-    Force32                          :: 2147483647;
+    Force32                                  :: 2147483647;
 
     WGPUSType_Invalid                                  :: Invalid;
     WGPUSType_SurfaceDescriptorFromMetalLayer          :: SurfaceDescriptorFromMetalLayer;
@@ -571,17 +548,9 @@ SType :: enum s32 {
     WGPUSType_SurfaceDescriptorFromXcbWindow           :: SurfaceDescriptorFromXcbWindow;
     WGPUSType_RenderPassDescriptorMaxDrawCount         :: RenderPassDescriptorMaxDrawCount;
     WGPUSType_Force32                                  :: Force32;
-
-    WGPUSType_DeviceExtras               :: DeviceExtras;
-    WGPUSType_RequiredLimitsExtras       :: RequiredLimitsExtras;
-    WGPUSType_PipelineLayoutExtras       :: PipelineLayoutExtras;
-    WGPUSType_ShaderModuleGLSLDescriptor :: ShaderModuleGLSLDescriptor;
-    WGPUSType_SupportedLimitsExtras      :: SupportedLimitsExtras;
-    WGPUSType_InstanceExtras             :: InstanceExtras;
-    WGPUNativeSType_Force32              :: Force32;
 }
 
-SamplerBindingType :: enum s32 {
+SamplerBindingType :: enum u32 {
     Undefined    :: 0;
     Filtering    :: 1;
     NonFiltering :: 2;
@@ -595,7 +564,7 @@ SamplerBindingType :: enum s32 {
     WGPUSamplerBindingType_Force32      :: Force32;
 }
 
-StencilOperation :: enum s32 {
+StencilOperation :: enum u32 {
     Keep           :: 0;
     Zero           :: 1;
     Replace        :: 2;
@@ -617,17 +586,21 @@ StencilOperation :: enum s32 {
     WGPUStencilOperation_Force32        :: Force32;
 }
 
-StorageTextureAccess :: enum s32 {
+StorageTextureAccess :: enum u32 {
     Undefined :: 0;
     WriteOnly :: 1;
+    ReadOnly  :: 2;
+    ReadWrite :: 3;
     Force32   :: 2147483647;
 
     WGPUStorageTextureAccess_Undefined :: Undefined;
     WGPUStorageTextureAccess_WriteOnly :: WriteOnly;
+    WGPUStorageTextureAccess_ReadOnly  :: ReadOnly;
+    WGPUStorageTextureAccess_ReadWrite :: ReadWrite;
     WGPUStorageTextureAccess_Force32   :: Force32;
 }
 
-StoreOp :: enum s32 {
+StoreOp :: enum u32 {
     Undefined :: 0;
     Store     :: 1;
     Discard   :: 2;
@@ -639,7 +612,7 @@ StoreOp :: enum s32 {
     WGPUStoreOp_Force32   :: Force32;
 }
 
-SurfaceGetCurrentTextureStatus :: enum s32 {
+SurfaceGetCurrentTextureStatus :: enum u32 {
     Success     :: 0;
     Timeout     :: 1;
     Outdated    :: 2;
@@ -657,7 +630,7 @@ SurfaceGetCurrentTextureStatus :: enum s32 {
     WGPUSurfaceGetCurrentTextureStatus_Force32     :: Force32;
 }
 
-TextureAspect :: enum s32 {
+TextureAspect :: enum u32 {
     All         :: 0;
     StencilOnly :: 1;
     DepthOnly   :: 2;
@@ -669,7 +642,7 @@ TextureAspect :: enum s32 {
     WGPUTextureAspect_Force32     :: Force32;
 }
 
-TextureDimension :: enum s32 {
+TextureDimension :: enum u32 {
     _1D     :: 0;
     _2D     :: 1;
     _3D     :: 2;
@@ -681,7 +654,7 @@ TextureDimension :: enum s32 {
     WGPUTextureDimension_Force32 :: Force32;
 }
 
-TextureFormat :: enum s32 {
+TextureFormat :: enum u32 {
     Undefined            :: 0;
     R8Unorm              :: 1;
     R8Snorm              :: 2;
@@ -707,76 +680,77 @@ TextureFormat :: enum s32 {
     RGBA8Sint            :: 22;
     BGRA8Unorm           :: 23;
     BGRA8UnormSrgb       :: 24;
-    RGB10A2Unorm         :: 25;
-    RG11B10Ufloat        :: 26;
-    RGB9E5Ufloat         :: 27;
-    RG32Float            :: 28;
-    RG32Uint             :: 29;
-    RG32Sint             :: 30;
-    RGBA16Uint           :: 31;
-    RGBA16Sint           :: 32;
-    RGBA16Float          :: 33;
-    RGBA32Float          :: 34;
-    RGBA32Uint           :: 35;
-    RGBA32Sint           :: 36;
-    Stencil8             :: 37;
-    Depth16Unorm         :: 38;
-    Depth24Plus          :: 39;
-    Depth24PlusStencil8  :: 40;
-    Depth32Float         :: 41;
-    Depth32FloatStencil8 :: 42;
-    BC1RGBAUnorm         :: 43;
-    BC1RGBAUnormSrgb     :: 44;
-    BC2RGBAUnorm         :: 45;
-    BC2RGBAUnormSrgb     :: 46;
-    BC3RGBAUnorm         :: 47;
-    BC3RGBAUnormSrgb     :: 48;
-    BC4RUnorm            :: 49;
-    BC4RSnorm            :: 50;
-    BC5RGUnorm           :: 51;
-    BC5RGSnorm           :: 52;
-    BC6HRGBUfloat        :: 53;
-    BC6HRGBFloat         :: 54;
-    BC7RGBAUnorm         :: 55;
-    BC7RGBAUnormSrgb     :: 56;
-    ETC2RGB8Unorm        :: 57;
-    ETC2RGB8UnormSrgb    :: 58;
-    ETC2RGB8A1Unorm      :: 59;
-    ETC2RGB8A1UnormSrgb  :: 60;
-    ETC2RGBA8Unorm       :: 61;
-    ETC2RGBA8UnormSrgb   :: 62;
-    EACR11Unorm          :: 63;
-    EACR11Snorm          :: 64;
-    EACRG11Unorm         :: 65;
-    EACRG11Snorm         :: 66;
-    ASTC4x4Unorm         :: 67;
-    ASTC4x4UnormSrgb     :: 68;
-    ASTC5x4Unorm         :: 69;
-    ASTC5x4UnormSrgb     :: 70;
-    ASTC5x5Unorm         :: 71;
-    ASTC5x5UnormSrgb     :: 72;
-    ASTC6x5Unorm         :: 73;
-    ASTC6x5UnormSrgb     :: 74;
-    ASTC6x6Unorm         :: 75;
-    ASTC6x6UnormSrgb     :: 76;
-    ASTC8x5Unorm         :: 77;
-    ASTC8x5UnormSrgb     :: 78;
-    ASTC8x6Unorm         :: 79;
-    ASTC8x6UnormSrgb     :: 80;
-    ASTC8x8Unorm         :: 81;
-    ASTC8x8UnormSrgb     :: 82;
-    ASTC10x5Unorm        :: 83;
-    ASTC10x5UnormSrgb    :: 84;
-    ASTC10x6Unorm        :: 85;
-    ASTC10x6UnormSrgb    :: 86;
-    ASTC10x8Unorm        :: 87;
-    ASTC10x8UnormSrgb    :: 88;
-    ASTC10x10Unorm       :: 89;
-    ASTC10x10UnormSrgb   :: 90;
-    ASTC12x10Unorm       :: 91;
-    ASTC12x10UnormSrgb   :: 92;
-    ASTC12x12Unorm       :: 93;
-    ASTC12x12UnormSrgb   :: 94;
+    RGB10A2Uint          :: 25;
+    RGB10A2Unorm         :: 26;
+    RG11B10Ufloat        :: 27;
+    RGB9E5Ufloat         :: 28;
+    RG32Float            :: 29;
+    RG32Uint             :: 30;
+    RG32Sint             :: 31;
+    RGBA16Uint           :: 32;
+    RGBA16Sint           :: 33;
+    RGBA16Float          :: 34;
+    RGBA32Float          :: 35;
+    RGBA32Uint           :: 36;
+    RGBA32Sint           :: 37;
+    Stencil8             :: 38;
+    Depth16Unorm         :: 39;
+    Depth24Plus          :: 40;
+    Depth24PlusStencil8  :: 41;
+    Depth32Float         :: 42;
+    Depth32FloatStencil8 :: 43;
+    BC1RGBAUnorm         :: 44;
+    BC1RGBAUnormSrgb     :: 45;
+    BC2RGBAUnorm         :: 46;
+    BC2RGBAUnormSrgb     :: 47;
+    BC3RGBAUnorm         :: 48;
+    BC3RGBAUnormSrgb     :: 49;
+    BC4RUnorm            :: 50;
+    BC4RSnorm            :: 51;
+    BC5RGUnorm           :: 52;
+    BC5RGSnorm           :: 53;
+    BC6HRGBUfloat        :: 54;
+    BC6HRGBFloat         :: 55;
+    BC7RGBAUnorm         :: 56;
+    BC7RGBAUnormSrgb     :: 57;
+    ETC2RGB8Unorm        :: 58;
+    ETC2RGB8UnormSrgb    :: 59;
+    ETC2RGB8A1Unorm      :: 60;
+    ETC2RGB8A1UnormSrgb  :: 61;
+    ETC2RGBA8Unorm       :: 62;
+    ETC2RGBA8UnormSrgb   :: 63;
+    EACR11Unorm          :: 64;
+    EACR11Snorm          :: 65;
+    EACRG11Unorm         :: 66;
+    EACRG11Snorm         :: 67;
+    ASTC4x4Unorm         :: 68;
+    ASTC4x4UnormSrgb     :: 69;
+    ASTC5x4Unorm         :: 70;
+    ASTC5x4UnormSrgb     :: 71;
+    ASTC5x5Unorm         :: 72;
+    ASTC5x5UnormSrgb     :: 73;
+    ASTC6x5Unorm         :: 74;
+    ASTC6x5UnormSrgb     :: 75;
+    ASTC6x6Unorm         :: 76;
+    ASTC6x6UnormSrgb     :: 77;
+    ASTC8x5Unorm         :: 78;
+    ASTC8x5UnormSrgb     :: 79;
+    ASTC8x6Unorm         :: 80;
+    ASTC8x6UnormSrgb     :: 81;
+    ASTC8x8Unorm         :: 82;
+    ASTC8x8UnormSrgb     :: 83;
+    ASTC10x5Unorm        :: 84;
+    ASTC10x5UnormSrgb    :: 85;
+    ASTC10x6Unorm        :: 86;
+    ASTC10x6UnormSrgb    :: 87;
+    ASTC10x8Unorm        :: 88;
+    ASTC10x8UnormSrgb    :: 89;
+    ASTC10x10Unorm       :: 90;
+    ASTC10x10UnormSrgb   :: 91;
+    ASTC12x10Unorm       :: 92;
+    ASTC12x10UnormSrgb   :: 93;
+    ASTC12x12Unorm       :: 94;
+    ASTC12x12UnormSrgb   :: 95;
     Force32              :: 2147483647;
 
     WGPUTextureFormat_Undefined            :: Undefined;
@@ -804,6 +778,7 @@ TextureFormat :: enum s32 {
     WGPUTextureFormat_RGBA8Sint            :: RGBA8Sint;
     WGPUTextureFormat_BGRA8Unorm           :: BGRA8Unorm;
     WGPUTextureFormat_BGRA8UnormSrgb       :: BGRA8UnormSrgb;
+    WGPUTextureFormat_RGB10A2Uint          :: RGB10A2Uint;
     WGPUTextureFormat_RGB10A2Unorm         :: RGB10A2Unorm;
     WGPUTextureFormat_RG11B10Ufloat        :: RG11B10Ufloat;
     WGPUTextureFormat_RGB9E5Ufloat         :: RGB9E5Ufloat;
@@ -877,7 +852,7 @@ TextureFormat :: enum s32 {
     WGPUTextureFormat_Force32              :: Force32;
 }
 
-TextureSampleType :: enum s32 {
+TextureSampleType :: enum u32 {
     Undefined         :: 0;
     Float             :: 1;
     UnfilterableFloat :: 2;
@@ -895,7 +870,7 @@ TextureSampleType :: enum s32 {
     WGPUTextureSampleType_Force32           :: Force32;
 }
 
-TextureViewDimension :: enum s32 {
+TextureViewDimension :: enum u32 {
     Undefined :: 0;
     _1D       :: 1;
     _2D       :: 2;
@@ -915,7 +890,7 @@ TextureViewDimension :: enum s32 {
     WGPUTextureViewDimension_Force32   :: Force32;
 }
 
-VertexFormat :: enum s32 {
+VertexFormat :: enum u32 {
     Undefined :: 0;
     Uint8x2   :: 1;
     Uint8x4   :: 2;
@@ -983,7 +958,7 @@ VertexFormat :: enum s32 {
     WGPUVertexFormat_Force32   :: Force32;
 }
 
-VertexStepMode :: enum s32 {
+VertexStepMode :: enum u32 {
     Vertex              :: 0;
     Instance            :: 1;
     VertexBufferNotUsed :: 2;
@@ -995,7 +970,7 @@ VertexStepMode :: enum s32 {
     WGPUVertexStepMode_Force32             :: Force32;
 }
 
-BufferUsage :: enum_flags s32 {
+BufferUsage :: enum u32 {
     None         :: 0;
     MapRead      :: 1;
     MapWrite     :: 2;
@@ -1369,26 +1344,22 @@ ShaderModuleCompilationHint :: struct {
 
 // Can be chained in WGPUShaderModuleDescriptor
 ShaderModuleSPIRVDescriptor :: struct {
-    chain:    ChainedStruct = .{
-        sType = .ShaderModuleSPIRVDescriptor,   
-    };
+    chain:    ChainedStruct;
     codeSize: u32;
     code:     *u32;
 }
 
 // Can be chained in WGPUShaderModuleDescriptor
 ShaderModuleWGSLDescriptor :: struct {
-    chain: ChainedStruct = .{
-        sType = SType.ShaderModuleWGSLDescriptor,
-    };
+    chain: ChainedStruct;
     code:  *u8;
 }
 
 StencilFaceState :: struct {
-    compare:     CompareFunction = .Always;
-    failOp:      StencilOperation = .Keep;
-    depthFailOp: StencilOperation = .Keep;
-    passOp:      StencilOperation = .Keep;
+    compare:     CompareFunction;
+    failOp:      StencilOperation;
+    depthFailOp: StencilOperation;
+    passOp:      StencilOperation;
 }
 
 StorageTextureBindingLayout :: struct {
@@ -1428,62 +1399,48 @@ SurfaceDescriptor :: struct {
 
 // Can be chained in WGPUSurfaceDescriptor
 SurfaceDescriptorFromAndroidNativeWindow :: struct {
-    chain:  ChainedStruct = .{
-        sType = .SurfaceDescriptorFromAndroidNativeWindow,
-    };
+    chain:  ChainedStruct;
     window: *void;
 }
 
 // Can be chained in WGPUSurfaceDescriptor
 SurfaceDescriptorFromCanvasHTMLSelector :: struct {
-    chain:    ChainedStruct = .{
-        sType = .SurfaceDescriptorFromCanvasHTMLSelector,
-    };
+    chain:    ChainedStruct;
     selector: *u8;
 }
 
 // Can be chained in WGPUSurfaceDescriptor
 SurfaceDescriptorFromMetalLayer :: struct {
-    chain: ChainedStruct = .{
-        sType = .SurfaceDescriptorFromMetalLayer,
-    };
+    chain: ChainedStruct;
     layer: *void;
 }
 
 // Can be chained in WGPUSurfaceDescriptor
 SurfaceDescriptorFromWaylandSurface :: struct {
-    chain:   ChainedStruct = .{
-        sType = .SurfaceDescriptorFromWaylandSurface,
-    };
+    chain:   ChainedStruct;
     display: *void;
     surface: *void;
 }
 
 // Can be chained in WGPUSurfaceDescriptor
 SurfaceDescriptorFromWindowsHWND :: struct {
-    chain:     ChainedStruct = .{
-        sType = .SurfaceDescriptorFromWindowsHWND,
-    };
+    chain:     ChainedStruct;
     hinstance: *void;
     hwnd:      *void;
 }
 
 // Can be chained in WGPUSurfaceDescriptor
 SurfaceDescriptorFromXcbWindow :: struct {
-    chain:      ChainedStruct = .{
-        sType = .SurfaceDescriptorFromXcbWindow,
-    };
+    chain:      ChainedStruct;
     connection: *void;
     window:     u32;
 }
 
 // Can be chained in WGPUSurfaceDescriptor
 SurfaceDescriptorFromXlibWindow :: struct {
-    chain:   ChainedStruct = .{
-        sType = .SurfaceDescriptorFromXlibWindow,
-    };
+    chain:   ChainedStruct;
     display: *void;
-    window:  u32;
+    window:  u64;
 }
 
 SurfaceTexture :: struct {
@@ -2172,7 +2129,7 @@ TextureViewSetLabel :: (textureView: TextureView, label: *u8) -> void #foreign w
 TextureViewReference :: (textureView: TextureView) -> void #foreign wgpu_native "wgpuTextureViewReference";
 TextureViewRelease :: (textureView: TextureView) -> void #foreign wgpu_native "wgpuTextureViewRelease";
 
-NativeSType :: enum s32 {
+NativeSType :: enum u32 {
     SType_DeviceExtras               :: 196609;
     SType_RequiredLimitsExtras       :: 196610;
     SType_PipelineLayoutExtras       :: 196611;
@@ -2182,6 +2139,7 @@ NativeSType :: enum s32 {
     SType_BindGroupEntryExtras       :: 196615;
     SType_BindGroupLayoutEntryExtras :: 196616;
     SType_QuerySetDescriptorExtras   :: 196617;
+    SType_SurfaceConfigurationExtras :: 196618;
     Force32                          :: 2147483647;
 
     WGPUSType_DeviceExtras               :: SType_DeviceExtras;
@@ -2193,10 +2151,11 @@ NativeSType :: enum s32 {
     WGPUSType_BindGroupEntryExtras       :: SType_BindGroupEntryExtras;
     WGPUSType_BindGroupLayoutEntryExtras :: SType_BindGroupLayoutEntryExtras;
     WGPUSType_QuerySetDescriptorExtras   :: SType_QuerySetDescriptorExtras;
+    WGPUSType_SurfaceConfigurationExtras :: SType_SurfaceConfigurationExtras;
     WGPUNativeSType_Force32              :: Force32;
 }
 
-NativeFeature :: enum s32 {
+NativeFeature :: enum u32 {
     PushConstants                                         :: 196609;
     TextureAdapterSpecificFormatFeatures                  :: 196610;
     MultiDrawIndirect                                     :: 196611;
@@ -2205,6 +2164,8 @@ NativeFeature :: enum s32 {
     TextureBindingArray                                   :: 196614;
     SampledTextureAndStorageBufferArrayNonUniformIndexing :: 196615;
     PipelineStatisticsQuery                               :: 196616;
+    StorageResourceBindingArray                           :: 196617;
+    PartiallyBoundBindingArray                            :: 196618;
     Force32                                               :: 2147483647;
 
     WGPUNativeFeature_PushConstants                                         :: PushConstants;
@@ -2215,10 +2176,12 @@ NativeFeature :: enum s32 {
     WGPUNativeFeature_TextureBindingArray                                   :: TextureBindingArray;
     WGPUNativeFeature_SampledTextureAndStorageBufferArrayNonUniformIndexing :: SampledTextureAndStorageBufferArrayNonUniformIndexing;
     WGPUNativeFeature_PipelineStatisticsQuery                               :: PipelineStatisticsQuery;
+    WGPUNativeFeature_StorageResourceBindingArray                           :: StorageResourceBindingArray;
+    WGPUNativeFeature_PartiallyBoundBindingArray                            :: PartiallyBoundBindingArray;
     WGPUNativeFeature_Force32                                               :: Force32;
 }
 
-LogLevel :: enum s32 {
+LogLevel :: enum u32 {
     Off     :: 0;
     Error   :: 1;
     Warn    :: 2;
@@ -2280,7 +2243,7 @@ InstanceFlag :: enum_flags s32 {
 
 InstanceFlags :: InstanceFlag;
 
-Dx12Compiler :: enum s32 {
+Dx12Compiler :: enum u32 {
     Undefined :: 0;
     Fxc       :: 1;
     Dxc       :: 2;
@@ -2292,7 +2255,7 @@ Dx12Compiler :: enum s32 {
     WGPUDx12Compiler_Force32   :: Force32;
 }
 
-Gles3MinorVersion :: enum s32 {
+Gles3MinorVersion :: enum u32 {
     Automatic :: 0;
     Version0  :: 1;
     Version1  :: 2;
@@ -2306,7 +2269,7 @@ Gles3MinorVersion :: enum s32 {
     WGPUGles3MinorVersion_Force32   :: Force32;
 }
 
-PipelineStatisticName :: enum s32 {
+PipelineStatisticName :: enum u32 {
     VertexShaderInvocations   :: 0;
     ClipperInvocations        :: 1;
     ClipperPrimitivesOut      :: 2;
@@ -2322,7 +2285,7 @@ PipelineStatisticName :: enum s32 {
     WGPUPipelineStatisticName_Force32                   :: Force32;
 }
 
-NativeQueryType :: enum s32 {
+NativeQueryType :: enum u32 {
     PipelineStatistics :: 196608;
     Force32            :: 2147483647;
 
@@ -2331,9 +2294,7 @@ NativeQueryType :: enum s32 {
 }
 
 InstanceExtras :: struct {
-    chain:              ChainedStruct = .{
-        sType = .InstanceExtras,  
-    };
+    chain:              ChainedStruct;
     backends:           InstanceBackendFlags;
     flags:              InstanceFlags;
     dx12ShaderCompiler: Dx12Compiler;
@@ -2343,9 +2304,7 @@ InstanceExtras :: struct {
 }
 
 DeviceExtras :: struct {
-    chain:     ChainedStruct = .{
-        sType = .DeviceExtras,   
-    };
+    chain:     ChainedStruct;
     tracePath: *u8;
 }
 
@@ -2355,9 +2314,7 @@ NativeLimits :: struct {
 }
 
 RequiredLimitsExtras :: struct {
-    chain:  ChainedStruct = .{
-        sType = .RequiredLimitsExtras,
-    };
+    chain:  ChainedStruct;
     limits: NativeLimits;
 }
 
@@ -2373,10 +2330,8 @@ PushConstantRange :: struct {
 }
 
 PipelineLayoutExtras :: struct {
-    chain: ChainedStruct = .{    
-        sType = .PipelineLayoutExtras,
-    };
-    pushConstantRangeCount: u32;
+    chain:                  ChainedStruct;
+    pushConstantRangeCount: u64;
     pushConstantRanges:     *PushConstantRange;
 }
 
@@ -2400,38 +2355,39 @@ ShaderModuleGLSLDescriptor :: struct {
     defines:     *ShaderDefine;
 }
 
-StorageReport :: struct {
-    numOccupied: u64;
-    numVacant:   u64;
-    numError:    u64;
-    elementSize: u64;
+RegistryReport :: struct {
+    numAllocated:        u64;
+    numKeptFromUser:     u64;
+    numReleasedFromUser: u64;
+    numError:            u64;
+    elementSize:         u64;
 }
 
 HubReport :: struct {
-    adapters:         StorageReport;
-    devices:          StorageReport;
-    pipelineLayouts:  StorageReport;
-    shaderModules:    StorageReport;
-    bindGroupLayouts: StorageReport;
-    bindGroups:       StorageReport;
-    commandBuffers:   StorageReport;
-    renderBundles:    StorageReport;
-    renderPipelines:  StorageReport;
-    computePipelines: StorageReport;
-    querySets:        StorageReport;
-    buffers:          StorageReport;
-    textures:         StorageReport;
-    textureViews:     StorageReport;
-    samplers:         StorageReport;
+    adapters:         RegistryReport;
+    devices:          RegistryReport;
+    queues:           RegistryReport;
+    pipelineLayouts:  RegistryReport;
+    shaderModules:    RegistryReport;
+    bindGroupLayouts: RegistryReport;
+    bindGroups:       RegistryReport;
+    commandBuffers:   RegistryReport;
+    renderBundles:    RegistryReport;
+    renderPipelines:  RegistryReport;
+    computePipelines: RegistryReport;
+    querySets:        RegistryReport;
+    buffers:          RegistryReport;
+    textures:         RegistryReport;
+    textureViews:     RegistryReport;
+    samplers:         RegistryReport;
 }
 
 GlobalReport :: struct {
-    surfaces:    StorageReport;
+    surfaces:    RegistryReport;
     backendType: BackendType;
     vulkan:      HubReport;
     metal:       HubReport;
     dx12:        HubReport;
-    dx11:        HubReport;
     gl:          HubReport;
 }
 
@@ -2459,6 +2415,11 @@ QuerySetDescriptorExtras :: struct {
     chain:                  ChainedStruct;
     pipelineStatistics:     *PipelineStatisticName;
     pipelineStatisticCount: u64;
+}
+
+SurfaceConfigurationExtras :: struct {
+    chain:                      ChainedStruct;
+    desiredMaximumFrameLatency: bool;
 }
 
 LogCallback :: #type (level: LogLevel, message: *u8, userdata: *void) -> void #c_call;
@@ -2492,11 +2453,11 @@ RenderPassEncoderEndPipelineStatisticsQuery :: (renderPassEncoder: RenderPassEnc
 
 #scope_file
 
-// Generated with wgpu-native v0.18.1.2
+// Generated with wgpu-native v0.19.4.1
 #scope_file
 
 #if OS == .WINDOWS {
-    wgpu_native :: #library,no_dll "windows/wgpu_native";
+    wgpu_native :: #library,no_dll "wgpu_native";
 } else #if OS == .LINUX {
     wgpu_native :: #library,no_dll "linux/libwgpu_native";
 } else {
