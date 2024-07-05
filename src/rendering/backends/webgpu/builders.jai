@@ -53,7 +53,6 @@ get_vertex_layout :: (type: Type, shader_location_offset := 0) -> wgpu.VertexBuf
     attributes := NewArray(info.members.count, wgpu.VertexAttribute,, allocator = temp);
 
     for info.members {
-        // .{ format = .Float32x2, offset = 0, shaderLocation = 0 },
         format: wgpu.VertexFormat;
 
         if it.type.type == {
@@ -150,20 +149,21 @@ pipeline_builder_build :: (using builder: *Pipeline_Builder, device: wgpu.Device
 
     // Fragment
     if fragment.module != null {
+        blend := wgpu.BlendState.{
+            color = .{
+                operation = .Add, 
+                srcFactor = .SrcAlpha,
+                dstFactor = .OneMinusSrcAlpha,
+            },
+            alpha = .{
+                operation = .Add,
+                srcFactor = .SrcAlpha,
+                dstFactor = .OneMinusSrcAlpha,
+            },
+        };
         color_target := wgpu.ColorTargetState.{
             format = global_renderer.surface_format, // @Hardcoded
-            blend = *wgpu.BlendState.{
-                color = .{
-                    operation = .Add, 
-                    srcFactor = .SrcAlpha,
-                    dstFactor = .OneMinusSrcAlpha,
-                },
-                alpha = .{
-                    operation = .Add,
-                    srcFactor = .SrcAlpha,
-                    dstFactor = .OneMinusSrcAlpha,
-                },
-            },
+            blend = *blend,
             writeMask = xx wgpu.ColorWriteMask.All,
         };
         fragment.targetCount = 1;
@@ -182,11 +182,7 @@ pipeline_builder_build :: (using builder: *Pipeline_Builder, device: wgpu.Device
 
 
 Pipeline_Layout_Builder :: struct {
-    push_constant_range := wgpu.PushConstantRange.{
-        stages = .Vertex,
-        start = 0,
-        end = size_of(Vector2) * 2,
-    };
+    push_constant_range : wgpu.PushConstantRange;
     bind_groups : [..] wgpu.BindGroupLayout;
 }
 
@@ -203,8 +199,9 @@ add_bind_groups :: (using builder: *Pipeline_Layout_Builder, bind_group_layouts:
 
 pipeline_layout_builder_build :: (using builder: *Pipeline_Layout_Builder, device: wgpu.Device) -> wgpu.PipelineLayout {
     extras := wgpu.PipelineLayoutExtras.{
+        chain = .{ sType = xx wgpu.NativeSType.SType_PipelineLayoutExtras },
         pushConstantRangeCount = 1,
-        pushConstantRanges = *push_constant_range
+        pushConstantRanges = *builder.push_constant_range
     };
 
     layout_desc := wgpu.PipelineLayoutDescriptor.{
@@ -255,6 +252,7 @@ bindings_builder_build :: (using builder: *Bindings_Builder) -> wgpu.BindGroupLa
 
 shader_module_create :: (code: string, device: wgpu.Device) -> wgpu.ShaderModule {
     wgsl_desc := wgpu.ShaderModuleWGSLDescriptor.{
+        chain = .{ sType = .ShaderModuleWGSLDescriptor },
         code = code.data,
     };
 

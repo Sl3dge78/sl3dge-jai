@@ -1,7 +1,8 @@
 // This offers an api for easy drawing to a render target in a single pass
 // Perfect for UIs
 Immediate :: struct  {
-    target: *Render_Texture;
+    target_w: u32;
+    target_h: u32;
     cmd : wgpu.CommandEncoder;
     rp_cmd: wgpu.RenderPassEncoder;
     current_pipeline : wgpu.RenderPipeline;
@@ -26,14 +27,15 @@ flush :: (using immediate: *Immediate) {
 
 #scope_export
 
-immediate_begin :: (render_target: *Render_Texture, label : string = "") -> Immediate {
+immediate_begin :: (render_target: Render_Texture, label := "") -> Immediate {
     result : Immediate;
-    result.target = render_target;
+    result.target_w = render_target.w;
+    result.target_h = render_target.h;
     result.vertices.allocator = temp;
 
     {
         desc := wgpu.CommandEncoderDescriptor.{
-            label = to_c_string(label)
+            label = temp_c_string(label)
         };
         result.cmd = wgpu.DeviceCreateCommandEncoder(global_renderer.device, *desc);
     }
@@ -52,62 +54,41 @@ immediate_begin :: (render_target: *Render_Texture, label : string = "") -> Imme
         };
         result.rp_cmd = wgpu.CommandEncoderBeginRenderPass(result.cmd, *desc);
     }
+    immediate_use_shader(*result, global_renderer.ui_pipeline);
     return result;
 }
 
-immediate_end :: (using immediate: *Immediate) {
+immediate_end :: (using immediate: *Immediate, frame_data: *Frame_Data) {
     flush(immediate);
     wgpu.RenderPassEncoderEnd(rp_cmd);
     wgpu.RenderPassEncoderRelease(rp_cmd);
 
-    renderer_push_command_encoder(*cmd);
-}
-
-immediate_begin_rendering :: (using self: *Immediate) {
-    // color_attachment := VkRenderingAttachmentInfo.{
-    //     imageView = target.view,
-    //     imageLayout = .COLOR_ATTACHMENT_OPTIMAL,
-    //     loadOp = .LOAD,
-    //     storeOp = .STORE,
-    //     clearValue = .{color = .{ _float32 = .[0, 0, 0, 1]}},
-    // };
-
-    // rendering_info := VkRenderingInfo.{
-    //     renderArea = .{
-    //         offset = .{0, 0},
-    //         extent = .{target.w, target.h},
-    //     },
-    //     layerCount = 1,
-    //     colorAttachmentCount = 1,
-    //     pColorAttachments = *color_attachment,
-    // };
-    // vkCmdBeginRendering(command_buffer, *rendering_info);
-
-    // vkCmdBindPipeline(command_buffer, .GRAPHICS, global_renderer.ui_pipeline.pipeline);
-    // current_pipeline = global_renderer.ui_pipeline;
-
-    // viewport := VkViewport.{0, xx target.h, xx target.w, -(cast(float)target.h), 0, 1};
-    // vkCmdSetViewport(command_buffer, 0, 1, *viewport);
-    // rect :=VkRect2D.{.{0, 0} , .{target.w, target.w}};
-    // vkCmdSetScissor(command_buffer, 0, 1, *rect);
-
-    // pc := UI_Push_Constants.{.{2.0 / cast(float)target.w, -2.0 / cast(float)target.h}, .{-1, 1}};
-    // vkCmdPushConstants(command_buffer, global_renderer.ui_pipeline.layout, .VERTEX_BIT, 0, size_of(type_of(pc)), *pc);
-    // vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, global_renderer.ui_pipeline.layout, 0, 1, *global_renderer.empty_texture_descriptor_set, 0, null);
-
-
-    
+    push_command_encoder(frame_data, *cmd);
 }
 
 // Variant to embed the immediate in a command buffer
-immediate_begin_in_place :: (render_target: *Render_Texture, command_encoder: wgpu.CommandEncoder, rp_enc : wgpu.RenderPassEncoder) -> Immediate {
+immediate_begin_in_place :: (render_target: Texture, cmd: wgpu.CommandEncoder) -> Immediate {
     self: Immediate;
-    self.target = render_target;
-    self.cmd = command_encoder;
-    self.rp_cmd = rp_enc;
+    self.target_w = render_target.w;
+    self.target_h = render_target.h;
+    self.cmd = cmd;
     self.vertices.allocator = temp;
 
-    immediate_begin_rendering(*self);
+    {
+        attachment := wgpu.RenderPassColorAttachment.{
+            view = render_target.view,
+            loadOp = .Load,
+            storeOp = .Store,
+            clearValue = .{0, 0, 0, 1},
+        };
+
+        desc := wgpu.RenderPassDescriptor.{
+            colorAttachmentCount = 1,
+            colorAttachments = *attachment,
+        };
+        self.rp_cmd = wgpu.CommandEncoderBeginRenderPass(self.cmd, *desc);
+    }
+    immediate_use_shader(*self, global_renderer.ui_pipeline);
     return self;
 }
 
@@ -119,14 +100,14 @@ immediate_end_in_place :: (using self: *Immediate) {
 immediate_use_shader :: (using immediate: *Immediate, pipeline: wgpu.RenderPipeline) {
     wgpu.RenderPassEncoderSetPipeline(rp_cmd, pipeline);
 
-    pc := UI_Push_Constants.{.{2.0 / cast(float)target.w, -2.0 / cast(float)target.h}, .{-1, 1}};
+    pc := UI_Push_Constants.{.{2.0 / cast(float)target_w, -2.0 / cast(float)target_h}, .{-1, 1}};
     wgpu.RenderPassEncoderSetPushConstants(rp_cmd, .Vertex, 0, size_of(type_of(pc)), *pc);
     immediate.current_pipeline = pipeline;
     immediate_default_texture(immediate);
 }
 
 immediate_default_texture :: (using immediate: *Immediate) {
-    immediate_bind_texture(immediate, global_renderer.empty_texture_uniform.bind_group);
+    immediate_bind_texture(immediate, global_renderer.empty_texture_uniform);
 }
 
 immediate_bind_texture :: (using immediate: *Immediate, bind_group: wgpu.BindGroup) {

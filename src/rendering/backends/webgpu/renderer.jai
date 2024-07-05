@@ -13,11 +13,8 @@ Renderer :: struct {
     queue     : wgpu.Queue;
 
     surface_format : wgpu.TextureFormat;
-    surface_texture: wgpu.SurfaceTexture;
-    surface_view   : wgpu.TextureView;
 
     depth_format :: wgpu.TextureFormat.Depth24Plus;
-    command_buffers: [..]wgpu.CommandBuffer;
 
     limits: wgpu.Limits;
     uniform_buffer_alignement: u64;
@@ -43,17 +40,17 @@ Renderer :: struct {
 
     global_matrices_uniform: Uniform;
     empty_texture: Texture;
-    empty_texture_uniform: Uniform_Texture;
+    empty_texture_uniform: wgpu.BindGroup;
 
     shadowmap_matrices_uniform: Uniform;
     shadowmap_framebuffer: Texture;
-    shadowmap_texture_uniform : Uniform_Texture;
+    shadowmap_texture_uniform : wgpu.BindGroup;
 
     projection := Matrix4_Identity;
     view := Matrix4_Identity;
     light_vec : Vector3;            // Direction or Position if point light
 
-    current_scene: *Scene;
+    // current_scene: *Scene;
     vertex_pool: Buffer_Pool = .{
         kind =  .Vertex | .Index | .CopyDst
     };
@@ -70,22 +67,6 @@ Renderer :: struct {
 }
 
 global_renderer : Renderer;
-
-adapter_cb :: (status: wgpu.RequestAdapterStatus, adapter: wgpu.Adapter, message: *u8, userdata: *void) -> void #c_call {
-    if status != .Success {
-        c_print("%\n", message);
-        return;
-    }
-    (cast(*wgpu.Adapter) userdata).* = adapter;
-}
-
-device_cb :: (status: wgpu.RequestDeviceStatus, device: wgpu.Device, message: *u8, userdata: *void) #c_call {
-    if status != .Success {
-        c_print("%\n", message);
-        return;
-    }
-    (cast(*wgpu.Device) userdata).* = device;
-}
 
 renderer_create :: (window: *SDL_Window) -> *Renderer {
     renderer := *global_renderer;
@@ -109,6 +90,7 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
         SDL_VERSION(*sdl_info.version);
         if !SDL_GetWindowWMInfo(window, *sdl_info) {
             log("%", to_string(SDL_GetError()));
+            assert(false);
         }
 
         #if OS == .LINUX {
@@ -149,7 +131,7 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
         props : wgpu.AdapterProperties = ---;
         wgpu.AdapterGetProperties(renderer.adapter, *props);
 
-        log("%", props);
+        log("AdapterProperties : %", props);
         nb := wgpu.AdapterEnumerateFeatures(renderer.adapter, null);
         features := NewArray(xx nb, wgpu.FeatureName,, allocator = temp);
 
@@ -164,6 +146,7 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
         limits := get_required_limits(renderer.adapter);
 
         extras := wgpu.RequiredLimitsExtras.{
+            chain = .{sType = xx wgpu.NativeSType.SType_RequiredLimitsExtras },
             limits = .{
                 maxPushConstantSize = size_of(Standard_Push_Constants),
             }
@@ -178,14 +161,16 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
             xx wgpu.NativeFeature.PushConstants
         ];
 
+        queue_desc := wgpu.QueueDescriptor.{
+            label = "Default Queue",
+        };
+
         desc := wgpu.DeviceDescriptor.{
             label = "Main Device",
             requiredFeatureCount = required_features.count,
             requiredFeatures =      required_features.data,
             requiredLimits = *required_limits,
-            defaultQueue = . {
-                label = "Default Queue",
-            },
+            defaultQueue = queue_desc,
             deviceLostCallback = wgpu_device_lost_callback,
         };
         wgpu.AdapterRequestDevice(renderer.adapter, *desc, device_cb, *renderer.device);
@@ -216,7 +201,7 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
             p_modes.data = caps.presentModes;
             p_modes.count = xx caps.presentModeCount;
             for p_modes {
-                log("%", it);
+                log("\t%", it);
             }
 
         }
@@ -230,20 +215,10 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
             width = 1280,
             height = 720,
             presentMode = .Fifo,
-
         };
         wgpu.SurfaceConfigure(renderer.surface, *config);
-        // desc := wgpu.SwapChainDescriptor.{
-        //     label = "Main SwapChain",
-        //     format = renderer.surface_format,
-        //     usage = xx wgpu.TextureUsage.RenderAttachment,
-        //     width = 1280,
-        //     height = 720,
-        //     presentMode = .Fifo,
-        // };
         renderer.width = 1280;
         renderer.height = 720;
-        // renderer.swapchain = WGPU_Check(wgpu.DeviceCreateSwapChain(renderer.device, renderer.surface, *desc));
     }
 
     {   // Sampler
@@ -282,7 +257,7 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
 
         data := u8.[255, 255, 255, 255];
         renderer.empty_texture = texture_from_data(data.data, 1, 1, 4, u8, "Empty Texture");
-        renderer.empty_texture_uniform = uniform_texture_create(*renderer.empty_texture);
+        renderer.empty_texture_uniform = create_bind_group_from_texture(*renderer.empty_texture);
     }   
 
     {   // Color Uniforms
@@ -296,16 +271,16 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
     {   // Shadowmap Uniforms
         renderer.shadowmap_framebuffer = texture_create(2048, 2048, .TextureBinding | .RenderAttachment, .Depth24Plus);
 
-        renderer.shadowmap_texture_uniform = uniform_texture_create(*renderer.shadowmap_framebuffer, renderer.shadowmap_texture_bgl);
+        renderer.shadowmap_texture_uniform = create_bind_group_from_texture(*renderer.shadowmap_framebuffer, renderer.shadowmap_texture_bgl);
         renderer.shadowmap_matrices_uniform = uniform_create(renderer.device, *renderer.uniform_pool, size_of(Global_Matrices), renderer.global_matrices_bgl);
         
     }
 
-    update_framebuffer(renderer);
+    // update_framebuffer(renderer);
     return renderer;
 }
 
-renderer_destroy :: (using renderer: *Renderer) {
+destroy :: (using renderer: *Renderer) {
     buffer_pool_reset(*vertex_pool);
     buffer_pool_reset(*uniform_pool);
     buffer_pool_reset(*immediate_pool);
@@ -348,72 +323,6 @@ renderer_destroy :: (using renderer: *Renderer) {
     wgpu.InstanceRelease(instance);
 }
 
-renderer_push_command_encoder :: (encoder: *wgpu.CommandEncoder, label := "") {
-    command_buffer := WGPU_Check(wgpu.CommandEncoderFinish(encoder.*, *wgpu.CommandBufferDescriptor.{ label = temp_c_string(label)}));
-    array_add(*global_renderer.command_buffers, command_buffer);
-    encoder.* = null;
-}
-
-end_frame :: () {
-    using renderer := *global_renderer;
-
-    // Upload data
-    // upload(*context.immediate._2d_draw_data);
-    // upload(*context.immediate._3d_draw_data);
-    // if show_debug {
-    //     upload(*context.immediate.debug_draw_data);
-    // }    
-    
-    size:: 20;
-    light_proj := orthographic_projection_matrix(size, -size, -size, size, -size, size, true);
-    light_view := make_look_at_matrix(.{0, 0, 0}, light_vec, .{0, 1, 0}, false);
-    matrices := Global_Matrices.{
-        projection = transpose(projection),
-        view = transpose(view),
-        light = transpose(light_proj * light_view),
-        light_vec = light_vec
-    };
-    uniform_write(global_matrices_uniform, *matrices);
-
-    shadowmap_matrices := Global_Matrices.{
-        projection = transpose(light_proj),
-        view = transpose(light_view),
-        light = matrices.light,
-        light_vec = matrices.light_vec
-    };
-    uniform_write(shadowmap_matrices_uniform, *shadowmap_matrices);
-
-    encoder_desc := wgpu.CommandEncoderDescriptor.{ label = "Main Command Encoder" };
-    command_encoder := WGPU_Check(wgpu.DeviceCreateCommandEncoder(device, *encoder_desc));
-    defer wgpu.CommandEncoderRelease(command_encoder);
-    shadowmap_render_pass(renderer, command_encoder, shadowmap_framebuffer.view);
-    main_render_pass(renderer, command_encoder, global_renderer.surface_view);
-    if show_debug {
-        debug_render_pass(renderer, command_encoder, global_renderer.surface_view);
-    }
-    ui_render_pass(renderer, command_encoder, global_renderer.surface_view);
-    
-    command_buffer := WGPU_Check(wgpu.CommandEncoderFinish(command_encoder, *wgpu.CommandBufferDescriptor.{ label = "Main Command Buffer" }));
-    array_add(*renderer.command_buffers, command_buffer);
-
-    wgpu.QueueSubmit(queue, xx renderer.command_buffers.count, renderer.command_buffers.data);
-
-    // Before present to have the real time
-    frame_end := SDL_GetPerformanceCounter();
-    global_engine.frame_time = cast(float)(frame_end - global_engine.frame_start) / cast(float)SDL_GetPerformanceFrequency();
-    wgpu.SurfacePresent(surface);
-
-    wgpu.TextureViewRelease(renderer.surface_view);
-    
-    for renderer.command_buffers {
-        defer wgpu.CommandBufferRelease(it);
-    }
-    renderer.command_buffers.count = 0;
-
-    buffer_pool_reset_keeping_memory(*global_renderer.immediate_pool);
-    update_framebuffer(*global_renderer);
-}
-
 change_light_vector :: (vec: Vector3) {
     global_renderer.light_vec = vec;
 }
@@ -424,53 +333,6 @@ set_projection_matrix :: (fov: float) {
 
 set_view_matrix :: (view: Matrix4) {
     global_renderer.view = view;
-}
-
-set_scene :: (scene: *Scene) {
-    global_renderer.current_scene = scene;
-}
-
-report_gpu_leaks :: (instance: wgpu.Instance) {
-    storage_report :: (s: wgpu.RegistryReport, name: string, builder: *String_Builder) -> bool {
-        if s.numAllocated == 0 then return false;
-        print_to_builder(builder, "%: %\n", name, s.numAllocated);
-        return true;
-    }
-
-    hub_report :: (h: wgpu.HubReport, builder: *String_Builder) -> bool {
-        found := false;
-        arr : [15]wgpu.RegistryReport = xx *h;
-        ti := type_info(wgpu.HubReport);
-        
-        // Skip the first 2 members (adapters & devices)
-        for 2..ti.members.count - 1 {
-            found |= storage_report(arr[it], ti.members[it].name, builder);
-        }
-        return found;
-    }
-
-    report : wgpu.GlobalReport;
-    wgpu.GenerateReport(instance, *report);
-    
-    builder: String_Builder;
-    found:= false;
-
-    found |= storage_report(report.surfaces, "Surfaces", *builder);
-    if report.backendType == {
-        case .Vulkan; found |= hub_report(report.vulkan, *builder);
-        case .OpenGL; found |= hub_report(report.gl, *builder);
-        case .Metal; found |= hub_report(report.metal, *builder);
-        case .D3D12; found |= hub_report(report.dx12, *builder);
-        case; assert(false, "Memory check unimplemented for backend : %", report.backendType);
-    }
-    
-    if found {
-        log("=== GPU Leaks found ===");
-        str := builder_to_string(*builder);
-        defer free(str);
-        log("%", str);
-    }
-
 }
 
 get_required_limits :: (adapter: wgpu.Adapter) -> wgpu.Limits {
@@ -540,6 +402,7 @@ create_bind_group_layouts :: (using renderer: *Renderer) {
     {   // Global Data
         builder : Bindings_Builder;
         add_entry(*builder, wgpu.BufferBindingLayout.{ type = .Uniform, hasDynamicOffset = false, minBindingSize = xx size_of(Global_Matrices) }, binding = 0, .Vertex | .Fragment);
+        log("Size : %", size_of(Global_Matrices));
         renderer.global_matrices_bgl = bindings_builder_build(*builder);
     }
 
@@ -552,20 +415,20 @@ create_bind_group_layouts :: (using renderer: *Renderer) {
     }
 }
 
-create_ui_pipeline :: (using renderer: *Renderer, shader: string) -> wgpu.RenderPipeline {
-    shader_module := shader_module_create(shader, device);
+create_ui_pipeline :: (renderer: *Renderer, shader: string) -> wgpu.RenderPipeline {
+    shader_module := shader_module_create(shader, renderer.device);
     defer wgpu.ShaderModuleRelease(shader_module);
 
     layout_builder: Pipeline_Layout_Builder;
     set_push_constants(*layout_builder, size_of(UI_Push_Constants), stages = .Vertex);
-    add_bind_groups(*layout_builder, single_texture_bgl);
-    pipeline_layout := pipeline_layout_builder_build(*layout_builder, device);
+    add_bind_groups(*layout_builder, renderer.single_texture_bgl);
+    pipeline_layout := pipeline_layout_builder_build(*layout_builder, renderer.device);
     defer wgpu.PipelineLayoutRelease(pipeline_layout);
 
     builder: Pipeline_Builder;
     add_vertex_shader(*builder, shader_module, "vs_main", UI_Vertex);
     add_fragment_shader(*builder, shader_module, "fs_main");
-    return pipeline_builder_build(*builder, device, pipeline_layout, "UI Pipeline");
+    return pipeline_builder_build(*builder, renderer.device, pipeline_layout, "UI Pipeline");
 }
 
 create_static_mesh_pipeline :: (using renderer: *Renderer) -> [2]wgpu.RenderPipeline {
@@ -585,7 +448,7 @@ create_static_mesh_pipeline :: (using renderer: *Renderer) -> [2]wgpu.RenderPipe
         add_vertex_shader(*builder, shader_module, "static_vs", Standard_Vertex);
         depth_stencil_state(*builder, renderer.depth_format);
         primitive_state(*builder, .TriangleList, cull_mode = .Front);
-        pipelines[0] = pipeline_builder_build(*builder, renderer.device, pipeline_layout, "Static Mesh Color Pipeline");
+        pipelines[0] = pipeline_builder_build(*builder, renderer.device, pipeline_layout, "Static Mesh Shadow Pipeline");
     }
 
     {   // Color
@@ -672,136 +535,7 @@ create_debug_pipeline :: (using renderer: *Renderer) -> wgpu.RenderPipeline {
 
 }
 
-shadowmap_render_pass :: (using renderer: *Renderer, command_encoder: wgpu.CommandEncoder, framebuffer: wgpu.TextureView) {
-    
-    attachment := wgpu.RenderPassDepthStencilAttachment.{
-        view = framebuffer,
-        depthLoadOp = .Clear,
-        depthStoreOp = .Store,
-        depthClearValue = 1,
-        stencilLoadOp = .Clear,
-        stencilStoreOp = .Discard,
-        stencilClearValue = 0,
-        stencilReadOnly = true,
-    };
-    render_pass_desc := wgpu.RenderPassDescriptor.{
-        label = "Shadow Map",
-        depthStencilAttachment = *attachment
-    };
-    render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(command_encoder, *render_pass_desc));
-
-    wgpu.RenderPassEncoderSetPipeline(render_pass, static_mesh_pipelines[0]);
-    wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, shadowmap_matrices_uniform.bind_group, 0, null);
-    // immediate_draw_3d(render_pass);
-    if current_scene {
-        draw_static_meshes(current_scene, render_pass);
-    
-
-        wgpu.RenderPassEncoderSetPipeline(render_pass, skinned_mesh_pipelines[0]);
-        wgpu.RenderPassEncoderSetBindGroup(render_pass, 1, empty_uniform, 0, null);
-        draw_skinned_meshes(current_scene, render_pass);
-    }
-
-    wgpu.RenderPassEncoderEnd(render_pass);
-}
-
-main_render_pass :: (using renderer: *Renderer, command_encoder: wgpu.CommandEncoder, framebuffer: wgpu.TextureView) {
-    color_attachment := wgpu.RenderPassColorAttachment.{
-        view = framebuffer,
-        resolveTarget = null,
-        loadOp = .Load,
-        storeOp = .Store,
-        // clearValue = .{0.529, 0.808, 0.922, 1.0}
-    };
-    depth_attachment := wgpu.RenderPassDepthStencilAttachment.{
-        view = renderer.depth_texture.view,
-        depthLoadOp = .Clear,
-        depthStoreOp = .Store,
-        depthClearValue = 1,
-        stencilLoadOp = .Clear,
-        stencilStoreOp = .Discard,
-        stencilClearValue = 0,
-        stencilReadOnly = true,
-    };
-    render_pass_desc := wgpu.RenderPassDescriptor.{
-        label = "Main Pass",
-        colorAttachmentCount = 1,
-        colorAttachments = *color_attachment,
-        depthStencilAttachment = *depth_attachment,
-    };
-    render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(command_encoder, *render_pass_desc));
-
-    wgpu.RenderPassEncoderSetPipeline(render_pass, static_mesh_pipelines[1]);
-    wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, global_matrices_uniform.bind_group, 0, null);
-    wgpu.RenderPassEncoderSetBindGroup(render_pass, 1, shadowmap_texture_uniform.bind_group, 0, null);
-    // immediate_draw_3d(render_pass);
-    if current_scene {
-        draw_static_meshes(current_scene, render_pass);
-    
-        wgpu.RenderPassEncoderSetPipeline(render_pass, skinned_mesh_pipelines[1]);
-        draw_skinned_meshes(current_scene, render_pass);
-    }
-    
-    wgpu.RenderPassEncoderEnd(render_pass);
-}
-
-ui_render_pass :: (using renderer: *Renderer, command_encoder: wgpu.CommandEncoder, framebuffer: wgpu.TextureView) {
-    attachment := wgpu.RenderPassColorAttachment.{
-        view = framebuffer,
-        resolveTarget = null,
-        loadOp = .Load,
-        storeOp = .Store,
-    };
-    render_pass_desc := wgpu.RenderPassDescriptor.{
-        label = "UI Pass",
-        colorAttachmentCount = 1,
-        colorAttachments = *attachment,
-        depthStencilAttachment = null,
-    };
-    render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(command_encoder, *render_pass_desc));
-
-    // immediate_draw_2d(render_pass);
-
-    wgpu.RenderPassEncoderEnd(render_pass);
-}
-
-debug_render_pass :: (using renderer: *Renderer, command_encoder: wgpu.CommandEncoder, framebuffer: wgpu.TextureView) {
-    attachment := wgpu.RenderPassColorAttachment.{
-        view = framebuffer,
-        resolveTarget = null,
-        loadOp = .Load,
-        storeOp = .Store,
-    };
-    render_pass_desc := wgpu.RenderPassDescriptor.{
-        label = "Debug Pass",
-        colorAttachmentCount = 1,
-        colorAttachments = *attachment,
-        depthStencilAttachment = null,
-    };
-    render_pass := WGPU_Check(wgpu.CommandEncoderBeginRenderPass(command_encoder, *render_pass_desc));
-
-    // immediate_draw_debug(render_pass);
-
-    wgpu.RenderPassEncoderEnd(render_pass);
-}
-
-update_framebuffer :: (using renderer: *Renderer) {
-    wgpu.SurfaceGetCurrentTexture(renderer.surface, *renderer.surface_texture);
-
-    while renderer.surface_texture.status != .Success  {
-        wgpu.SurfaceGetCurrentTexture(renderer.surface, *renderer.surface_texture);
-        // assert(renderer.surface_texture.status == .Success, "Surface status: %", renderer.surface_texture.status);
-    }
-
-    desc := wgpu.TextureViewDescriptor.{
-        format = renderer.surface_format,
-        dimension =       ._2D,
-        baseMipLevel= 0,
-        mipLevelCount = 1,
-        baseArrayLayer = 0,
-        arrayLayerCount = 1,
-        aspect = .All
-    };
-    renderer.surface_view = wgpu.TextureCreateView(renderer.surface_texture.texture, *desc);
-
+create_command_encoder :: (label := "") -> wgpu.CommandEncoder {
+    desc := wgpu.CommandEncoderDescriptor.{ label = temp_c_string(label) };
+    return WGPU_Check(wgpu.DeviceCreateCommandEncoder(global_renderer.device, *desc));
 }

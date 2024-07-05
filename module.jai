@@ -30,7 +30,7 @@ File_Watcher :: #import "File_Watcher";
 #load "src/rendering/immediate.jai";
 #load "src/rendering/mesh.jai";
 #load "src/rendering/skinned_mesh.jai";
-#load "src/scene.jai";
+// #load "src/scene.jai";
 #load "src/animation.jai";
 
 #import,dir "modules/gltf_parser";

@@ -163,24 +163,24 @@ load_skinned_gltf :: (path: string) -> Skinned_Mesh {
     return result;
 }
 
-instantiate :: (scene: *Scene, mesh: *Skinned_Mesh, matrix := Matrix4_Identity) -> *Skinned_Mesh_Instance {
-    instance := array_add(*scene.skinned_meshes);
-    instance.skinned_mesh = mesh;
-    instance.transform = matrix;
+// instantiate :: (scene: *Scene, mesh: *Skinned_Mesh, matrix := Matrix4_Identity) -> *Skinned_Mesh_Instance {
+//     instance := array_add(*scene.skinned_meshes);
+//     instance.skinned_mesh = mesh;
+//     instance.transform = matrix;
 
-    size := size_of(Instance_Data);
-    instance.joint_uniform = uniform_buffer_create(global_renderer.skinned_mesh_layout, xx size);
+//     size := size_of(Instance_Data);
+//     instance.joint_uniform = uniform_create(global_renderer.device, *global_renderer.uniform_pool, xx size, global_renderer.instance_data_bgl);
     
-    instance.current_pose = NewArray(mesh.skeleton.joints.count, Joint);
+//     instance.current_pose = NewArray(mesh.skeleton.joints.count, Joint);
     
-    buffer : Instance_Data = ---;
-    for *instance.current_pose {
-        it.* = mesh.skeleton.bind_pose[it_index];
-        buffer.joint_matrices[it_index] = transpose(it.model_space_matrix * mesh.skeleton.joints[it_index].inverse_bind_matrix);
-    }
-    uniform_buffer_write(*instance.joint_uniform, *buffer);
-    return instance;    
-}
+//     buffer : Instance_Data = ---;
+//     for *instance.current_pose {
+//         it.* = mesh.skeleton.bind_pose[it_index];
+//         buffer.joint_matrices[it_index] = transpose(it.model_space_matrix * mesh.skeleton.joints[it_index].inverse_bind_matrix);
+//     }
+//     uniform_write(*instance.joint_uniform, *buffer);
+//     return instance;    
+// }
 
 update_branch_transforms :: (using self: *Skinned_Mesh_Instance, id: int, buffer: []Matrix4) {
     joint := *current_pose[id];
@@ -216,7 +216,7 @@ upload_skeleton :: (using self: *Skinned_Mesh_Instance) {
         }
     }
 
-    uniform_buffer_write(*self.joint_uniform, *buffer);
+    uniform_write(*self.joint_uniform, *buffer);
 }
 
 // set_bone_matrix :: (using self: *Skinned_Mesh_Instance, name: string, matrix: Matrix4) {
