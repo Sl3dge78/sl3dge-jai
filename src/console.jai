@@ -58,7 +58,7 @@ console_draw :: (immediate: *Immediate, font: *Font) {
         immediate_default_texture(immediate);
         draw_2d_rect(immediate, .{0, 0}, .{ xx win.x, xx console_y_position }, .{0, 0, 0, 0.75});
 
-        immediate_bind_texture(immediate, font.descriptor_set);
+        immediate_bind_texture(immediate, font.bind_group);
         // y : float = xx (console_y_position - last_line * font.line_height + 8);
         y : float = xx console_y_position;
         i := last_line - 1;
@@ -91,7 +91,7 @@ console_print :: (msg: string, args: .. Any) {
     if last_line >= lines.count {
         last_line = lines.count - 1;
         
-        free(lines[0].data);
+        free(lines[0].data,, context.default_allocator);
         for i : 0..lines.count-2 {
             lines[i] = lines[i+1];
         }

@@ -1,11 +1,14 @@
 Texture :: struct {
-    #as handle: wgpu.Texture;
+    #as texture: wgpu.Texture;
     view : wgpu.TextureView;
     w: u32;
     h: u32;
 }
 
-Render_Texture :: #type Texture;
+Render_Texture :: struct {
+    using #as tex: Texture;
+    bind_group: wgpu.BindGroup;
+}
 
 texture_from_data :: (data: *void, w: u32, h: u32, channels: int, $data_type: Type, name := "") -> Texture {
 
@@ -21,7 +24,7 @@ texture_from_data :: (data: *void, w: u32, h: u32, channels: int, $data_type: Ty
     result := texture_create(w, h, wgpu.TextureUsage.TextureBinding | .CopyDst, format);
 
     destination := wgpu.ImageCopyTexture.{
-        texture =  result.handle,
+        texture =  result.texture,
         mipLevel = 0,
         origin =   wgpu.Origin3D.{0, 0, 0},
         aspect =   .All,
@@ -32,7 +35,8 @@ texture_from_data :: (data: *void, w: u32, h: u32, channels: int, $data_type: Ty
         bytesPerRow = xx (w * size_of(data_type) * channels),
         rowsPerImage = h,
     };
-    wgpu.QueueWriteTexture(global_renderer.queue, *destination, data, xx (w * h * size_of(data_type) * channels), *data_layout, *wgpu.Extent3D.{w, h, 1});
+    extent := wgpu.Extent3D.{w, h, 1};
+    wgpu.QueueWriteTexture(global_renderer.queue, *destination, data, xx (w * h * size_of(data_type) * channels), *data_layout, *extent);
 
     return result;
 }
@@ -51,6 +55,7 @@ texture_create :: (w: u32, h: u32, usage: wgpu.TextureUsage, format: wgpu.Textur
     result : Texture;
     result.w = w;
     result.h = h;
+
     desc := wgpu.TextureDescriptor.{
         label = to_c_string(name),
         usage = xx usage,
@@ -62,8 +67,7 @@ texture_create :: (w: u32, h: u32, usage: wgpu.TextureUsage, format: wgpu.Textur
         viewFormatCount = 0,
         viewFormats = null,
     };
-
-    result.handle = WGPU_Check(wgpu.DeviceCreateTexture(global_renderer.device, *desc));
+    result.texture = WGPU_Check(wgpu.DeviceCreateTexture(global_renderer.device, *desc));
 
     view_desc := wgpu.TextureViewDescriptor.{
         format = format,
@@ -79,7 +83,7 @@ texture_create :: (w: u32, h: u32, usage: wgpu.TextureUsage, format: wgpu.Textur
         case .Depth24Plus; #through;
         case .Depth32Float; view_desc.aspect = .DepthOnly;
     }
-    result.view = WGPU_Check(wgpu.TextureCreateView(result.handle, *view_desc));
+    result.view = WGPU_Check(wgpu.TextureCreateView(result.texture, *view_desc));
     return result;
 }
 
@@ -98,7 +102,7 @@ cubemap_create :: (w: u32, h: u32, usage: wgpu.TextureUsage, format: wgpu.Textur
         viewFormats = null,
     };
 
-    result.handle = WGPU_Check(wgpu.DeviceCreateTexture(global_renderer.device, *desc));
+    result.texture = WGPU_Check(wgpu.DeviceCreateTexture(global_renderer.device, *desc));
 
     view_desc := wgpu.TextureViewDescriptor.{
         format = format,
@@ -114,16 +118,19 @@ cubemap_create :: (w: u32, h: u32, usage: wgpu.TextureUsage, format: wgpu.Textur
         case .Depth24Plus; #through;
         case .Depth32Float; view_desc.aspect = .DepthOnly;
     }
-    result.view = WGPU_Check(wgpu.TextureCreateView(result.handle, *view_desc));
+    result.view = WGPU_Check(wgpu.TextureCreateView(result.texture, *view_desc));
     return result;
 }
 
 render_texture_create :: (w: u32, h: u32, name : string = "") -> Render_Texture {
-    return texture_create(w, h, .TextureBinding | .RenderAttachment, global_renderer.surface_format, name);
+    result : Render_Texture;
+    result.tex = texture_create(w, h, .TextureBinding | .RenderAttachment, global_renderer.surface_format, name);
+    result.bind_group = create_bind_group_from_texture(*result.tex);
+    return result;
 }
 
 destroy :: (texture: *Texture) {
-    wgpu.TextureRelease(texture.handle);
+    wgpu.TextureRelease(texture.texture);
     wgpu.TextureViewRelease(texture.view);
-    texture.handle = null;
+    texture.texture = null;
 }

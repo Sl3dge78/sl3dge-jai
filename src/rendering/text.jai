@@ -4,7 +4,7 @@ Font :: struct {
     texture: Texture;
     line_height : float;
     width : float;
-    descriptor_set : VkDescriptorSet;
+    bind_group : wgpu.BindGroup;
 }
 
 font_from_file :: (path: string, size: float) -> Font, bool {
@@ -34,7 +34,7 @@ font_from_data :: (font_data: string, size: float, resource_name: string) -> Fon
 
     self.texture = texture_from_data(bitmap.data, 512, 512, 1, u8, resource_name);
 
-    self.descriptor_set = create_texture_descriptor_set(*self.texture);
+    self.bind_group = create_bind_group_from_texture(*self.texture);
 
     // Get additional font info
     info : stbtt_fontinfo = ---;
@@ -62,7 +62,7 @@ size_text :: (text: string, font: *Font) -> float {
 }
 
 bind_font :: (immediate: *Immediate, font: *Font) {
-    immediate_bind_texture(immediate, font.descriptor_set);
+    immediate_bind_texture(immediate, font.bind_group);
 }
 
 draw_char :: inline (immediate: *Immediate, it: u8, font: *Font, line_start: float, x: *float, y: *float, color: Vector4) {
@@ -110,7 +110,7 @@ draw_text :: (immediate: *Immediate, text: string, x: float, y: float, font: *Fo
 draw_text_right_aligned :: (immediate: *Immediate, text: string, x: float, y: float, font: *Font, color: Vector4 = .{1, 1, 1, 1}) -> x: float, y: float {
 
     size := size_text(text, font);
-    x, y := draw_text(immediate, text, immediate.target.w - size, y, font, color);
+    x, y := draw_text(immediate, text, immediate.target_w - size, y, font, color);
     return x, y;
 }
 

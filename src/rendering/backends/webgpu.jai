@@ -6,4 +6,5 @@ wgpu :: #import,dir "../../../modules/WebGPU";
 #load "webgpu/builders.jai";
 #load "webgpu/debug.jai";
 #load "webgpu/buffer_pool.jai";
-#load "webgpu/uniform.jai";
+#load "webgpu/bind_groups.jai";
+#load "webgpu/frame_data.jai";

@@ -5,6 +5,22 @@ c_print :: (format: string, args: ..Any, to_standard_error := false) #expand {
     }
 } @PrintLike
 
+adapter_cb :: (status: wgpu.RequestAdapterStatus, adapter: wgpu.Adapter, message: *u8, userdata: *void) -> void #c_call {
+    if status != .Success {
+        c_print("%\n", message);
+        return;
+    }
+    (cast(*wgpu.Adapter) userdata).* = adapter;
+}
+
+device_cb :: (status: wgpu.RequestDeviceStatus, device: wgpu.Device, message: *u8, userdata: *void) #c_call {
+    if status != .Success {
+        c_print("%\n", message);
+        return;
+    }
+    (cast(*wgpu.Device) userdata).* = device;
+}
+
 wgpu_log_callback :: (level: wgpu.LogLevel, message: *u8, data: *void) #c_call {
     c_print("WGPU - % : %\n", level, to_string(message));
 }
@@ -26,4 +42,46 @@ wgpu_on_queue_work_done :: (status: wgpu.QueueWorkDoneStatus, userdata: *void) -
 WGPU_Check :: (item: *$T) -> *T #expand {
     assert(item != null, "Unable to create %!", T);
     return item;
+}
+
+report_gpu_leaks :: (instance: wgpu.Instance) {
+    storage_report :: (s: wgpu.RegistryReport, name: string, builder: *String_Builder) -> bool {
+        if s.numAllocated == 0 then return false;
+        print_to_builder(builder, "%: %\n", name, s.numAllocated);
+        return true;
+    }
+
+    hub_report :: (h: wgpu.HubReport, builder: *String_Builder) -> bool {
+        found := false;
+        arr : [16]wgpu.RegistryReport = xx *h;
+        ti := type_info(wgpu.HubReport);
+        
+        for 0..ti.members.count - 1 {
+            found |= storage_report(arr[it], ti.members[it].name, builder);
+        }
+        return found;
+    }
+
+    report : wgpu.GlobalReport;
+    wgpu.GenerateReport(instance, *report);
+    
+    builder: String_Builder;
+    found:= false;
+
+    found |= storage_report(report.surfaces, "Surfaces", *builder);
+    if report.backendType == {
+        case .Vulkan; found |= hub_report(report.vulkan, *builder);
+        case .OpenGL; found |= hub_report(report.gl, *builder);
+        case .Metal; found |= hub_report(report.metal, *builder);
+        case .D3D12; found |= hub_report(report.dx12, *builder);
+        case; assert(false, "Memory check unimplemented for backend : %", report.backendType);
+    }
+    
+    if found {
+        log("=== GPU Leaks found ===");
+        str := builder_to_string(*builder);
+        defer free(str);
+        log("%", str);
+        debug_break();
+    }
 }
