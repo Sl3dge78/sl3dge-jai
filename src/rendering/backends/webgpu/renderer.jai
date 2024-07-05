@@ -429,6 +429,7 @@ create_ui_pipeline :: (renderer: *Renderer, shader: string) -> wgpu.RenderPipeli
     builder: Pipeline_Builder;
     add_vertex_shader(*builder, shader_module, "vs_main", UI_Vertex);
     add_fragment_shader(*builder, shader_module, "fs_main");
+    color_format(*builder, .RGBA8Unorm);
     return pipeline_builder_build(*builder, renderer.device, pipeline_layout, "UI Pipeline");
 }
 
@@ -468,6 +469,7 @@ create_static_mesh_pipeline :: (using renderer: *Renderer) -> [2]wgpu.RenderPipe
         add_vertex_shader(*builder, shader_module, "static_vs", Standard_Vertex);
         add_fragment_shader(*builder, shader_module, "fs_main");
         depth_stencil_state(*builder, renderer.depth_format);
+        color_format(*builder, renderer.surface_format);
         pipelines[1] = pipeline_builder_build(*builder, renderer.device, pipeline_layout, "Static Mesh Color Pipeline");
     }
     return pipelines;
@@ -512,6 +514,7 @@ create_skinned_mesh_pipeline :: (using renderer: *Renderer) -> [2]wgpu.RenderPip
         add_vertex_shader(*builder, shader_module, "skinned_vs", Standard_Vertex, Skinned_Vertex);
         add_fragment_shader(*builder, shader_module, "fs_main");
         depth_stencil_state(*builder, renderer.depth_format);
+        color_format(*builder, renderer.surface_format);
         pipelines[1] = pipeline_builder_build(*builder, renderer.device, pipeline_layout, "Skinned Mesh Color Pipeline");
     }
     return pipelines;

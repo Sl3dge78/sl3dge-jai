@@ -33,6 +33,8 @@ Pipeline_Builder :: struct {
         targetCount =    0,    // build 
         targets =        null, // build
     };
+
+    color_format : wgpu.TextureFormat;
 }
 
 add_vertex_shader :: (builder: *Pipeline_Builder, module: wgpu.ShaderModule, entry_point: string, $vertex_types: ..Type) {
@@ -134,6 +136,10 @@ depth_stencil_state :: (using builder: *Pipeline_Builder, format: wgpu.TextureFo
     builder.has_depth = true;
 }
 
+color_format :: (using builder: *Pipeline_Builder, format: wgpu.TextureFormat) {
+    color_format = format;
+}
+
 pipeline_builder_build :: (using builder: *Pipeline_Builder, device: wgpu.Device, layout: wgpu.PipelineLayout, label := "") -> wgpu.RenderPipeline {
     assert(vertex.module != null, "No vertex shader specified when building pipeline");
     
@@ -162,7 +168,7 @@ pipeline_builder_build :: (using builder: *Pipeline_Builder, device: wgpu.Device
             },
         };
         color_target := wgpu.ColorTargetState.{
-            format = global_renderer.surface_format, // @Hardcoded
+            format = color_format, // @Hardcoded
             blend = *blend,
             writeMask = xx wgpu.ColorWriteMask.All,
         };

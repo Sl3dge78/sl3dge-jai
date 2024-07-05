@@ -124,7 +124,7 @@ cubemap_create :: (w: u32, h: u32, usage: wgpu.TextureUsage, format: wgpu.Textur
 
 render_texture_create :: (w: u32, h: u32, name : string = "") -> Render_Texture {
     result : Render_Texture;
-    result.tex = texture_create(w, h, .TextureBinding | .RenderAttachment, global_renderer.surface_format, name);
+    result.tex = texture_create(w, h, .TextureBinding | .RenderAttachment, .RGBA8Unorm, name);
     result.bind_group = create_bind_group_from_texture(*result.tex);
     return result;
 }
