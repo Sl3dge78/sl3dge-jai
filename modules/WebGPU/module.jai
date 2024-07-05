@@ -357,6 +357,17 @@ FeatureName :: enum u32 {
     RG11B10UfloatRenderable :: 9;
     BGRA8UnormStorage       :: 10;
     Float32Filterable       :: 11;
+
+    PushConstants                                         :: 196609;
+    TextureAdapterSpecificFormatFeatures                  :: 196610;
+    MultiDrawIndirect                                     :: 196611;
+    MultiDrawIndirectCount                                :: 196612;
+    VertexWritableStorage                                 :: 196613;
+    TextureBindingArray                                   :: 196614;
+    SampledTextureAndStorageBufferArrayNonUniformIndexing :: 196615;
+    PipelineStatisticsQuery                               :: 196616;
+    StorageResourceBindingArray                           :: 196617;
+    PartiallyBoundBindingArray                            :: 196618;
     Force32                 :: 2147483647;
 
     WGPUFeatureName_Undefined               :: Undefined;
@@ -1356,10 +1367,10 @@ ShaderModuleWGSLDescriptor :: struct {
 }
 
 StencilFaceState :: struct {
-    compare:     CompareFunction;
-    failOp:      StencilOperation;
-    depthFailOp: StencilOperation;
-    passOp:      StencilOperation;
+    compare:     CompareFunction = .Always;
+    failOp:      StencilOperation = .Keep;
+    depthFailOp: StencilOperation = .Keep;
+    passOp:      StencilOperation = .Keep;
 }
 
 StorageTextureBindingLayout :: struct {
@@ -2460,6 +2471,8 @@ RenderPassEncoderEndPipelineStatisticsQuery :: (renderPassEncoder: RenderPassEnc
     wgpu_native :: #library,no_dll "wgpu_native";
 } else #if OS == .LINUX {
     wgpu_native :: #library,no_dll "linux/libwgpu_native";
+    // gcc :: #system_library,no_dll "libgcc_eh";
+    // std :: #system_library,no_dll "libstdc++";
 } else {
     #assert(false);
 }

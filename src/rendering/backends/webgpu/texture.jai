@@ -57,7 +57,7 @@ texture_create :: (w: u32, h: u32, usage: wgpu.TextureUsage, format: wgpu.Textur
     result.h = h;
 
     desc := wgpu.TextureDescriptor.{
-        label = to_c_string(name),
+        label = temp_c_string(name),
         usage = xx usage,
         dimension = ._2D,
         size = .{w, h, 1},

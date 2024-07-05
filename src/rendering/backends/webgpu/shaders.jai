@@ -88,7 +88,7 @@ STANDARD_SHADER :: #string __WGSL
         projection: mat4x4f,
         view      : mat4x4f,
         light     : mat4x4f,
-        light_vec : array<vec4f, 16>,
+        lights : array<vec4f, 16>,
         light_count: u32,
     };
 
@@ -155,7 +155,7 @@ STANDARD_SHADER :: #string __WGSL
         let uv : vec2f = shadow_coord.xy * vec2f(0.5, -0.5) + 0.5; // @TODO: Do depth calc in -1 to 1 range
         let current : f32 = shadow_coord.z;
         var total : i32 = 0;
-        let x = 1.0 - max(dot(normal, global_data.light_vec[0].xyz), 0.0);
+        let x = 1.0 - max(dot(normal, global_data.lights[0].xyz), 0.0);
         var bias = max(2.5 * x, 1.0);
         bias *= texel_size;
         for(var x = -pcf_count; x <= pcf_count; x++) {
@@ -170,16 +170,20 @@ STANDARD_SHADER :: #string __WGSL
         return 1.0 - result;
     }
 
-    fn point_light(light_pos: vec3f, frag_pos: vec3f) -> f32 {
-        let distance = length(light_pos - frag_pos);
-        let attenuation = 1.0 / (constant + linear * distance + quadratic * (distance * distance));
-        return attenuation;
+    fn point_light(frag_pos: vec3f) -> f32 {
+        var acc : f32 = 0;
+        for(var i = 0u; i < global_data.light_count; i++) {
+            let light_pos = global_data.lights[i].xyz;
+            let distance = length(light_pos - frag_pos);
+            acc += 1.0 / (constant + linear * distance + quadratic * (distance * distance));
+        }
+        return acc;
     }
 
     @fragment
     fn fs_main (in: Vertex_Output) -> @location(0) vec4f {
         var iterated_color = in.color.rgb;
-        iterated_color *= point_light(global_data.light_vec[0].xyz, in.world_position.xyz);
+        iterated_color *= point_light(in.world_position.xyz);
         iterated_color *= textureSample(diff_texture, diff_sampler, in.uv).rgb;
 
         // let NdotL = max(dot(in.normal, -L), 0.0);
@@ -211,12 +215,12 @@ Standard_Push_Constants :: struct {
 }
 
 Global_Matrices :: struct {
-    projection: Matrix4;     // 64  - 64
-    view      : Matrix4;     // 64  - 128
-    light     : Matrix4;     // 64  - 192
-    light_vec : [16]Vector4; // 256 - 448
+    projection : Matrix4;     // 64  - 64
+    view       : Matrix4;     // 64  - 128
+    light      : Matrix4;     // 64  - 192
+    lights     : [16]Vector4; // 256 - 448
     light_count: u32;        // 4   - 452
-    __align   : [3]u32;      // 12  - 464
+    __align    : [3]u32;      // 12  - 464
 }
 
 Instance_Data :: struct {

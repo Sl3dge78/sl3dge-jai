@@ -95,6 +95,7 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
 
         #if OS == .LINUX {
             surface_desc_x11 := wgpu.SurfaceDescriptorFromXlibWindow.{
+                chain = .{ sType = .SurfaceDescriptorFromXlibWindow },
                 display = sdl_info.info.x11.display,
                 window = xx sdl_info.info.x11.window,
             };
