@@ -134,7 +134,8 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
         props : wgpu.AdapterProperties = ---;
         wgpu.AdapterGetProperties(renderer.adapter, *props);
 
-        log("AdapterProperties : %", props);
+        log("Adapter : %", props.adapterType);
+        log("Backend : %", props.backendType);
         nb := wgpu.AdapterEnumerateFeatures(renderer.adapter, null);
         features := NewArray(xx nb, wgpu.FeatureName,, allocator = temp);
 

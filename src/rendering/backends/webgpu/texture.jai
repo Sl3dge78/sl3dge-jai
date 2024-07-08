@@ -11,7 +11,6 @@ Render_Texture :: struct {
 }
 
 texture_from_data :: (data: *void, w: u32, h: u32, channels: int, $data_type: Type, name := "") -> Texture {
-
     format : wgpu.TextureFormat = ---;
     #if data_type == u8 {
         if channels == {
@@ -51,24 +50,30 @@ texture_from_file :: (path: string) -> Texture {
     return texture_from_data(img, xx w, xx h, channels, u8);
 }
 
-texture_create :: (w: u32, h: u32, usage: wgpu.TextureUsage, format: wgpu.TextureFormat, name := "") -> Texture {
-    result : Texture;
-    result.w = w;
-    result.h = h;
-
+create_texture :: (w: u32, h: u32, usage: wgpu.TextureUsage, format: wgpu.TextureFormat, view_formats: ..wgpu.TextureFormat, label := "") -> wgpu.Texture {
     desc := wgpu.TextureDescriptor.{
-        label = temp_c_string(name),
+        label = temp_c_string(label),
         usage = xx usage,
         dimension = ._2D,
         size = .{w, h, 1},
         format = format,
         mipLevelCount = 1,
         sampleCount = 1,
-        viewFormatCount = 0,
-        viewFormats = null,
+        viewFormatCount = xx view_formats.count,
+        viewFormats = view_formats.data,
     };
-    result.texture = WGPU_Check(wgpu.DeviceCreateTexture(global_renderer.device, *desc));
+    return WGPU_Check(wgpu.DeviceCreateTexture(global_renderer.device, *desc));
+}
 
+destroy :: (texture: wgpu.Texture) {
+    wgpu.TextureRelease(texture);
+}
+
+destroy :: (view: wgpu.TextureView) {
+    wgpu.TextureViewRelease(view);
+}
+
+create_texture_view :: (texture: wgpu.Texture, format: wgpu.TextureFormat) -> wgpu.TextureView {
     view_desc := wgpu.TextureViewDescriptor.{
         format = format,
         dimension = ._2D,
@@ -83,7 +88,15 @@ texture_create :: (w: u32, h: u32, usage: wgpu.TextureUsage, format: wgpu.Textur
         case .Depth24Plus; #through;
         case .Depth32Float; view_desc.aspect = .DepthOnly;
     }
-    result.view = WGPU_Check(wgpu.TextureCreateView(result.texture, *view_desc));
+    return WGPU_Check(wgpu.TextureCreateView(texture, *view_desc));
+}
+
+texture_create :: (w: u32, h: u32, usage: wgpu.TextureUsage, format: wgpu.TextureFormat, name := "") -> Texture {
+    result : Texture;
+    result.w = w;
+    result.h = h;
+    result.texture = create_texture(w, h, usage, format, label = name);
+    result.view = create_texture_view(result.texture, format);
     return result;
 }
 

@@ -69,14 +69,10 @@ report_gpu_leaks :: (instance: wgpu.Instance) {
     found:= false;
 
     found |= storage_report(report.surfaces, "Surfaces", *builder);
-    if report.backendType == {
-        case .Vulkan; found |= hub_report(report.vulkan, *builder);
-        case .OpenGL; found |= hub_report(report.gl, *builder);
-        case .Metal; found |= hub_report(report.metal, *builder);
-        case .D3D12; found |= hub_report(report.dx12, *builder);
-        case; assert(false, "Memory check unimplemented for backend : %", report.backendType);
-    }
-    
+    found |= hub_report(report.vulkan, *builder);
+    found |= hub_report(report.gl, *builder);
+    found |= hub_report(report.metal, *builder);
+    found |= hub_report(report.dx12, *builder);
     if found {
         log("=== GPU Leaks found ===");
         str := builder_to_string(*builder);

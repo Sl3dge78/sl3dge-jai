@@ -31,10 +31,10 @@ uniform_write :: inline (using self: Uniform, data: *void) {
 }
 
 create_bind_group_from_texture :: (texture: *Texture, layout: wgpu.BindGroupLayout = null) -> wgpu.BindGroup {
-    return create_bind_group_from_texture(texture.view, layout);
+    return create_bind_group_from_view(texture.view, layout);
 }
 
-create_bind_group_from_texture :: (view: wgpu.TextureView, layout: wgpu.BindGroupLayout = null) -> wgpu.BindGroup {
+create_bind_group_from_view :: (view: wgpu.TextureView, layout: wgpu.BindGroupLayout = null) -> wgpu.BindGroup {
     if layout == null {
         layout = global_renderer.single_texture_bgl;
     }

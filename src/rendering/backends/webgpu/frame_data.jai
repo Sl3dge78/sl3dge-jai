@@ -11,45 +11,11 @@ Frame_Data :: struct {
 begin_frame :: () -> Frame_Data {
     result: Frame_Data;
 
-    view_formats := wgpu.TextureFormat.[
-        global_renderer.render_format,
-        global_renderer.surface_format,
-    ];
-    desc := wgpu.TextureDescriptor.{
-        label = temp_c_string("Framebuffer"),
-        usage = wgpu.TextureUsage.TextureBinding | .RenderAttachment,
-        dimension = ._2D,
-        size = .{global_renderer.width, global_renderer.height, 1},
-        format = global_renderer.render_format,
-        mipLevelCount = 1,
-        sampleCount = 1,
-        viewFormatCount = view_formats.count,
-        viewFormats = view_formats.data,
-    };
-    result.framebuffer = WGPU_Check(wgpu.DeviceCreateTexture(global_renderer.device, *desc));
+    result.framebuffer = create_texture(global_renderer.width, global_renderer.height, wgpu.TextureUsage.TextureBinding | .RenderAttachment, global_renderer.render_format, global_renderer.render_format, global_renderer.surface_format, label = "Framebuffer");
+    result.read_from_view = create_texture_view(result.framebuffer, global_renderer.surface_format);
+    result.render_to_view = create_texture_view(result.framebuffer, global_renderer.render_format);
 
-    view_desc := wgpu.TextureViewDescriptor.{
-        format = global_renderer.surface_format,
-        dimension = ._2D,
-        baseMipLevel = 0,
-        mipLevelCount = 1,
-        baseArrayLayer = 0,
-        arrayLayerCount = 1,
-        aspect = .All,
-    };
-    result.read_from_view = WGPU_Check(wgpu.TextureCreateView(result.framebuffer, *view_desc));
-
-    desc2 := wgpu.TextureViewDescriptor.{
-        format = global_renderer.render_format,
-        dimension = ._2D,
-        baseMipLevel = 0,
-        mipLevelCount = 1,
-        baseArrayLayer = 0,
-        arrayLayerCount = 1,
-        aspect = .All,
-    };
-    result.render_to_view = WGPU_Check(wgpu.TextureCreateView(result.framebuffer, *desc2));
-    result.bind_group = create_bind_group_from_texture(result.read_from_view);
+    result.bind_group = create_bind_group_from_view(result.read_from_view);
 
     return result;
 }
@@ -111,9 +77,9 @@ end_frame :: (frame_data: Frame_Data) {
     }
     array_reset(*frame_data.cmds);
     buffer_pool_reset_keeping_memory(*global_renderer.immediate_pool);
-    wgpu.TextureRelease(frame_data.framebuffer);
-    wgpu.TextureViewRelease(frame_data.render_to_view);
-    wgpu.TextureViewRelease(frame_data.read_from_view);
+    destroy(frame_data.framebuffer);
+    destroy(frame_data.render_to_view);
+    destroy(frame_data.read_from_view);
 }
 
 push_command_encoder :: (frame_data: *Frame_Data, encoder: *wgpu.CommandEncoder, label := "") {
