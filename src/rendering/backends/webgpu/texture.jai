@@ -16,7 +16,7 @@ texture_from_data :: (data: *void, w: u32, h: u32, channels: int, $data_type: Ty
     #if data_type == u8 {
         if channels == {
             case 1; format = .R8Unorm;
-            case 4; format = .RGBA8UnormSrgb;
+            case 4; format = .BGRA8UnormSrgb;
             case; assert(false, "Unhandled channel count of %", channels);
         }
     } else #assert(false);
@@ -124,7 +124,7 @@ cubemap_create :: (w: u32, h: u32, usage: wgpu.TextureUsage, format: wgpu.Textur
 
 render_texture_create :: (w: u32, h: u32, name : string = "") -> Render_Texture {
     result : Render_Texture;
-    result.tex = texture_create(w, h, .TextureBinding | .RenderAttachment, .RGBA8Unorm, name);
+    result.tex = texture_create(w, h, .TextureBinding | .RenderAttachment, global_renderer.render_format, name);
     result.bind_group = create_bind_group_from_texture(*result.tex);
     return result;
 }

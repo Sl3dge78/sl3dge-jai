@@ -13,6 +13,7 @@ Renderer :: struct {
     queue     : wgpu.Queue;
 
     surface_format : wgpu.TextureFormat;
+    render_format : wgpu.TextureFormat = .BGRA8Unorm;
 
     depth_format :: wgpu.TextureFormat.Depth24Plus;
 
@@ -29,6 +30,7 @@ Renderer :: struct {
     shadowmap_texture_bgl: wgpu.BindGroupLayout;
     instance_data_bgl : wgpu.BindGroupLayout;
 
+    blit_pipeline        : wgpu.RenderPipeline;
     debug_pipeline       : wgpu.RenderPipeline;
     ui_pipeline          : wgpu.RenderPipeline;
 
@@ -205,8 +207,17 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
                 log("\t%", it);
             }
 
+            log("Formats: ");
+            p_formats: []wgpu.TextureFormat;
+            p_formats.count = xx caps.formatCount;
+            p_formats.data = caps.formats;
+            for p_formats {
+                log("\t%", it);
+            }
+
         }
-         config := wgpu.SurfaceConfiguration.{
+
+        config := wgpu.SurfaceConfiguration.{
             device = renderer.device,
             format = renderer.surface_format,
             usage = .RenderAttachment,
@@ -243,6 +254,7 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
 
     create_bind_group_layouts(renderer);
 
+    renderer.blit_pipeline = create_blit_pipeline(renderer);
     renderer.debug_pipeline = create_debug_pipeline(renderer);
     renderer.ui_pipeline = create_ui_pipeline(renderer, UI_SHADER);
     renderer.static_mesh_pipelines = create_static_mesh_pipeline(renderer);
@@ -429,7 +441,7 @@ create_ui_pipeline :: (renderer: *Renderer, shader: string) -> wgpu.RenderPipeli
     builder: Pipeline_Builder;
     add_vertex_shader(*builder, shader_module, "vs_main", UI_Vertex);
     add_fragment_shader(*builder, shader_module, "fs_main");
-    color_format(*builder, .RGBA8Unorm);
+    add_color_target(*builder, renderer.render_format);
     return pipeline_builder_build(*builder, renderer.device, pipeline_layout, "UI Pipeline");
 }
 
@@ -469,7 +481,7 @@ create_static_mesh_pipeline :: (using renderer: *Renderer) -> [2]wgpu.RenderPipe
         add_vertex_shader(*builder, shader_module, "static_vs", Standard_Vertex);
         add_fragment_shader(*builder, shader_module, "fs_main");
         depth_stencil_state(*builder, renderer.depth_format);
-        color_format(*builder, renderer.surface_format);
+        add_color_target(*builder, renderer.render_format);
         pipelines[1] = pipeline_builder_build(*builder, renderer.device, pipeline_layout, "Static Mesh Color Pipeline");
     }
     return pipelines;
@@ -514,7 +526,7 @@ create_skinned_mesh_pipeline :: (using renderer: *Renderer) -> [2]wgpu.RenderPip
         add_vertex_shader(*builder, shader_module, "skinned_vs", Standard_Vertex, Skinned_Vertex);
         add_fragment_shader(*builder, shader_module, "fs_main");
         depth_stencil_state(*builder, renderer.depth_format);
-        color_format(*builder, renderer.surface_format);
+        add_color_target(*builder, renderer.render_format);
         pipelines[1] = pipeline_builder_build(*builder, renderer.device, pipeline_layout, "Skinned Mesh Color Pipeline");
     }
     return pipelines;
@@ -537,6 +549,22 @@ create_debug_pipeline :: (using renderer: *Renderer) -> wgpu.RenderPipeline {
     pipeline := pipeline_builder_build(*builder, renderer.device, pipeline_layout, "Debug Pipeline");
     return pipeline;
 
+}
+
+create_blit_pipeline :: (using renderer: *Renderer) -> wgpu.RenderPipeline {
+    shader_module := shader_module_create(BLIT_SHADER, renderer.device);
+    defer wgpu.ShaderModuleRelease(shader_module);
+
+    layout_builder: Pipeline_Layout_Builder;
+    add_bind_groups(*layout_builder, renderer.single_texture_bgl);
+    pipeline_layout := pipeline_layout_builder_build(*layout_builder, renderer.device);
+    defer wgpu.PipelineLayoutRelease(pipeline_layout);
+
+    builder: Pipeline_Builder;
+    add_vertex_shader(*builder, shader_module, "vs_main");
+    add_fragment_shader(*builder, shader_module, "fs_main");
+    add_color_target(*builder, renderer.surface_format);
+    return pipeline_builder_build(*builder, renderer.device, pipeline_layout, "Blit Pipeline");
 }
 
 create_command_encoder :: (label := "") -> wgpu.CommandEncoder {

@@ -45,7 +45,7 @@ engine_update :: (delta_time: float) {
 }
 
 engine_draw :: (frame_data: *Frame_Data, cmd: wgpu.CommandEncoder) {
-    imm := immediate_begin_in_place(frame_data.framebuffer, cmd);
+    imm := immediate_begin_in_place(global_renderer.width, global_renderer.height, frame_data.render_to_view, cmd);
     defer immediate_end_in_place(*imm);
     console_draw(*imm, *global_engine.default_font);
     if global_engine.draw_perf_overlay {

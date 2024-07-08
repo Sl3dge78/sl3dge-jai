@@ -67,16 +67,16 @@ immediate_end :: (using immediate: *Immediate, frame_data: *Frame_Data) {
 }
 
 // Variant to embed the immediate in a command buffer
-immediate_begin_in_place :: (render_target: Texture, cmd: wgpu.CommandEncoder) -> Immediate {
+immediate_begin_in_place :: (w: u32, h:u32, view: wgpu.TextureView, cmd: wgpu.CommandEncoder) -> Immediate {
     self: Immediate;
-    self.target_w = render_target.w;
-    self.target_h = render_target.h;
+    self.target_w = w;
+    self.target_h = h;
     self.cmd = cmd;
     self.vertices.allocator = temp;
 
     {
         attachment := wgpu.RenderPassColorAttachment.{
-            view = render_target.view,
+            view = view,
             loadOp = .Load,
             storeOp = .Store,
             clearValue = .{0, 0, 0, 1},

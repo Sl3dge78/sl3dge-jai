@@ -31,12 +31,16 @@ uniform_write :: inline (using self: Uniform, data: *void) {
 }
 
 create_bind_group_from_texture :: (texture: *Texture, layout: wgpu.BindGroupLayout = null) -> wgpu.BindGroup {
+    return create_bind_group_from_texture(texture.view, layout);
+}
+
+create_bind_group_from_texture :: (view: wgpu.TextureView, layout: wgpu.BindGroupLayout = null) -> wgpu.BindGroup {
     if layout == null {
         layout = global_renderer.single_texture_bgl;
     }
     entries := wgpu.BindGroupEntry.[
         .{binding = 0, sampler = global_renderer.sampler },
-        .{binding = 1, textureView = texture.view },
+        .{binding = 1, textureView = view },
     ];
     desc := wgpu.BindGroupDescriptor.{
         layout = layout,
@@ -44,6 +48,7 @@ create_bind_group_from_texture :: (texture: *Texture, layout: wgpu.BindGroupLayo
         entries = entries.data,
     };
     return WGPU_Check(wgpu.DeviceCreateBindGroup(global_renderer.device, *desc));
+
 }
 
 destroy :: inline (bind_group: *wgpu.BindGroup) {

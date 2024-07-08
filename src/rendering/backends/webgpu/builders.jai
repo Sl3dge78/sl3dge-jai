@@ -34,7 +34,7 @@ Pipeline_Builder :: struct {
         targets =        null, // build
     };
 
-    color_format : wgpu.TextureFormat;
+    color_targets : [..]wgpu.ColorTargetState;
 }
 
 add_vertex_shader :: (builder: *Pipeline_Builder, module: wgpu.ShaderModule, entry_point: string, $vertex_types: ..Type) {
@@ -136,8 +136,14 @@ depth_stencil_state :: (using builder: *Pipeline_Builder, format: wgpu.TextureFo
     builder.has_depth = true;
 }
 
-color_format :: (using builder: *Pipeline_Builder, format: wgpu.TextureFormat) {
-    color_format = format;
+add_color_target :: (using builder: *Pipeline_Builder, format: wgpu.TextureFormat) {
+    color_targets.allocator = temp;
+    tgt := wgpu.ColorTargetState.{
+        format = format, 
+        blend = null, // Will be set in build
+        writeMask = xx wgpu.ColorWriteMask.All,
+    };
+    array_add(*color_targets, tgt);
 }
 
 pipeline_builder_build :: (using builder: *Pipeline_Builder, device: wgpu.Device, layout: wgpu.PipelineLayout, label := "") -> wgpu.RenderPipeline {
@@ -154,27 +160,23 @@ pipeline_builder_build :: (using builder: *Pipeline_Builder, device: wgpu.Device
     };
 
     // Fragment
-    if fragment.module != null {
-        blend := wgpu.BlendState.{
-            color = .{
-                operation = .Add, 
-                srcFactor = .SrcAlpha,
-                dstFactor = .OneMinusSrcAlpha,
-            },
-            alpha = .{
-                operation = .Add,
-                srcFactor = .SrcAlpha,
-                dstFactor = .OneMinusSrcAlpha,
-            },
-        };
-        color_target := wgpu.ColorTargetState.{
-            format = color_format, // @Hardcoded
-            blend = *blend,
-            writeMask = xx wgpu.ColorWriteMask.All,
-        };
-        fragment.targetCount = 1;
-        fragment.targets = *color_target;
+    blend := wgpu.BlendState.{
+        color = .{
+            operation = .Add, 
+            srcFactor = .SrcAlpha,
+            dstFactor = .OneMinusSrcAlpha,
+        },
+        alpha = .{
+            operation = .Add,
+            srcFactor = .SrcAlpha,
+            dstFactor = .OneMinusSrcAlpha,
+        },
+    };
+    for *color_targets {
+        it.blend = *blend;
     }
+    fragment.targetCount = xx color_targets.count;
+    fragment.targets = color_targets.data;
     desc.fragment = ifx fragment.module == null then null else *fragment;
 
     // Depth

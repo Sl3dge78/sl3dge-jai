@@ -274,3 +274,45 @@ Debug_Vertex :: struct {
     position: Vector3;
     color: Vector4 = .{1, 1, 1, 1};
 }
+
+
+// Blit final texture
+
+BLIT_SHADER :: #string __WGSL
+
+    struct Vertex_Input {
+        @builtin(vertex_index) index: u32,
+    };
+
+    struct Vertex_Output {
+        @builtin(position) position: vec4f,
+        @location(0) uv: vec2f,
+    };
+
+    @group(0) @binding(0) var texture_sampler: sampler;
+    @group(0) @binding(1) var texture: texture_2d<f32>;
+
+    @vertex
+    fn vs_main (in: Vertex_Input) -> Vertex_Output {
+        var vertices : array<vec2f, 6> = array<vec2f, 6>(
+            vec2f(-1, -1), vec2f(1, -1), vec2f(-1, 1),
+            vec2f(1, -1), vec2f(-1, 1), vec2f(1, 1)
+        );
+        var uv : array<vec2f, 6> = array(
+            vec2f(0, 1), vec2f(1, 1), vec2f(0, 0),
+            vec2f(1, 1), vec2f(0, 0), vec2f(1, 0)
+        );
+        let pos = vertices[in.index];
+        var out: Vertex_Output;
+        out.uv = uv[in.index];
+        out.position = vec4f(pos, 0.0, 1.0);
+        return out;
+    }
+
+    @fragment
+    fn fs_main(in: Vertex_Output) -> @location(0) vec4f {
+        return vec4f(textureSample(texture, texture_sampler, in.uv).rgb, 1.0);
+    }
+
+
+__WGSL
