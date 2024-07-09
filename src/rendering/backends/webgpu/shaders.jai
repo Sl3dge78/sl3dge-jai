@@ -256,7 +256,7 @@ DEBUG_SHADER :: #string __WGSL
     @group(0) @binding(0) var<uniform> global_data: Global_Buffer;
 
     @vertex
-    fn vs_main (in: Vertex_Input) -> Vertex_Output {
+    fn debug_vs_main (in: Vertex_Input) -> Vertex_Output {
         var out: Vertex_Output;
         out.color = in.color;
         let xform = global_data.projection * global_data.view * push_constants.transform;
@@ -265,7 +265,7 @@ DEBUG_SHADER :: #string __WGSL
     }
 
     @fragment
-    fn fs_main (in: Vertex_Output) -> @location(0) vec4f {
+    fn debug_fs_main (in: Vertex_Output) -> @location(0) vec4f {
         return in.color;
     }
 __WGSL
@@ -293,7 +293,7 @@ BLIT_SHADER :: #string __WGSL
     @group(0) @binding(1) var texture: texture_2d<f32>;
 
     @vertex
-    fn vs_main (in: Vertex_Input) -> Vertex_Output {
+    fn blit_vs_main (in: Vertex_Input) -> Vertex_Output {
         var vertices : array<vec2f, 6> = array<vec2f, 6>(
             vec2f(-1, -1), vec2f(1, -1), vec2f(-1, 1),
             vec2f(1, -1), vec2f(-1, 1), vec2f(1, 1)
@@ -310,7 +310,7 @@ BLIT_SHADER :: #string __WGSL
     }
 
     @fragment
-    fn fs_main(in: Vertex_Output) -> @location(0) vec4f {
+    fn blit_fs_main(in: Vertex_Output) -> @location(0) vec4f {
         return vec4f(textureSample(texture, texture_sampler, in.uv).rgb, 1.0);
     }
 

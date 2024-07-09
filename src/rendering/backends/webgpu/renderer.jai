@@ -420,7 +420,6 @@ create_bind_group_layouts :: (using renderer: *Renderer) {
     {   // Global Data
         builder : Bindings_Builder;
         add_entry(*builder, wgpu.BufferBindingLayout.{ type = .Uniform, hasDynamicOffset = false, minBindingSize = xx size_of(Global_Matrices) }, binding = 0, .Vertex | .Fragment);
-        log("Size : %", size_of(Global_Matrices));
         renderer.global_matrices_bgl = bindings_builder_build(*builder);
     }
 
@@ -545,8 +544,9 @@ create_debug_pipeline :: (using renderer: *Renderer) -> wgpu.RenderPipeline {
     defer wgpu.PipelineLayoutRelease(pipeline_layout);
 
     builder: Pipeline_Builder;
-    add_vertex_shader(*builder, shader_module, "vs_main", Debug_Vertex);
-    add_fragment_shader(*builder, shader_module, "fs_main");
+    add_vertex_shader(*builder, shader_module, "debug_vs_main", Debug_Vertex);
+    add_fragment_shader(*builder, shader_module, "debug_fs_main");
+    add_color_target(*builder, renderer.render_format);
     primitive_state(*builder, .LineList);
     pipeline := pipeline_builder_build(*builder, renderer.device, pipeline_layout, "Debug Pipeline");
     return pipeline;
@@ -563,8 +563,8 @@ create_blit_pipeline :: (using renderer: *Renderer) -> wgpu.RenderPipeline {
     defer wgpu.PipelineLayoutRelease(pipeline_layout);
 
     builder: Pipeline_Builder;
-    add_vertex_shader(*builder, shader_module, "vs_main");
-    add_fragment_shader(*builder, shader_module, "fs_main");
+    add_vertex_shader(*builder, shader_module, "blit_vs_main");
+    add_fragment_shader(*builder, shader_module, "blit_fs_main");
     add_color_target(*builder, renderer.surface_format);
     return pipeline_builder_build(*builder, renderer.device, pipeline_layout, "Blit Pipeline");
 }

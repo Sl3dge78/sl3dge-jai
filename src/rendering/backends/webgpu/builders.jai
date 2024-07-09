@@ -206,17 +206,20 @@ add_bind_groups :: (using builder: *Pipeline_Layout_Builder, bind_group_layouts:
 }
 
 pipeline_layout_builder_build :: (using builder: *Pipeline_Layout_Builder, device: wgpu.Device) -> wgpu.PipelineLayout {
+    layout_desc := wgpu.PipelineLayoutDescriptor.{
+        bindGroupLayoutCount = xx bind_groups.count,
+        bindGroupLayouts     = bind_groups.data,
+    };
+
     extras := wgpu.PipelineLayoutExtras.{
         chain = .{ sType = xx wgpu.NativeSType.SType_PipelineLayoutExtras },
         pushConstantRangeCount = 1,
         pushConstantRanges = *builder.push_constant_range
     };
 
-    layout_desc := wgpu.PipelineLayoutDescriptor.{
-        nextInChain = *extras.chain,
-        bindGroupLayoutCount = xx bind_groups.count,
-        bindGroupLayouts     = bind_groups.data,
-    };
+    if push_constant_range.end != 0 { 
+        layout_desc.nextInChain = *extras.chain;
+    }
 
     pipeline_layout := WGPU_Check(wgpu.DeviceCreatePipelineLayout(device, *layout_desc));
     return pipeline_layout;
