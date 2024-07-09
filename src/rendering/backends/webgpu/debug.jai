@@ -56,7 +56,7 @@ report_gpu_leaks :: (instance: wgpu.Instance) {
         arr : [16]wgpu.RegistryReport = xx *h;
         ti := type_info(wgpu.HubReport);
         
-        for 0..ti.members.count - 1 {
+        for 1..ti.members.count - 1 { // Skip adapters...
             found |= storage_report(arr[it], ti.members[it].name, builder);
         }
         return found;
@@ -78,6 +78,38 @@ report_gpu_leaks :: (instance: wgpu.Instance) {
         str := builder_to_string(*builder);
         defer free(str);
         log("%", str);
+        // print_all_handles();
         debug_break();
     }
 }
+
+// WgpuAllocInfo :: struct {
+//     handle: wgpu.BindGroup;
+//     id : int;
+// }
+
+// handle_id := 0;
+// all_handles : [..]WgpuAllocInfo;
+// print_all_handles :: () {
+//     for all_handles {
+//         log("%", it);
+//     }
+// }
+
+// DeviceCreateBindGroup :: (device: wgpu.Device, desc: *wgpu.BindGroupDescriptor) -> wgpu.BindGroup {
+//     result := wgpu.DeviceCreateBindGroup(device, desc);
+//     array_add(*all_handles, .{result, handle_id});
+//     handle_id += 1;
+//     return result;
+// }
+
+// BindGroupRelease :: (h: wgpu.BindGroup) {
+//     wgpu.BindGroupRelease(h);
+//     for all_handles {
+//         if it.handle == h {
+//             array_unordered_remove_by_index(*all_handles, it_index);
+//             return;
+//         }
+//     }
+//     assert(false, "Double free??");
+// }

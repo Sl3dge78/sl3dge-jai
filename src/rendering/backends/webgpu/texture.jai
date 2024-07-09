@@ -6,7 +6,7 @@ Texture :: struct {
 }
 
 Render_Texture :: struct {
-    using #as tex: Texture;
+    using tex: Texture;
     bind_group: wgpu.BindGroup;
 }
 
@@ -146,4 +146,10 @@ destroy :: (texture: *Texture) {
     wgpu.TextureRelease(texture.texture);
     wgpu.TextureViewRelease(texture.view);
     texture.texture = null;
+}
+
+destroy :: (rt: *Render_Texture) {
+    wgpu.BindGroupRelease(rt.bind_group);
+    wgpu.TextureRelease(rt.texture);
+    wgpu.TextureViewRelease(rt.view);
 }

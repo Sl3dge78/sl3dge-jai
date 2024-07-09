@@ -3,6 +3,7 @@ Uniform :: struct {
     loc: Buffer_Location;
 }
 
+
 uniform_create :: (device: wgpu.Device, pool: *Buffer_Pool, size: u64, layout: wgpu.BindGroupLayout, binding := 0) -> Uniform {
     self: Uniform = ---;
     self.loc = buffer_pool_get(pool, size);
@@ -24,6 +25,10 @@ uniform_create :: (device: wgpu.Device, pool: *Buffer_Pool, size: u64, layout: w
 
 destroy :: inline (using self: *Uniform) {
     wgpu.BindGroupRelease(bind_group);
+}
+
+destroy :: inline(bg: wgpu.BindGroup) {
+    wgpu.BindGroupRelease(bg);
 }
 
 uniform_write :: inline (using self: Uniform, data: *void) {

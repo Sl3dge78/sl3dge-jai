@@ -37,6 +37,7 @@ end_frame :: (frame_data: Frame_Data) {
         aspect = .All
     };
     surface_view := wgpu.TextureCreateView(surface_texture.texture, *desc);
+    defer destroy(surface_view);
 
 
     {   // Blit to framebuffer
@@ -78,6 +79,7 @@ end_frame :: (frame_data: Frame_Data) {
     array_reset(*frame_data.cmds);
     buffer_pool_reset_keeping_memory(*global_renderer.immediate_pool);
     destroy(frame_data.framebuffer);
+    destroy(frame_data.bind_group);
     destroy(frame_data.render_to_view);
     destroy(frame_data.read_from_view);
 }

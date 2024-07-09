@@ -112,6 +112,7 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
             desc.nextInChain = xx *surface_desc_from_metal_layer;
         } else #if OS == .WINDOWS {
             surface_desc := wgpu.SurfaceDescriptorFromWindowsHWND.{
+                chain = .{ sType = .SurfaceDescriptorFromWindowsHWND },
                 hinstance = xx sdl_info.info.win.hinstance,
                 hwnd = xx sdl_info.info.win.window,
             };
@@ -253,6 +254,8 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
         renderer.sampler = WGPU_Check(wgpu.DeviceCreateSampler(renderer.device, *desc));
     }
 
+    renderer.depth_texture = texture_create(renderer.width, renderer.height, .RenderAttachment, renderer.depth_format);
+
     create_bind_group_layouts(renderer);
 
     renderer.blit_pipeline = create_blit_pipeline(renderer);
@@ -300,6 +303,7 @@ destroy :: (using renderer: *Renderer) {
     buffer_pool_reset(*immediate_pool);
 
     wgpu.RenderPipelineRelease(debug_pipeline);
+    wgpu.RenderPipelineRelease(blit_pipeline);
     wgpu.RenderPipelineRelease(ui_pipeline);
     wgpu.RenderPipelineRelease(static_mesh_pipelines[0]);
     wgpu.RenderPipelineRelease(static_mesh_pipelines[1]);
@@ -467,8 +471,6 @@ create_static_mesh_pipeline :: (using renderer: *Renderer) -> [2]wgpu.RenderPipe
     }
 
     {   // Color
-        depth_texture = texture_create(width, height, .RenderAttachment, depth_format);
-
         layout_builder: Pipeline_Layout_Builder;
         set_push_constants(*layout_builder, size_of(Standard_Push_Constants), stages = .Vertex);
         add_bind_groups(*layout_builder, renderer.global_matrices_bgl);
@@ -512,7 +514,6 @@ create_skinned_mesh_pipeline :: (using renderer: *Renderer) -> [2]wgpu.RenderPip
     }
 
     {   // Color
-        depth_texture = texture_create(width, height, .RenderAttachment, depth_format);
 
         layout_builder: Pipeline_Layout_Builder;
         set_push_constants(*layout_builder, size_of(Standard_Push_Constants), stages = .Vertex);
