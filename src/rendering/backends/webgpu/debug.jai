@@ -46,7 +46,7 @@ WGPU_Check :: (item: *$T) -> *T #expand {
 
 report_gpu_leaks :: (instance: wgpu.Instance) {
     storage_report :: (s: wgpu.RegistryReport, name: string, builder: *String_Builder) -> bool {
-        if s.numAllocated == 0 then return false;
+        if s.numKeptFromUser == 0 then return false;
         print_to_builder(builder, "%: %\n", name, s.numAllocated);
         return true;
     }
@@ -75,8 +75,7 @@ report_gpu_leaks :: (instance: wgpu.Instance) {
     found |= hub_report(report.dx12, *builder);
     if found {
         log("=== GPU Leaks found ===");
-        str := builder_to_string(*builder);
-        defer free(str);
+        str := builder_to_string(*builder,, temp);
         log("%", str);
         // print_all_handles();
         debug_break();

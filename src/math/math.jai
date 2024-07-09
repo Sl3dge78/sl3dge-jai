@@ -46,3 +46,12 @@ rot_from_mat4 :: (mat: Matrix4) -> Quaternion {
     }
     return result;
 }
+
+hex :: (hex : string) -> Vector4 {
+    result, success := string_to_int(hex, base=16);
+    val := clamp_to_another_integer_type(result, u32);
+    r := ((val & 0xff0000) >> 16) / 255.0;
+    g := ((val & 0x00ff00) >>  8) / 255.0;
+    b :=  (val & 0x0000ff)        / 255.0;
+    return .{r, g, b, 1};
+}
