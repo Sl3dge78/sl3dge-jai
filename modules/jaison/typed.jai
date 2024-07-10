@@ -124,10 +124,20 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 
 #scope_file
 
+is_member_placed :: (members: []Type_Info_Struct_Member, i: int) -> bool {
+	for 0..i - 1 {
+		m := members[it];
+		if m.offset_in_bytes == members[i].offset_in_bytes then return true;
+	}
+
+	return false;
+}
+
 json_write_native_members :: (builder: *String_Builder, data: *void, members: [] Type_Info_Struct_Member, indent_char := "\t", ignore := ignore_by_note, rename: Rename_Proc, level := 0, first: *bool) {
 	for * member: members {
 		if member.flags & .CONSTANT     continue;
 		if ignore(member)               continue;
+		if is_member_placed(members, it_index) continue;
 		if (member.type.type == .STRUCT && member.flags & .USING) {
 			info := cast(*Type_Info_Struct) member.type;
 			json_write_native_members(builder, data + member.offset_in_bytes, info.members, indent_char, ignore, rename, level, first);
