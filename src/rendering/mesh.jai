@@ -48,7 +48,7 @@ load_mesh_from_gltf_data :: (gltf_data : GLTF_Data) -> Mesh {
             read_accessor_into_array(vertices.data, xx *offset.normal, size_of(Standard_Vertex), gltf_data, normal_accessor);
         }
 
-        color: Vector4 = .{0, 0, 0, 1};
+        color: Vector4 = .{1, 1, 1, 1};
 
         if material != -1 {
             color.component = gltf_data.materials[material].metallic_roughness.base_color_factor;
