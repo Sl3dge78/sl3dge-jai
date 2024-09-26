@@ -108,6 +108,19 @@ mesh_builder_push_quad :: (using builder: *Mesh_Builder, p0: Vector3, p1: Vector
     array_add(*indices, ..u32.[i, i+1, i+2, i, i+2, i+3]);
 }
 
+mesh_builder_push_triangle :: (using builder: *Mesh_Builder, p0: Vector3, p1: Vector3, p2: Vector3, normal: Vector3, color:= Vector4.{1, 1, 1, 1}) {
+    vertices.allocator = temp;
+    indices.allocator = temp;
+    i : u32 = xx vertices.count;
+    array_add(*vertices, .{p0, normal, .{0, 0}, color});
+    array_add(*vertices, .{p1, normal, .{1, 0}, color});
+    array_add(*vertices, .{p2, normal, .{1, 1}, color});
+
+    array_add(*indices, ..u32.[i, i+1, i+2]);
+}
+
 mesh_builder_load_mesh :: (using builder: *Mesh_Builder) -> Mesh {
+    assert(vertices.count != 0);
+    assert(indices.count != 0);
     return load_mesh_from_vertices(vertices, indices);
 }
