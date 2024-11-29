@@ -23,7 +23,7 @@ draw :: inline (using self: Mesh, rp_enc: wgpu.RenderPassEncoder) {
 
 load_mesh_from_vertices :: (vertices: []Standard_Vertex, indices: []u32) -> Mesh {
     result: Mesh;
-    array_add(*result.submeshes, buffer_pool_load_mesh(*global_renderer.vertex_pool, vertices, indices));
+    array_add(*result.submeshes, buffer_pool_load_mesh(*global_renderer.vertex_buffer_pool, vertices, indices));
     return result;
 }
 
@@ -62,7 +62,7 @@ load_mesh_from_gltf_data :: (gltf_data : GLTF_Data) -> Mesh {
         idx_accessor := gltf_data.accessors[indices_accessor];
         indices := NewArray(idx_accessor.count, u32,, allocator = temp);
         read_accessor_into_array(indices.data, 0, size_of(u32), gltf_data, indices_accessor);
-        array_add(*result.submeshes, buffer_pool_load_mesh(*global_renderer.vertex_pool, vertices, indices));
+        array_add(*result.submeshes, buffer_pool_load_mesh(*global_renderer.vertex_buffer_pool, vertices, indices));
     }
     return result;
 }

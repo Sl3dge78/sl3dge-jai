@@ -15,8 +15,8 @@ generate_bindings :: () -> bool {
             array_add(*libnames, "SDL3");
             array_add(*libpaths, "lib/x64");
         } else #if OS == .LINUX {
-            // array_add(*libnames, "libwgpu_native");
-            // array_add(*libpaths, "linux");
+            array_add(*libnames, "libSDL3");
+            array_add(*libpaths, "lib/linux");
         } else #if OS == .MACOS {
             assert(false);
         } else {
@@ -26,6 +26,7 @@ generate_bindings :: () -> bool {
 
         array_add(*source_files, 
             // "include/SDL3/SDL.h",
+            "include/SDL3/SDL_stdinc.h",
             "include/SDL3/SDL_assert.h",
             "include/SDL3/SDL_atomic.h",
             "include/SDL3/SDL_audio.h",
@@ -86,7 +87,6 @@ generate_bindings :: () -> bool {
             "include/SDL3/SDL_revision.h",
             "include/SDL3/SDL_scancode.h",
             "include/SDL3/SDL_sensor.h",
-            // "include/SDL3/SDL_stdinc.h",
             "include/SDL3/SDL_storage.h",
             "include/SDL3/SDL_surface.h",
             "include/SDL3/SDL_system.h",
@@ -110,6 +110,7 @@ generate_bindings :: () -> bool {
             "include/SDL3/SDL_vulkan.h"
             );
         array_add(*system_include_paths, "include", GENERATOR_DEFAULT_SYSTEM_INCLUDE_PATH);
+        array_add(*extra_clang_arguments, "-DNO_SDL_VULKAN_TYPEDEFS");
 
         generate_library_declarations = false;
         will_print_bindings = () {
@@ -118,11 +119,13 @@ generate_bindings :: () -> bool {
             context.generator.libraries[0].name = "sdl3";
         };
         footer = FOOTER;
+        header = HEADER;
 
         log_stripped_declarations = true;
         generate_compile_time_struct_checks = false;
         try_to_preserve_comments = false;
         mimic_spacing_flags = 0;
+        array_add(*path_fragments_to_treat_as_non_system_paths, "SDL");
     }
 
     return generate_bindings(opts, output_filename);
@@ -137,13 +140,62 @@ generate_bindings :: () -> bool {
 #import "String";
 #import "Hash_Table";
 
+HEADER :: #string END
+#module_parameters(VULKAN_TYPE_DEFS := false); 
+// Set to true if you want SDL3 to define the vk types
+
+SDL_BUTTON :: (x:int) -> int { return (1 << ((x)-1)); }
+SDL_WINDOW_FULLSCREEN ::            0x0000000000000001;
+SDL_WINDOW_OPENGL ::                0x0000000000000002;
+SDL_WINDOW_OCCLUDED ::              0x0000000000000004;
+SDL_WINDOW_HIDDEN ::                0x0000000000000008;
+SDL_WINDOW_BORDERLESS ::            0x0000000000000010;
+SDL_WINDOW_RESIZABLE ::             0x0000000000000020;
+SDL_WINDOW_MINIMIZED ::             0x0000000000000040;
+SDL_WINDOW_MAXIMIZED ::             0x0000000000000080;
+SDL_WINDOW_MOUSE_GRABBED ::         0x0000000000000100;
+SDL_WINDOW_INPUT_FOCUS ::           0x0000000000000200;
+SDL_WINDOW_MOUSE_FOCUS ::           0x0000000000000400;
+SDL_WINDOW_EXTERNAL ::              0x0000000000000800;
+SDL_WINDOW_MODAL ::                 0x0000000000001000;
+SDL_WINDOW_HIGH_PIXEL_DENSITY ::    0x0000000000002000;
+SDL_WINDOW_MOUSE_CAPTURE ::         0x0000000000004000;
+SDL_WINDOW_MOUSE_RELATIVE_MODE ::   0x0000000000008000;
+SDL_WINDOW_ALWAYS_ON_TOP ::         0x0000000000010000;
+SDL_WINDOW_UTILITY ::               0x0000000000020000;
+SDL_WINDOW_TOOLTIP ::               0x0000000000040000;
+SDL_WINDOW_POPUP_MENU ::            0x0000000000080000;
+SDL_WINDOW_KEYBOARD_GRABBED ::      0x0000000000100000;
+SDL_WINDOW_VULKAN ::                0x0000000010000000;
+SDL_WINDOW_METAL ::                 0x0000000020000000;
+SDL_WINDOW_TRANSPARENT ::           0x0000000040000000;
+SDL_WINDOW_NOT_FOCUSABLE ::         0x0000000080000000;
+
+SDL_WINDOWPOS_UNDEFINED_MASK :s32: 0x1FFF0000;
+SDL_WINDOWPOS_UNDEFINED_DISPLAY :: (x: s32) -> s32 { return (SDL_WINDOWPOS_UNDEFINED_MASK|x); }
+SDL_WINDOWPOS_UNDEFINED :s32: 0x1FFF0000; // SDL_WINDOWPOS_UNDEFINED_DISPLAY(0);
+SDL_WINDOWPOS_CENTERED_MASK :s32: 0x2FFF0000;
+SDL_WINDOWPOS_CENTERED_DISPLAY :: (x: s32) -> s32 { return (SDL_WINDOWPOS_CENTERED_MASK|x); }
+SDL_WINDOWPOS_CENTERED :s32: 0x2FFF0000; // SDL_WINDOWPOS_CENTERED_DISPLAY(0);
+
+#if VULKAN_TYPE_DEFS {
+    VkInstance_T :: struct {}
+    VkInstance :: *VkInstance_T;
+    VkPhysicalDevice_T :: struct {}
+    VkPhysicalDevice :: *VkPhysicalDevice_T;
+    VkSurfaceKHR_T :: struct {}
+    VkSurfaceKHR :: *VkSurfaceKHR_T;
+    VkAllocationCallbacks :: struct {}
+}
+
+END
+
 FOOTER :: #string END
-#scope_file
 
 #if OS == .WINDOWS {
     sdl3 :: #library "lib/x64/sdl3";
 } else #if OS == .LINUX {
-    sdl3 :: #library "sdl3";
+    sdl3 :: #library "lib/linux/libSDL3";
 } else {
     #assert(false);
 }

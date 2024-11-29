@@ -30,7 +30,7 @@ console_update :: (delta_time: float) {
         message_timer -= delta_time;
     }
 
-    if key_just_pressed(SDL_SCANCODE_GRAVE) {
+    if key_just_pressed(.SDL_SCANCODE_GRAVE) {
         console_y_target = ifx console_y_target == 0 then lines.count * 8 else 0;
         log("Show console!");
     }

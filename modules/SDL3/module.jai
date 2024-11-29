@@ -4,9 +4,100 @@
 // jai generate.jai
 //
 
+#module_parameters(VULKAN := false); 
+// Set to true if you want SDL3 to define the vk types
 
+SDL_BUTTON :: (x:int) -> int { return (1 << ((x)-1)); }
+SDL_WINDOW_FULLSCREEN ::            0x0000000000000001;
+SDL_WINDOW_OPENGL ::                0x0000000000000002;
+SDL_WINDOW_OCCLUDED ::              0x0000000000000004;
+SDL_WINDOW_HIDDEN ::                0x0000000000000008;
+SDL_WINDOW_BORDERLESS ::            0x0000000000000010;
+SDL_WINDOW_RESIZABLE ::             0x0000000000000020;
+SDL_WINDOW_MINIMIZED ::             0x0000000000000040;
+SDL_WINDOW_MAXIMIZED ::             0x0000000000000080;
+SDL_WINDOW_MOUSE_GRABBED ::         0x0000000000000100;
+SDL_WINDOW_INPUT_FOCUS ::           0x0000000000000200;
+SDL_WINDOW_MOUSE_FOCUS ::           0x0000000000000400;
+SDL_WINDOW_EXTERNAL ::              0x0000000000000800;
+SDL_WINDOW_MODAL ::                 0x0000000000001000;
+SDL_WINDOW_HIGH_PIXEL_DENSITY ::    0x0000000000002000;
+SDL_WINDOW_MOUSE_CAPTURE ::         0x0000000000004000;
+SDL_WINDOW_MOUSE_RELATIVE_MODE ::   0x0000000000008000;
+SDL_WINDOW_ALWAYS_ON_TOP ::         0x0000000000010000;
+SDL_WINDOW_UTILITY ::               0x0000000000020000;
+SDL_WINDOW_TOOLTIP ::               0x0000000000040000;
+SDL_WINDOW_POPUP_MENU ::            0x0000000000080000;
+SDL_WINDOW_KEYBOARD_GRABBED ::      0x0000000000100000;
+SDL_WINDOW_VULKAN ::                0x0000000010000000;
+SDL_WINDOW_METAL ::                 0x0000000020000000;
+SDL_WINDOW_TRANSPARENT ::           0x0000000040000000;
+SDL_WINDOW_NOT_FOCUSABLE ::         0x0000000080000000;
 
-SDL_ASSERT_LEVEL :: 1;
+SDL_WINDOWPOS_UNDEFINED_MASK :s32: 0x1FFF0000;
+SDL_WINDOWPOS_UNDEFINED_DISPLAY :: (x: s32) -> s32 { return (SDL_WINDOWPOS_UNDEFINED_MASK|x); }
+SDL_WINDOWPOS_UNDEFINED :s32: 0x1FFF0000; // SDL_WINDOWPOS_UNDEFINED_DISPLAY(0);
+SDL_WINDOWPOS_CENTERED_MASK :s32: 0x2FFF0000;
+SDL_WINDOWPOS_CENTERED_DISPLAY :: (x: s32) -> s32 { return (SDL_WINDOWPOS_CENTERED_MASK|x); }
+SDL_WINDOWPOS_CENTERED :s32: 0x2FFF0000; // SDL_WINDOWPOS_CENTERED_DISPLAY(0);
+
+#if VULKAN {
+    VkInstance_T :: void;
+    VkInstance :: *VkInstance_T;
+    VkPhysicalDevice_T :: void;
+    VkPhysicalDevice :: *VkPhysicalDevice_T;
+    VkSurfaceKHR_T :: void;
+    VkSurfaceKHR :: *VkSurfaceKHR_T;
+    VkAllocationCallbacks :: void;
+    SDL_Vulkan_LoadLibrary :: (path: *u8) -> bool #foreign sdl3;
+    SDL_Vulkan_GetVkGetInstanceProcAddr :: () -> SDL_FunctionPointer #foreign sdl3;
+    SDL_Vulkan_UnloadLibrary :: () -> void #foreign sdl3;
+    SDL_Vulkan_GetInstanceExtensions :: (count: *Uint32) -> **u8 #foreign sdl3;
+    SDL_Vulkan_CreateSurface :: (window: *SDL_Window, instance: VkInstance, allocator: *VkAllocationCallbacks, surface: *VkSurfaceKHR) -> bool #foreign sdl3;
+    SDL_Vulkan_DestroySurface :: (instance: VkInstance, surface: VkSurfaceKHR, allocator: *VkAllocationCallbacks) -> void #foreign sdl3;
+    SDL_Vulkan_GetPresentationSupport :: (instance: VkInstance, physicalDevice: VkPhysicalDevice, queueFamilyIndex: Uint32) -> bool #foreign sdl3;
+}
+
+SDL_PLATFORM_LINUX :: 1;
+SDL_PLATFORM_UNIX :: 1;
+SDL_MAX_SINT8 :: cast(Sint8) 0x7F;
+SDL_MIN_SINT8 :: cast,trunc(Sint8) (~0x7F);
+SDL_MAX_UINT8 :: cast(Uint8) 0xFF;
+SDL_MIN_UINT8 :: cast(Uint8) 0x00;
+SDL_MAX_SINT16 :: cast(Sint16) 0x7FFF;
+SDL_MIN_SINT16 :: cast,trunc(Sint16) (~0x7FFF);
+SDL_MAX_UINT16 :: cast(Uint16) 0xFFFF;
+SDL_MIN_UINT16 :: cast(Uint16) 0x0000;
+SDL_MAX_SINT32 :: cast(Sint32) 0x7FFFFFFF;
+SDL_MIN_SINT32 :: cast,trunc(Sint32) (~0x7FFFFFFF);
+SDL_MAX_UINT32 :: cast(Uint32) 0xFFFFFFFF;
+SDL_MIN_UINT32 :: cast(Uint32) 0x00000000;
+SDL_FLT_EPSILON :: 1.1920928955078125e-07;
+SDL_PRIs64 :: "ld";
+SDL_PRILL_PREFIX :: "ll";
+SDL_INVALID_UNICODE_CODEPOINT :: 0xFFFD;
+SDL_PI_D :: 3.141592653589793238462643383279502884;
+SDL_PI_F :: 3.141592653589793238462643383279502884;
+SDL_ICONV_ERROR :: cast,trunc(u64) -1;
+SDL_ICONV_E2BIG :: cast,trunc(u64) -2;
+SDL_ICONV_EILSEQ :: cast,trunc(u64) -3;
+SDL_ICONV_EINVAL :: cast,trunc(u64) -4;
+SDL_ASSERT_LEVEL :: 2;
+SDL_NULL_WHILE_LOOP_CONDITION :: 0;
+SDL_LIL_ENDIAN :: 1234;
+SDL_BIG_ENDIAN :: 4321;
+SDL_PROP_THREAD_CREATE_ENTRY_FUNCTION_POINTER :: "SDL.thread.create.entry_function";
+SDL_PROP_THREAD_CREATE_NAME_STRING :: "SDL.thread.create.name";
+SDL_PROP_THREAD_CREATE_USERDATA_POINTER :: "SDL.thread.create.userdata";
+SDL_PROP_THREAD_CREATE_STACKSIZE_NUMBER :: "SDL.thread.create.stacksize";
+SDL_PROP_IOSTREAM_WINDOWS_HANDLE_POINTER :: "SDL.iostream.windows.handle";
+SDL_PROP_IOSTREAM_STDIO_FILE_POINTER :: "SDL.iostream.stdio.file";
+SDL_PROP_IOSTREAM_FILE_DESCRIPTOR_NUMBER :: "SDL.iostream.file_descriptor";
+SDL_PROP_IOSTREAM_ANDROID_AASSET_POINTER :: "SDL.iostream.android.aasset";
+SDL_PROP_IOSTREAM_MEMORY_POINTER :: "SDL.iostream.memory.base";
+SDL_PROP_IOSTREAM_MEMORY_SIZE_NUMBER :: "SDL.iostream.memory.size";
+SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER :: "SDL.iostream.dynamic.memory";
+SDL_PROP_IOSTREAM_DYNAMIC_CHUNKSIZE_NUMBER :: "SDL.iostream.dynamic.chunksize";
 SDL_AUDIO_MASK_BITSIZE :: 0xFF;
 SDL_AUDIO_MASK_FLOAT :: 1<<8;
 SDL_AUDIO_MASK_BIG_ENDIAN :: 1<<12;
@@ -21,7 +112,412 @@ SDL_BLENDMODE_ADD_PREMULTIPLIED :: 0x00000020;
 SDL_BLENDMODE_MOD :: 0x00000004;
 SDL_BLENDMODE_MUL :: 0x00000008;
 SDL_BLENDMODE_INVALID :: 0x7FFFFFFF;
+SDL_ALPHA_OPAQUE :: 255;
+SDL_ALPHA_OPAQUE_FLOAT :: 1.0;
+SDL_ALPHA_TRANSPARENT :: 0;
+SDL_ALPHA_TRANSPARENT_FLOAT :: 0.0;
+SDL_SURFACE_PREALLOCATED :: 0x00000001;
+SDL_SURFACE_LOCK_NEEDED :: 0x00000002;
+SDL_SURFACE_LOCKED :: 0x00000004;
+SDL_SURFACE_SIMD_ALIGNED :: 0x00000008;
+SDL_PROP_SURFACE_SDR_WHITE_POINT_FLOAT :: "SDL.surface.SDR_white_point";
+SDL_PROP_SURFACE_HDR_HEADROOM_FLOAT :: "SDL.surface.HDR_headroom";
+SDL_PROP_SURFACE_TONEMAP_OPERATOR_STRING :: "SDL.surface.tonemap";
 SDL_CACHELINE_SIZE :: 128;
+SDL_PROP_GLOBAL_VIDEO_WAYLAND_WL_DISPLAY_POINTER :: "SDL.video.wayland.wl_display";
+SDL_WINDOWPOS_UNDEFINED_MASK :: 0x1FFF0000;
+SDL_WINDOWPOS_CENTERED_MASK :: 0x2FFF0000;
+SDL_GL_CONTEXT_PROFILE_CORE :: 0x0001;
+SDL_GL_CONTEXT_PROFILE_COMPATIBILITY :: 0x0002;
+SDL_GL_CONTEXT_PROFILE_ES :: 0x0004;
+SDL_GL_CONTEXT_DEBUG_FLAG :: 0x0001;
+SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG :: 0x0002;
+SDL_GL_CONTEXT_ROBUST_ACCESS_FLAG :: 0x0004;
+SDL_GL_CONTEXT_RESET_ISOLATION_FLAG :: 0x0008;
+SDL_GL_CONTEXT_RELEASE_BEHAVIOR_NONE :: 0x0000;
+SDL_GL_CONTEXT_RELEASE_BEHAVIOR_FLUSH :: 0x0001;
+SDL_GL_CONTEXT_RESET_NO_NOTIFICATION :: 0x0000;
+SDL_GL_CONTEXT_RESET_LOSE_CONTEXT :: 0x0001;
+SDL_PROP_DISPLAY_HDR_ENABLED_BOOLEAN :: "SDL.display.HDR_enabled";
+SDL_PROP_DISPLAY_KMSDRM_PANEL_ORIENTATION_NUMBER :: "SDL.display.KMSDRM.panel_orientation";
+SDL_PROP_WINDOW_CREATE_ALWAYS_ON_TOP_BOOLEAN :: "SDL.window.create.always_on_top";
+SDL_PROP_WINDOW_CREATE_BORDERLESS_BOOLEAN :: "SDL.window.create.borderless";
+SDL_PROP_WINDOW_CREATE_FOCUSABLE_BOOLEAN :: "SDL.window.create.focusable";
+SDL_PROP_WINDOW_CREATE_EXTERNAL_GRAPHICS_CONTEXT_BOOLEAN :: "SDL.window.create.external_graphics_context";
+SDL_PROP_WINDOW_CREATE_FLAGS_NUMBER :: "SDL.window.create.flags";
+SDL_PROP_WINDOW_CREATE_FULLSCREEN_BOOLEAN :: "SDL.window.create.fullscreen";
+SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER :: "SDL.window.create.height";
+SDL_PROP_WINDOW_CREATE_HIDDEN_BOOLEAN :: "SDL.window.create.hidden";
+SDL_PROP_WINDOW_CREATE_HIGH_PIXEL_DENSITY_BOOLEAN :: "SDL.window.create.high_pixel_density";
+SDL_PROP_WINDOW_CREATE_MAXIMIZED_BOOLEAN :: "SDL.window.create.maximized";
+SDL_PROP_WINDOW_CREATE_MENU_BOOLEAN :: "SDL.window.create.menu";
+SDL_PROP_WINDOW_CREATE_METAL_BOOLEAN :: "SDL.window.create.metal";
+SDL_PROP_WINDOW_CREATE_MINIMIZED_BOOLEAN :: "SDL.window.create.minimized";
+SDL_PROP_WINDOW_CREATE_MODAL_BOOLEAN :: "SDL.window.create.modal";
+SDL_PROP_WINDOW_CREATE_MOUSE_GRABBED_BOOLEAN :: "SDL.window.create.mouse_grabbed";
+SDL_PROP_WINDOW_CREATE_OPENGL_BOOLEAN :: "SDL.window.create.opengl";
+SDL_PROP_WINDOW_CREATE_PARENT_POINTER :: "SDL.window.create.parent";
+SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN :: "SDL.window.create.resizable";
+SDL_PROP_WINDOW_CREATE_TITLE_STRING :: "SDL.window.create.title";
+SDL_PROP_WINDOW_CREATE_TRANSPARENT_BOOLEAN :: "SDL.window.create.transparent";
+SDL_PROP_WINDOW_CREATE_TOOLTIP_BOOLEAN :: "SDL.window.create.tooltip";
+SDL_PROP_WINDOW_CREATE_UTILITY_BOOLEAN :: "SDL.window.create.utility";
+SDL_PROP_WINDOW_CREATE_VULKAN_BOOLEAN :: "SDL.window.create.vulkan";
+SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER :: "SDL.window.create.width";
+SDL_PROP_WINDOW_CREATE_X_NUMBER :: "SDL.window.create.x";
+SDL_PROP_WINDOW_CREATE_Y_NUMBER :: "SDL.window.create.y";
+SDL_PROP_WINDOW_CREATE_COCOA_WINDOW_POINTER :: "SDL.window.create.cocoa.window";
+SDL_PROP_WINDOW_CREATE_COCOA_VIEW_POINTER :: "SDL.window.create.cocoa.view";
+SDL_PROP_WINDOW_CREATE_WAYLAND_SURFACE_ROLE_CUSTOM_BOOLEAN :: "SDL.window.create.wayland.surface_role_custom";
+SDL_PROP_WINDOW_CREATE_WAYLAND_CREATE_EGL_WINDOW_BOOLEAN :: "SDL.window.create.wayland.create_egl_window";
+SDL_PROP_WINDOW_CREATE_WAYLAND_WL_SURFACE_POINTER :: "SDL.window.create.wayland.wl_surface";
+SDL_PROP_WINDOW_CREATE_WIN32_HWND_POINTER :: "SDL.window.create.win32.hwnd";
+SDL_PROP_WINDOW_CREATE_WIN32_PIXEL_FORMAT_HWND_POINTER :: "SDL.window.create.win32.pixel_format_hwnd";
+SDL_PROP_WINDOW_CREATE_X11_WINDOW_NUMBER :: "SDL.window.create.x11.window";
+SDL_PROP_WINDOW_SHAPE_POINTER :: "SDL.window.shape";
+SDL_PROP_WINDOW_HDR_ENABLED_BOOLEAN :: "SDL.window.HDR_enabled";
+SDL_PROP_WINDOW_SDR_WHITE_LEVEL_FLOAT :: "SDL.window.SDR_white_level";
+SDL_PROP_WINDOW_HDR_HEADROOM_FLOAT :: "SDL.window.HDR_headroom";
+SDL_PROP_WINDOW_ANDROID_WINDOW_POINTER :: "SDL.window.android.window";
+SDL_PROP_WINDOW_ANDROID_SURFACE_POINTER :: "SDL.window.android.surface";
+SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER :: "SDL.window.uikit.window";
+SDL_PROP_WINDOW_UIKIT_METAL_VIEW_TAG_NUMBER :: "SDL.window.uikit.metal_view_tag";
+SDL_PROP_WINDOW_UIKIT_OPENGL_FRAMEBUFFER_NUMBER :: "SDL.window.uikit.opengl.framebuffer";
+SDL_PROP_WINDOW_UIKIT_OPENGL_RENDERBUFFER_NUMBER :: "SDL.window.uikit.opengl.renderbuffer";
+SDL_PROP_WINDOW_UIKIT_OPENGL_RESOLVE_FRAMEBUFFER_NUMBER :: "SDL.window.uikit.opengl.resolve_framebuffer";
+SDL_PROP_WINDOW_KMSDRM_DEVICE_INDEX_NUMBER :: "SDL.window.kmsdrm.dev_index";
+SDL_PROP_WINDOW_KMSDRM_DRM_FD_NUMBER :: "SDL.window.kmsdrm.drm_fd";
+SDL_PROP_WINDOW_KMSDRM_GBM_DEVICE_POINTER :: "SDL.window.kmsdrm.gbm_dev";
+SDL_PROP_WINDOW_COCOA_WINDOW_POINTER :: "SDL.window.cocoa.window";
+SDL_PROP_WINDOW_COCOA_METAL_VIEW_TAG_NUMBER :: "SDL.window.cocoa.metal_view_tag";
+SDL_PROP_WINDOW_OPENVR_OVERLAY_ID :: "SDL.window.openvr.overlay_id";
+SDL_PROP_WINDOW_VIVANTE_DISPLAY_POINTER :: "SDL.window.vivante.display";
+SDL_PROP_WINDOW_VIVANTE_WINDOW_POINTER :: "SDL.window.vivante.window";
+SDL_PROP_WINDOW_VIVANTE_SURFACE_POINTER :: "SDL.window.vivante.surface";
+SDL_PROP_WINDOW_WIN32_HWND_POINTER :: "SDL.window.win32.hwnd";
+SDL_PROP_WINDOW_WIN32_HDC_POINTER :: "SDL.window.win32.hdc";
+SDL_PROP_WINDOW_WIN32_INSTANCE_POINTER :: "SDL.window.win32.instance";
+SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER :: "SDL.window.wayland.display";
+SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER :: "SDL.window.wayland.surface";
+SDL_PROP_WINDOW_WAYLAND_EGL_WINDOW_POINTER :: "SDL.window.wayland.egl_window";
+SDL_PROP_WINDOW_WAYLAND_XDG_SURFACE_POINTER :: "SDL.window.wayland.xdg_surface";
+SDL_PROP_WINDOW_WAYLAND_XDG_TOPLEVEL_POINTER :: "SDL.window.wayland.xdg_toplevel";
+SDL_PROP_WINDOW_WAYLAND_XDG_TOPLEVEL_EXPORT_HANDLE_STRING :: "SDL.window.wayland.xdg_toplevel_export_handle";
+SDL_PROP_WINDOW_WAYLAND_XDG_POPUP_POINTER :: "SDL.window.wayland.xdg_popup";
+SDL_PROP_WINDOW_WAYLAND_XDG_POSITIONER_POINTER :: "SDL.window.wayland.xdg_positioner";
+SDL_PROP_WINDOW_X11_DISPLAY_POINTER :: "SDL.window.x11.display";
+SDL_PROP_WINDOW_X11_SCREEN_NUMBER :: "SDL.window.x11.screen";
+SDL_PROP_WINDOW_X11_WINDOW_NUMBER :: "SDL.window.x11.window";
+SDL_WINDOW_SURFACE_VSYNC_DISABLED :: 0;
+SDL_WINDOW_SURFACE_VSYNC_ADAPTIVE :: -1;
+SDL_STANDARD_GRAVITY :: 9.80665;
+SDL_JOYSTICK_AXIS_MAX :: 32767;
+SDL_JOYSTICK_AXIS_MIN :: -32768;
+SDL_PROP_JOYSTICK_CAP_MONO_LED_BOOLEAN :: "SDL.joystick.cap.mono_led";
+SDL_PROP_JOYSTICK_CAP_RGB_LED_BOOLEAN :: "SDL.joystick.cap.rgb_led";
+SDL_PROP_JOYSTICK_CAP_PLAYER_LED_BOOLEAN :: "SDL.joystick.cap.player_led";
+SDL_PROP_JOYSTICK_CAP_RUMBLE_BOOLEAN :: "SDL.joystick.cap.rumble";
+SDL_PROP_JOYSTICK_CAP_TRIGGER_RUMBLE_BOOLEAN :: "SDL.joystick.cap.trigger_rumble";
+SDL_HAT_CENTERED :: 0x00;
+SDL_HAT_UP :: 0x01;
+SDL_HAT_RIGHT :: 0x02;
+SDL_HAT_DOWN :: 0x04;
+SDL_HAT_LEFT :: 0x08;
+SDL_HAT_RIGHTUP :: SDL_HAT_RIGHT|SDL_HAT_UP;
+SDL_HAT_RIGHTDOWN :: SDL_HAT_RIGHT|SDL_HAT_DOWN;
+SDL_HAT_LEFTUP :: SDL_HAT_LEFT|SDL_HAT_UP;
+SDL_HAT_LEFTDOWN :: SDL_HAT_LEFT|SDL_HAT_DOWN;
+SDL_PROP_GAMEPAD_CAP_MONO_LED_BOOLEAN :: SDL_PROP_JOYSTICK_CAP_MONO_LED_BOOLEAN;
+SDL_PROP_GAMEPAD_CAP_RGB_LED_BOOLEAN :: SDL_PROP_JOYSTICK_CAP_RGB_LED_BOOLEAN;
+SDL_PROP_GAMEPAD_CAP_PLAYER_LED_BOOLEAN :: SDL_PROP_JOYSTICK_CAP_PLAYER_LED_BOOLEAN;
+SDL_PROP_GAMEPAD_CAP_RUMBLE_BOOLEAN :: SDL_PROP_JOYSTICK_CAP_RUMBLE_BOOLEAN;
+SDL_PROP_GAMEPAD_CAP_TRIGGER_RUMBLE_BOOLEAN :: SDL_PROP_JOYSTICK_CAP_TRIGGER_RUMBLE_BOOLEAN;
+SDLK_SCANCODE_MASK :: 1<<30;
+SDLK_UNKNOWN :: 0x00000000;
+SDLK_RETURN :: 0x0000000d;
+SDLK_ESCAPE :: 0x0000001b;
+SDLK_BACKSPACE :: 0x00000008;
+SDLK_TAB :: 0x00000009;
+SDLK_SPACE :: 0x00000020;
+SDLK_EXCLAIM :: 0x00000021;
+SDLK_DBLAPOSTROPHE :: 0x00000022;
+SDLK_HASH :: 0x00000023;
+SDLK_DOLLAR :: 0x00000024;
+SDLK_PERCENT :: 0x00000025;
+SDLK_AMPERSAND :: 0x00000026;
+SDLK_APOSTROPHE :: 0x00000027;
+SDLK_LEFTPAREN :: 0x00000028;
+SDLK_RIGHTPAREN :: 0x00000029;
+SDLK_ASTERISK :: 0x0000002a;
+SDLK_PLUS :: 0x0000002b;
+SDLK_COMMA :: 0x0000002c;
+SDLK_MINUS :: 0x0000002d;
+SDLK_PERIOD :: 0x0000002e;
+SDLK_SLASH :: 0x0000002f;
+SDLK_0 :: 0x00000030;
+SDLK_1 :: 0x00000031;
+SDLK_2 :: 0x00000032;
+SDLK_3 :: 0x00000033;
+SDLK_4 :: 0x00000034;
+SDLK_5 :: 0x00000035;
+SDLK_6 :: 0x00000036;
+SDLK_7 :: 0x00000037;
+SDLK_8 :: 0x00000038;
+SDLK_9 :: 0x00000039;
+SDLK_COLON :: 0x0000003a;
+SDLK_SEMICOLON :: 0x0000003b;
+SDLK_LESS :: 0x0000003c;
+SDLK_EQUALS :: 0x0000003d;
+SDLK_GREATER :: 0x0000003e;
+SDLK_QUESTION :: 0x0000003f;
+SDLK_AT :: 0x00000040;
+SDLK_LEFTBRACKET :: 0x0000005b;
+SDLK_BACKSLASH :: 0x0000005c;
+SDLK_RIGHTBRACKET :: 0x0000005d;
+SDLK_CARET :: 0x0000005e;
+SDLK_UNDERSCORE :: 0x0000005f;
+SDLK_GRAVE :: 0x00000060;
+SDLK_A :: 0x00000061;
+SDLK_B :: 0x00000062;
+SDLK_C :: 0x00000063;
+SDLK_D :: 0x00000064;
+SDLK_E :: 0x00000065;
+SDLK_F :: 0x00000066;
+SDLK_G :: 0x00000067;
+SDLK_H :: 0x00000068;
+SDLK_I :: 0x00000069;
+SDLK_J :: 0x0000006a;
+SDLK_K :: 0x0000006b;
+SDLK_L :: 0x0000006c;
+SDLK_M :: 0x0000006d;
+SDLK_N :: 0x0000006e;
+SDLK_O :: 0x0000006f;
+SDLK_P :: 0x00000070;
+SDLK_Q :: 0x00000071;
+SDLK_R :: 0x00000072;
+SDLK_S :: 0x00000073;
+SDLK_T :: 0x00000074;
+SDLK_U :: 0x00000075;
+SDLK_V :: 0x00000076;
+SDLK_W :: 0x00000077;
+SDLK_X :: 0x00000078;
+SDLK_Y :: 0x00000079;
+SDLK_Z :: 0x0000007a;
+SDLK_LEFTBRACE :: 0x0000007b;
+SDLK_PIPE :: 0x0000007c;
+SDLK_RIGHTBRACE :: 0x0000007d;
+SDLK_TILDE :: 0x0000007e;
+SDLK_DELETE :: 0x0000007f;
+SDLK_PLUSMINUS :: 0x000000b1;
+SDLK_CAPSLOCK :: 0x40000039;
+SDLK_F1 :: 0x4000003a;
+SDLK_F2 :: 0x4000003b;
+SDLK_F3 :: 0x4000003c;
+SDLK_F4 :: 0x4000003d;
+SDLK_F5 :: 0x4000003e;
+SDLK_F6 :: 0x4000003f;
+SDLK_F7 :: 0x40000040;
+SDLK_F8 :: 0x40000041;
+SDLK_F9 :: 0x40000042;
+SDLK_F10 :: 0x40000043;
+SDLK_F11 :: 0x40000044;
+SDLK_F12 :: 0x40000045;
+SDLK_PRINTSCREEN :: 0x40000046;
+SDLK_SCROLLLOCK :: 0x40000047;
+SDLK_PAUSE :: 0x40000048;
+SDLK_INSERT :: 0x40000049;
+SDLK_HOME :: 0x4000004a;
+SDLK_PAGEUP :: 0x4000004b;
+SDLK_END :: 0x4000004d;
+SDLK_PAGEDOWN :: 0x4000004e;
+SDLK_RIGHT :: 0x4000004f;
+SDLK_LEFT :: 0x40000050;
+SDLK_DOWN :: 0x40000051;
+SDLK_UP :: 0x40000052;
+SDLK_NUMLOCKCLEAR :: 0x40000053;
+SDLK_KP_DIVIDE :: 0x40000054;
+SDLK_KP_MULTIPLY :: 0x40000055;
+SDLK_KP_MINUS :: 0x40000056;
+SDLK_KP_PLUS :: 0x40000057;
+SDLK_KP_ENTER :: 0x40000058;
+SDLK_KP_1 :: 0x40000059;
+SDLK_KP_2 :: 0x4000005a;
+SDLK_KP_3 :: 0x4000005b;
+SDLK_KP_4 :: 0x4000005c;
+SDLK_KP_5 :: 0x4000005d;
+SDLK_KP_6 :: 0x4000005e;
+SDLK_KP_7 :: 0x4000005f;
+SDLK_KP_8 :: 0x40000060;
+SDLK_KP_9 :: 0x40000061;
+SDLK_KP_0 :: 0x40000062;
+SDLK_KP_PERIOD :: 0x40000063;
+SDLK_APPLICATION :: 0x40000065;
+SDLK_POWER :: 0x40000066;
+SDLK_KP_EQUALS :: 0x40000067;
+SDLK_F13 :: 0x40000068;
+SDLK_F14 :: 0x40000069;
+SDLK_F15 :: 0x4000006a;
+SDLK_F16 :: 0x4000006b;
+SDLK_F17 :: 0x4000006c;
+SDLK_F18 :: 0x4000006d;
+SDLK_F19 :: 0x4000006e;
+SDLK_F20 :: 0x4000006f;
+SDLK_F21 :: 0x40000070;
+SDLK_F22 :: 0x40000071;
+SDLK_F23 :: 0x40000072;
+SDLK_F24 :: 0x40000073;
+SDLK_EXECUTE :: 0x40000074;
+SDLK_HELP :: 0x40000075;
+SDLK_MENU :: 0x40000076;
+SDLK_SELECT :: 0x40000077;
+SDLK_STOP :: 0x40000078;
+SDLK_AGAIN :: 0x40000079;
+SDLK_UNDO :: 0x4000007a;
+SDLK_CUT :: 0x4000007b;
+SDLK_COPY :: 0x4000007c;
+SDLK_PASTE :: 0x4000007d;
+SDLK_FIND :: 0x4000007e;
+SDLK_MUTE :: 0x4000007f;
+SDLK_VOLUMEUP :: 0x40000080;
+SDLK_VOLUMEDOWN :: 0x40000081;
+SDLK_KP_COMMA :: 0x40000085;
+SDLK_KP_EQUALSAS400 :: 0x40000086;
+SDLK_ALTERASE :: 0x40000099;
+SDLK_SYSREQ :: 0x4000009a;
+SDLK_CANCEL :: 0x4000009b;
+SDLK_CLEAR :: 0x4000009c;
+SDLK_PRIOR :: 0x4000009d;
+SDLK_RETURN2 :: 0x4000009e;
+SDLK_SEPARATOR :: 0x4000009f;
+SDLK_OUT :: 0x400000a0;
+SDLK_OPER :: 0x400000a1;
+SDLK_CLEARAGAIN :: 0x400000a2;
+SDLK_CRSEL :: 0x400000a3;
+SDLK_EXSEL :: 0x400000a4;
+SDLK_KP_00 :: 0x400000b0;
+SDLK_KP_000 :: 0x400000b1;
+SDLK_THOUSANDSSEPARATOR :: 0x400000b2;
+SDLK_DECIMALSEPARATOR :: 0x400000b3;
+SDLK_CURRENCYUNIT :: 0x400000b4;
+SDLK_CURRENCYSUBUNIT :: 0x400000b5;
+SDLK_KP_LEFTPAREN :: 0x400000b6;
+SDLK_KP_RIGHTPAREN :: 0x400000b7;
+SDLK_KP_LEFTBRACE :: 0x400000b8;
+SDLK_KP_RIGHTBRACE :: 0x400000b9;
+SDLK_KP_TAB :: 0x400000ba;
+SDLK_KP_BACKSPACE :: 0x400000bb;
+SDLK_KP_A :: 0x400000bc;
+SDLK_KP_B :: 0x400000bd;
+SDLK_KP_C :: 0x400000be;
+SDLK_KP_D :: 0x400000bf;
+SDLK_KP_E :: 0x400000c0;
+SDLK_KP_F :: 0x400000c1;
+SDLK_KP_XOR :: 0x400000c2;
+SDLK_KP_POWER :: 0x400000c3;
+SDLK_KP_PERCENT :: 0x400000c4;
+SDLK_KP_LESS :: 0x400000c5;
+SDLK_KP_GREATER :: 0x400000c6;
+SDLK_KP_AMPERSAND :: 0x400000c7;
+SDLK_KP_DBLAMPERSAND :: 0x400000c8;
+SDLK_KP_VERTICALBAR :: 0x400000c9;
+SDLK_KP_DBLVERTICALBAR :: 0x400000ca;
+SDLK_KP_COLON :: 0x400000cb;
+SDLK_KP_HASH :: 0x400000cc;
+SDLK_KP_SPACE :: 0x400000cd;
+SDLK_KP_AT :: 0x400000ce;
+SDLK_KP_EXCLAM :: 0x400000cf;
+SDLK_KP_MEMSTORE :: 0x400000d0;
+SDLK_KP_MEMRECALL :: 0x400000d1;
+SDLK_KP_MEMCLEAR :: 0x400000d2;
+SDLK_KP_MEMADD :: 0x400000d3;
+SDLK_KP_MEMSUBTRACT :: 0x400000d4;
+SDLK_KP_MEMMULTIPLY :: 0x400000d5;
+SDLK_KP_MEMDIVIDE :: 0x400000d6;
+SDLK_KP_PLUSMINUS :: 0x400000d7;
+SDLK_KP_CLEAR :: 0x400000d8;
+SDLK_KP_CLEARENTRY :: 0x400000d9;
+SDLK_KP_BINARY :: 0x400000da;
+SDLK_KP_OCTAL :: 0x400000db;
+SDLK_KP_DECIMAL :: 0x400000dc;
+SDLK_KP_HEXADECIMAL :: 0x400000dd;
+SDLK_LCTRL :: 0x400000e0;
+SDLK_LSHIFT :: 0x400000e1;
+SDLK_LALT :: 0x400000e2;
+SDLK_LGUI :: 0x400000e3;
+SDLK_RCTRL :: 0x400000e4;
+SDLK_RSHIFT :: 0x400000e5;
+SDLK_RALT :: 0x400000e6;
+SDLK_RGUI :: 0x400000e7;
+SDLK_MODE :: 0x40000101;
+SDLK_SLEEP :: 0x40000102;
+SDLK_WAKE :: 0x40000103;
+SDLK_CHANNEL_INCREMENT :: 0x40000104;
+SDLK_CHANNEL_DECREMENT :: 0x40000105;
+SDLK_MEDIA_PLAY :: 0x40000106;
+SDLK_MEDIA_PAUSE :: 0x40000107;
+SDLK_MEDIA_RECORD :: 0x40000108;
+SDLK_MEDIA_FAST_FORWARD :: 0x40000109;
+SDLK_MEDIA_REWIND :: 0x4000010a;
+SDLK_MEDIA_NEXT_TRACK :: 0x4000010b;
+SDLK_MEDIA_PREVIOUS_TRACK :: 0x4000010c;
+SDLK_MEDIA_STOP :: 0x4000010d;
+SDLK_MEDIA_EJECT :: 0x4000010e;
+SDLK_MEDIA_PLAY_PAUSE :: 0x4000010f;
+SDLK_MEDIA_SELECT :: 0x40000110;
+SDLK_AC_NEW :: 0x40000111;
+SDLK_AC_OPEN :: 0x40000112;
+SDLK_AC_CLOSE :: 0x40000113;
+SDLK_AC_EXIT :: 0x40000114;
+SDLK_AC_SAVE :: 0x40000115;
+SDLK_AC_PRINT :: 0x40000116;
+SDLK_AC_PROPERTIES :: 0x40000117;
+SDLK_AC_SEARCH :: 0x40000118;
+SDLK_AC_HOME :: 0x40000119;
+SDLK_AC_BACK :: 0x4000011a;
+SDLK_AC_FORWARD :: 0x4000011b;
+SDLK_AC_STOP :: 0x4000011c;
+SDLK_AC_REFRESH :: 0x4000011d;
+SDLK_AC_BOOKMARKS :: 0x4000011e;
+SDLK_SOFTLEFT :: 0x4000011f;
+SDLK_SOFTRIGHT :: 0x40000120;
+SDLK_CALL :: 0x40000121;
+SDLK_ENDCALL :: 0x40000122;
+SDL_KMOD_NONE :: 0x0000;
+SDL_KMOD_LSHIFT :: 0x0001;
+SDL_KMOD_RSHIFT :: 0x0002;
+SDL_KMOD_LCTRL :: 0x0040;
+SDL_KMOD_RCTRL :: 0x0080;
+SDL_KMOD_LALT :: 0x0100;
+SDL_KMOD_RALT :: 0x0200;
+SDL_KMOD_LGUI :: 0x0400;
+SDL_KMOD_RGUI :: 0x0800;
+SDL_KMOD_NUM :: 0x1000;
+SDL_KMOD_CAPS :: 0x2000;
+SDL_KMOD_MODE :: 0x4000;
+SDL_KMOD_SCROLL :: 0x8000;
+SDL_KMOD_CTRL :: SDL_KMOD_LCTRL | SDL_KMOD_RCTRL;
+SDL_KMOD_SHIFT :: SDL_KMOD_LSHIFT | SDL_KMOD_RSHIFT;
+SDL_KMOD_ALT :: SDL_KMOD_LALT | SDL_KMOD_RALT;
+SDL_KMOD_GUI :: SDL_KMOD_LGUI | SDL_KMOD_RGUI;
+SDL_PROP_TEXTINPUT_TYPE_NUMBER :: "SDL.textinput.type";
+SDL_PROP_TEXTINPUT_CAPITALIZATION_NUMBER :: "SDL.textinput.capitalization";
+SDL_PROP_TEXTINPUT_AUTOCORRECT_BOOLEAN :: "SDL.textinput.autocorrect";
+SDL_PROP_TEXTINPUT_MULTILINE_BOOLEAN :: "SDL.textinput.multiline";
+SDL_PROP_TEXTINPUT_ANDROID_INPUTTYPE_NUMBER :: "SDL.textinput.android.inputtype";
+SDL_BUTTON_LEFT :: 1;
+SDL_BUTTON_MIDDLE :: 2;
+SDL_BUTTON_RIGHT :: 3;
+SDL_BUTTON_X1 :: 4;
+SDL_BUTTON_X2 :: 5;
+SDL_PEN_INPUT_DOWN :: 1 << 0;
+SDL_PEN_INPUT_BUTTON_1 :: 1 << 1;
+SDL_PEN_INPUT_BUTTON_2 :: 1 << 2;
+SDL_PEN_INPUT_BUTTON_3 :: 1 << 3;
+SDL_PEN_INPUT_BUTTON_4 :: 1 << 4;
+SDL_PEN_INPUT_BUTTON_5 :: 1 << 5;
+SDL_PEN_INPUT_ERASER_TIP :: 1 << 30;
+SDL_TOUCH_MOUSEID :: cast,trunc(SDL_MouseID) -1;
+SDL_MOUSE_TOUCHID :: cast,trunc(SDL_TouchID) -1;
 SDL_GLOB_CASEINSENSITIVE :: 1 << 0;
 SDL_GPU_TEXTUREUSAGE_SAMPLER :: 1 << 0;
 SDL_GPU_TEXTUREUSAGE_COLOR_TARGET :: 1 << 1;
@@ -196,7 +692,219 @@ SDL_NS_PER_US :: 1000;
 SDL_MAJOR_VERSION :: 3;
 SDL_MINOR_VERSION :: 1;
 SDL_MICRO_VERSION :: 6;
-SDL_AssertState :: enum s32 {
+Sint8 :: s8;
+Uint8 :: u8;
+Sint16 :: s16;
+Uint16 :: u16;
+Sint32 :: s32;
+Uint32 :: u32;
+Sint64 :: s64;
+Uint64 :: u64;
+SDL_Time :: Sint64;
+SDL_alignment_test :: struct {
+    a: Uint8;
+    b: *void;
+}
+SDL_DUMMY_ENUM :: enum u32 {
+    DUMMY_ENUM_VALUE :: 0;
+}
+SDL_malloc :: (size: u64) -> *void #foreign sdl3;
+SDL_calloc :: (nmemb: u64, size: u64) -> *void #foreign sdl3;
+SDL_realloc :: (mem: *void, size: u64) -> *void #foreign sdl3;
+SDL_free :: (mem: *void) -> void #foreign sdl3;
+SDL_malloc_func :: #type (size: u64) -> *void #c_call;
+SDL_calloc_func :: #type (nmemb: u64, size: u64) -> *void #c_call;
+SDL_realloc_func :: #type (mem: *void, size: u64) -> *void #c_call;
+SDL_free_func :: #type (mem: *void) -> void #c_call;
+SDL_GetOriginalMemoryFunctions :: (malloc_func: *SDL_malloc_func, calloc_func: *SDL_calloc_func, realloc_func: *SDL_realloc_func, free_func: *SDL_free_func) -> void #foreign sdl3;
+SDL_GetMemoryFunctions :: (malloc_func: *SDL_malloc_func, calloc_func: *SDL_calloc_func, realloc_func: *SDL_realloc_func, free_func: *SDL_free_func) -> void #foreign sdl3;
+SDL_SetMemoryFunctions :: (malloc_func: SDL_malloc_func, calloc_func: SDL_calloc_func, realloc_func: SDL_realloc_func, free_func: SDL_free_func) -> bool #foreign sdl3;
+SDL_aligned_alloc :: (alignment: u64, size: u64) -> *void #foreign sdl3;
+SDL_aligned_free :: (mem: *void) -> void #foreign sdl3;
+SDL_GetNumAllocations :: () -> s32 #foreign sdl3;
+SDL_Environment :: struct {}
+SDL_GetEnvironment :: () -> *SDL_Environment #foreign sdl3;
+SDL_CreateEnvironment :: (populated: bool) -> *SDL_Environment #foreign sdl3;
+SDL_GetEnvironmentVariable :: (env: *SDL_Environment, name: *u8) -> *u8 #foreign sdl3;
+SDL_GetEnvironmentVariables :: (env: *SDL_Environment) -> **u8 #foreign sdl3;
+SDL_SetEnvironmentVariable :: (env: *SDL_Environment, name: *u8, value: *u8, overwrite: bool) -> bool #foreign sdl3;
+SDL_UnsetEnvironmentVariable :: (env: *SDL_Environment, name: *u8) -> bool #foreign sdl3;
+SDL_DestroyEnvironment :: (env: *SDL_Environment) -> void #foreign sdl3;
+SDL_getenv :: (name: *u8) -> *u8 #foreign sdl3;
+SDL_getenv_unsafe :: (name: *u8) -> *u8 #foreign sdl3;
+SDL_setenv_unsafe :: (name: *u8, value: *u8, overwrite: s32) -> s32 #foreign sdl3;
+SDL_unsetenv_unsafe :: (name: *u8) -> s32 #foreign sdl3;
+SDL_CompareCallback :: #type (a: *void, b: *void) -> s32 #c_call;
+SDL_qsort :: (base: *void, nmemb: u64, size: u64, compare: SDL_CompareCallback) -> void #foreign sdl3;
+SDL_bsearch :: (key: *void, base: *void, nmemb: u64, size: u64, compare: SDL_CompareCallback) -> *void #foreign sdl3;
+SDL_CompareCallback_r :: #type (userdata: *void, a: *void, b: *void) -> s32 #c_call;
+SDL_qsort_r :: (base: *void, nmemb: u64, size: u64, compare: SDL_CompareCallback_r, userdata: *void) -> void #foreign sdl3;
+SDL_bsearch_r :: (key: *void, base: *void, nmemb: u64, size: u64, compare: SDL_CompareCallback_r, userdata: *void) -> *void #foreign sdl3;
+SDL_abs :: (x: s32) -> s32 #foreign sdl3;
+SDL_isalpha :: (x: s32) -> s32 #foreign sdl3;
+SDL_isalnum :: (x: s32) -> s32 #foreign sdl3;
+SDL_isblank :: (x: s32) -> s32 #foreign sdl3;
+SDL_iscntrl :: (x: s32) -> s32 #foreign sdl3;
+SDL_isdigit :: (x: s32) -> s32 #foreign sdl3;
+SDL_isxdigit :: (x: s32) -> s32 #foreign sdl3;
+SDL_ispunct :: (x: s32) -> s32 #foreign sdl3;
+SDL_isspace :: (x: s32) -> s32 #foreign sdl3;
+SDL_isupper :: (x: s32) -> s32 #foreign sdl3;
+SDL_islower :: (x: s32) -> s32 #foreign sdl3;
+SDL_isprint :: (x: s32) -> s32 #foreign sdl3;
+SDL_isgraph :: (x: s32) -> s32 #foreign sdl3;
+SDL_toupper :: (x: s32) -> s32 #foreign sdl3;
+SDL_tolower :: (x: s32) -> s32 #foreign sdl3;
+SDL_crc16 :: (crc: Uint16, data: *void, len: u64) -> Uint16 #foreign sdl3;
+SDL_crc32 :: (crc: Uint32, data: *void, len: u64) -> Uint32 #foreign sdl3;
+SDL_murmur3_32 :: (data: *void, len: u64, seed: Uint32) -> Uint32 #foreign sdl3;
+SDL_memcpy :: (dst: *void, src: *void, len: u64) -> *void #foreign sdl3;
+SDL_memmove :: (dst: *void, src: *void, len: u64) -> *void #foreign sdl3;
+SDL_memset :: (dst: *void, c: s32, len: u64) -> *void #foreign sdl3;
+SDL_memset4 :: (dst: *void, val: Uint32, dwords: u64) -> *void #foreign sdl3;
+SDL_memcmp :: (s1: *void, s2: *void, len: u64) -> s32 #foreign sdl3;
+SDL_wcslen :: (wstr: *s32) -> u64 #foreign sdl3;
+SDL_wcsnlen :: (wstr: *s32, maxlen: u64) -> u64 #foreign sdl3;
+SDL_wcslcpy :: (dst: *s32, src: *s32, maxlen: u64) -> u64 #foreign sdl3;
+SDL_wcslcat :: (dst: *s32, src: *s32, maxlen: u64) -> u64 #foreign sdl3;
+SDL_wcsdup :: (wstr: *s32) -> *s32 #foreign sdl3;
+SDL_wcsstr :: (haystack: *s32, needle: *s32) -> *s32 #foreign sdl3;
+SDL_wcsnstr :: (haystack: *s32, needle: *s32, maxlen: u64) -> *s32 #foreign sdl3;
+SDL_wcscmp :: (str1: *s32, str2: *s32) -> s32 #foreign sdl3;
+SDL_wcsncmp :: (str1: *s32, str2: *s32, maxlen: u64) -> s32 #foreign sdl3;
+SDL_wcscasecmp :: (str1: *s32, str2: *s32) -> s32 #foreign sdl3;
+SDL_wcsncasecmp :: (str1: *s32, str2: *s32, maxlen: u64) -> s32 #foreign sdl3;
+SDL_wcstol :: (str: *s32, endp: **s32, base: s32) -> s64 #foreign sdl3;
+SDL_strlen :: (str: *u8) -> u64 #foreign sdl3;
+SDL_strnlen :: (str: *u8, maxlen: u64) -> u64 #foreign sdl3;
+SDL_strlcpy :: (dst: *u8, src: *u8, maxlen: u64) -> u64 #foreign sdl3;
+SDL_utf8strlcpy :: (dst: *u8, src: *u8, dst_bytes: u64) -> u64 #foreign sdl3;
+SDL_strlcat :: (dst: *u8, src: *u8, maxlen: u64) -> u64 #foreign sdl3;
+SDL_strdup :: (str: *u8) -> *u8 #foreign sdl3;
+SDL_strndup :: (str: *u8, maxlen: u64) -> *u8 #foreign sdl3;
+SDL_strrev :: (str: *u8) -> *u8 #foreign sdl3;
+SDL_strupr :: (str: *u8) -> *u8 #foreign sdl3;
+SDL_strlwr :: (str: *u8) -> *u8 #foreign sdl3;
+SDL_strchr :: (str: *u8, c: s32) -> *u8 #foreign sdl3;
+SDL_strrchr :: (str: *u8, c: s32) -> *u8 #foreign sdl3;
+SDL_strstr :: (haystack: *u8, needle: *u8) -> *u8 #foreign sdl3;
+SDL_strnstr :: (haystack: *u8, needle: *u8, maxlen: u64) -> *u8 #foreign sdl3;
+SDL_strcasestr :: (haystack: *u8, needle: *u8) -> *u8 #foreign sdl3;
+SDL_strtok_r :: (s1: *u8, s2: *u8, saveptr: **u8) -> *u8 #foreign sdl3;
+SDL_utf8strlen :: (str: *u8) -> u64 #foreign sdl3;
+SDL_utf8strnlen :: (str: *u8, bytes: u64) -> u64 #foreign sdl3;
+SDL_itoa :: (value: s32, str: *u8, radix: s32) -> *u8 #foreign sdl3;
+SDL_uitoa :: (value: u32, str: *u8, radix: s32) -> *u8 #foreign sdl3;
+SDL_ltoa :: (value: s64, str: *u8, radix: s32) -> *u8 #foreign sdl3;
+SDL_ultoa :: (value: u64, str: *u8, radix: s32) -> *u8 #foreign sdl3;
+SDL_lltoa :: (value: s64, str: *u8, radix: s32) -> *u8 #foreign sdl3;
+SDL_ulltoa :: (value: u64, str: *u8, radix: s32) -> *u8 #foreign sdl3;
+SDL_atoi :: (str: *u8) -> s32 #foreign sdl3;
+SDL_atof :: (str: *u8) -> float64 #foreign sdl3;
+SDL_strtol :: (str: *u8, endp: **u8, base: s32) -> s64 #foreign sdl3;
+SDL_strtoul :: (str: *u8, endp: **u8, base: s32) -> u64 #foreign sdl3;
+SDL_strtoll :: (str: *u8, endp: **u8, base: s32) -> s64 #foreign sdl3;
+SDL_strtoull :: (str: *u8, endp: **u8, base: s32) -> u64 #foreign sdl3;
+SDL_strtod :: (str: *u8, endp: **u8) -> float64 #foreign sdl3;
+SDL_strcmp :: (str1: *u8, str2: *u8) -> s32 #foreign sdl3;
+SDL_strncmp :: (str1: *u8, str2: *u8, maxlen: u64) -> s32 #foreign sdl3;
+SDL_strcasecmp :: (str1: *u8, str2: *u8) -> s32 #foreign sdl3;
+SDL_strncasecmp :: (str1: *u8, str2: *u8, maxlen: u64) -> s32 #foreign sdl3;
+SDL_strpbrk :: (str: *u8, breakset: *u8) -> *u8 #foreign sdl3;
+SDL_StepUTF8 :: (pstr: **u8, pslen: *u64) -> Uint32 #foreign sdl3;
+SDL_StepBackUTF8 :: (start: *u8, pstr: **u8) -> Uint32 #foreign sdl3;
+SDL_UCS4ToUTF8 :: (codepoint: Uint32, dst: *u8) -> *u8 #foreign sdl3;
+SDL_sscanf_CFormat :: (text: *u8, fmt: *u8, __args: ..Any) -> s32 #foreign sdl3 "SDL_sscanf";
+SDL_sscanf :: (text: *u8, fmt: string, __args: ..Any) -> s32 {
+    push_allocator(temp);
+    formatted_text_builder: String_Builder;
+    print_to_builder(*formatted_text_builder, fmt, ..__args);
+    append(*formatted_text_builder, "\0");
+    formatted_text := builder_to_string(*formatted_text_builder);
+    return SDL_sscanf_CFormat(text, "%s", formatted_text.data);
+} @PrintLike
+SDL_snprintf_CFormat :: (text: *u8, maxlen: u64, fmt: *u8, __args: ..Any) -> s32 #foreign sdl3 "SDL_snprintf";
+SDL_snprintf :: (text: *u8, maxlen: u64, fmt: string, __args: ..Any) -> s32 {
+    push_allocator(temp);
+    formatted_text_builder: String_Builder;
+    print_to_builder(*formatted_text_builder, fmt, ..__args);
+    append(*formatted_text_builder, "\0");
+    formatted_text := builder_to_string(*formatted_text_builder);
+    return SDL_snprintf_CFormat(text, maxlen, "%s", formatted_text.data);
+} @PrintLike
+SDL_swprintf :: (text: *s32, maxlen: u64, fmt: *s32, __args: ..Any) -> s32 #foreign sdl3;
+SDL_asprintf_CFormat :: (strp: **u8, fmt: *u8, __args: ..Any) -> s32 #foreign sdl3 "SDL_asprintf";
+SDL_asprintf :: (strp: **u8, fmt: string, __args: ..Any) -> s32 {
+    push_allocator(temp);
+    formatted_text_builder: String_Builder;
+    print_to_builder(*formatted_text_builder, fmt, ..__args);
+    append(*formatted_text_builder, "\0");
+    formatted_text := builder_to_string(*formatted_text_builder);
+    return SDL_asprintf_CFormat(strp, "%s", formatted_text.data);
+} @PrintLike
+SDL_srand :: (seed: Uint64) -> void #foreign sdl3;
+SDL_rand :: (n: Sint32) -> Sint32 #foreign sdl3;
+SDL_randf :: () -> float #foreign sdl3;
+SDL_rand_bits :: () -> Uint32 #foreign sdl3;
+SDL_rand_r :: (state: *Uint64, n: Sint32) -> Sint32 #foreign sdl3;
+SDL_randf_r :: (state: *Uint64) -> float #foreign sdl3;
+SDL_rand_bits_r :: (state: *Uint64) -> Uint32 #foreign sdl3;
+SDL_acos :: (x: float64) -> float64 #foreign sdl3;
+SDL_acosf :: (x: float) -> float #foreign sdl3;
+SDL_asin :: (x: float64) -> float64 #foreign sdl3;
+SDL_asinf :: (x: float) -> float #foreign sdl3;
+SDL_atan :: (x: float64) -> float64 #foreign sdl3;
+SDL_atanf :: (x: float) -> float #foreign sdl3;
+SDL_atan2 :: (y: float64, x: float64) -> float64 #foreign sdl3;
+SDL_atan2f :: (y: float, x: float) -> float #foreign sdl3;
+SDL_ceil :: (x: float64) -> float64 #foreign sdl3;
+SDL_ceilf :: (x: float) -> float #foreign sdl3;
+SDL_copysign :: (x: float64, y: float64) -> float64 #foreign sdl3;
+SDL_copysignf :: (x: float, y: float) -> float #foreign sdl3;
+SDL_cos :: (x: float64) -> float64 #foreign sdl3;
+SDL_cosf :: (x: float) -> float #foreign sdl3;
+SDL_exp :: (x: float64) -> float64 #foreign sdl3;
+SDL_expf :: (x: float) -> float #foreign sdl3;
+SDL_fabs :: (x: float64) -> float64 #foreign sdl3;
+SDL_fabsf :: (x: float) -> float #foreign sdl3;
+SDL_floor :: (x: float64) -> float64 #foreign sdl3;
+SDL_floorf :: (x: float) -> float #foreign sdl3;
+SDL_trunc :: (x: float64) -> float64 #foreign sdl3;
+SDL_truncf :: (x: float) -> float #foreign sdl3;
+SDL_fmod :: (x: float64, y: float64) -> float64 #foreign sdl3;
+SDL_fmodf :: (x: float, y: float) -> float #foreign sdl3;
+SDL_isinf :: (x: float64) -> s32 #foreign sdl3;
+SDL_isinff :: (x: float) -> s32 #foreign sdl3;
+SDL_isnan :: (x: float64) -> s32 #foreign sdl3;
+SDL_isnanf :: (x: float) -> s32 #foreign sdl3;
+SDL_log :: (x: float64) -> float64 #foreign sdl3;
+SDL_logf :: (x: float) -> float #foreign sdl3;
+SDL_log10 :: (x: float64) -> float64 #foreign sdl3;
+SDL_log10f :: (x: float) -> float #foreign sdl3;
+SDL_modf :: (x: float64, y: *float64) -> float64 #foreign sdl3;
+SDL_modff :: (x: float, y: *float) -> float #foreign sdl3;
+SDL_pow :: (x: float64, y: float64) -> float64 #foreign sdl3;
+SDL_powf :: (x: float, y: float) -> float #foreign sdl3;
+SDL_round :: (x: float64) -> float64 #foreign sdl3;
+SDL_roundf :: (x: float) -> float #foreign sdl3;
+SDL_lround :: (x: float64) -> s64 #foreign sdl3;
+SDL_lroundf :: (x: float) -> s64 #foreign sdl3;
+SDL_scalbn :: (x: float64, n: s32) -> float64 #foreign sdl3;
+SDL_scalbnf :: (x: float, n: s32) -> float #foreign sdl3;
+SDL_sin :: (x: float64) -> float64 #foreign sdl3;
+SDL_sinf :: (x: float) -> float #foreign sdl3;
+SDL_sqrt :: (x: float64) -> float64 #foreign sdl3;
+SDL_sqrtf :: (x: float) -> float #foreign sdl3;
+SDL_tan :: (x: float64) -> float64 #foreign sdl3;
+SDL_tanf :: (x: float) -> float #foreign sdl3;
+SDL_iconv_data_t :: struct {}
+SDL_iconv_t :: *SDL_iconv_data_t;
+SDL_iconv_open :: (tocode: *u8, fromcode: *u8) -> SDL_iconv_t #foreign sdl3;
+SDL_iconv_close :: (cd: SDL_iconv_t) -> s32 #foreign sdl3;
+SDL_iconv :: (cd: SDL_iconv_t, inbuf: **u8, inbytesleft: *u64, outbuf: **u8, outbytesleft: *u64) -> u64 #foreign sdl3;
+SDL_iconv_string :: (tocode: *u8, fromcode: *u8, inbuf: *u8, inbytesleft: u64) -> *u8 #foreign sdl3;
+SDL_FunctionPointer :: #type () -> void #c_call;
+SDL_AssertState :: enum u32 {
     RETRY         :: 0;
     BREAK         :: 1;
     ABORT         :: 2;
@@ -247,7 +955,220 @@ SDL_GetAtomicU32 :: (a: *SDL_AtomicU32) -> Uint32 #foreign sdl3;
 SDL_CompareAndSwapAtomicPointer :: (a: **void, oldval: *void, newval: *void) -> bool #foreign sdl3;
 SDL_SetAtomicPointer :: (a: **void, v: *void) -> *void #foreign sdl3;
 SDL_GetAtomicPointer :: (a: **void) -> *void #foreign sdl3;
-SDL_AudioFormat :: enum s32 {
+SDL_SetError_CFormat :: (fmt: *u8, __args: ..Any) -> bool #foreign sdl3 "SDL_SetError";
+SDL_SetError :: (fmt: string, __args: ..Any) -> bool {
+    push_allocator(temp);
+    formatted_text_builder: String_Builder;
+    print_to_builder(*formatted_text_builder, fmt, ..__args);
+    append(*formatted_text_builder, "\0");
+    formatted_text := builder_to_string(*formatted_text_builder);
+    return SDL_SetError_CFormat("%s", formatted_text.data);
+} @PrintLike
+SDL_OutOfMemory :: () -> bool #foreign sdl3;
+SDL_GetError :: () -> *u8 #foreign sdl3;
+SDL_ClearError :: () -> bool #foreign sdl3;
+SDL_PropertiesID :: Uint32;
+SDL_PropertyType :: enum u32 {
+    INVALID :: 0;
+    POINTER :: 1;
+    STRING  :: 2;
+    NUMBER  :: 3;
+    FLOAT   :: 4;
+    BOOLEAN :: 5;
+
+    SDL_PROPERTY_TYPE_INVALID :: INVALID;
+    SDL_PROPERTY_TYPE_POINTER :: POINTER;
+    SDL_PROPERTY_TYPE_STRING  :: STRING;
+    SDL_PROPERTY_TYPE_NUMBER  :: NUMBER;
+    SDL_PROPERTY_TYPE_FLOAT   :: FLOAT;
+    SDL_PROPERTY_TYPE_BOOLEAN :: BOOLEAN;
+}
+SDL_GetGlobalProperties :: () -> SDL_PropertiesID #foreign sdl3;
+SDL_CreateProperties :: () -> SDL_PropertiesID #foreign sdl3;
+SDL_CopyProperties :: (src: SDL_PropertiesID, dst: SDL_PropertiesID) -> bool #foreign sdl3;
+SDL_LockProperties :: (props: SDL_PropertiesID) -> bool #foreign sdl3;
+SDL_UnlockProperties :: (props: SDL_PropertiesID) -> void #foreign sdl3;
+SDL_CleanupPropertyCallback :: #type (userdata: *void, value: *void) -> void #c_call;
+SDL_SetPointerPropertyWithCleanup :: (props: SDL_PropertiesID, name: *u8, value: *void, cleanup: SDL_CleanupPropertyCallback, userdata: *void) -> bool #foreign sdl3;
+SDL_SetPointerProperty :: (props: SDL_PropertiesID, name: *u8, value: *void) -> bool #foreign sdl3;
+SDL_SetStringProperty :: (props: SDL_PropertiesID, name: *u8, value: *u8) -> bool #foreign sdl3;
+SDL_SetNumberProperty :: (props: SDL_PropertiesID, name: *u8, value: Sint64) -> bool #foreign sdl3;
+SDL_SetFloatProperty :: (props: SDL_PropertiesID, name: *u8, value: float) -> bool #foreign sdl3;
+SDL_SetBooleanProperty :: (props: SDL_PropertiesID, name: *u8, value: bool) -> bool #foreign sdl3;
+SDL_HasProperty :: (props: SDL_PropertiesID, name: *u8) -> bool #foreign sdl3;
+SDL_GetPropertyType :: (props: SDL_PropertiesID, name: *u8) -> SDL_PropertyType #foreign sdl3;
+SDL_GetPointerProperty :: (props: SDL_PropertiesID, name: *u8, default_value: *void) -> *void #foreign sdl3;
+SDL_GetStringProperty :: (props: SDL_PropertiesID, name: *u8, default_value: *u8) -> *u8 #foreign sdl3;
+SDL_GetNumberProperty :: (props: SDL_PropertiesID, name: *u8, default_value: Sint64) -> Sint64 #foreign sdl3;
+SDL_GetFloatProperty :: (props: SDL_PropertiesID, name: *u8, default_value: float) -> float #foreign sdl3;
+SDL_GetBooleanProperty :: (props: SDL_PropertiesID, name: *u8, default_value: bool) -> bool #foreign sdl3;
+SDL_ClearProperty :: (props: SDL_PropertiesID, name: *u8) -> bool #foreign sdl3;
+SDL_EnumeratePropertiesCallback :: #type (userdata: *void, props: SDL_PropertiesID, name: *u8) -> void #c_call;
+SDL_EnumerateProperties :: (props: SDL_PropertiesID, callback: SDL_EnumeratePropertiesCallback, userdata: *void) -> bool #foreign sdl3;
+SDL_DestroyProperties :: (props: SDL_PropertiesID) -> void #foreign sdl3;
+SDL_Thread :: struct {}
+SDL_ThreadID :: Uint64;
+SDL_TLSID :: SDL_AtomicInt;
+SDL_ThreadPriority :: enum u32 {
+    LOW           :: 0;
+    NORMAL        :: 1;
+    HIGH          :: 2;
+    TIME_CRITICAL :: 3;
+
+    SDL_THREAD_PRIORITY_LOW           :: LOW;
+    SDL_THREAD_PRIORITY_NORMAL        :: NORMAL;
+    SDL_THREAD_PRIORITY_HIGH          :: HIGH;
+    SDL_THREAD_PRIORITY_TIME_CRITICAL :: TIME_CRITICAL;
+}
+SDL_ThreadFunction :: #type (data: *void) -> s32 #c_call;
+SDL_CreateThreadRuntime :: (fn: SDL_ThreadFunction, name: *u8, data: *void, pfnBeginThread: SDL_FunctionPointer, pfnEndThread: SDL_FunctionPointer) -> *SDL_Thread #foreign sdl3;
+SDL_CreateThreadWithPropertiesRuntime :: (props: SDL_PropertiesID, pfnBeginThread: SDL_FunctionPointer, pfnEndThread: SDL_FunctionPointer) -> *SDL_Thread #foreign sdl3;
+SDL_GetThreadName :: (thread: *SDL_Thread) -> *u8 #foreign sdl3;
+SDL_GetCurrentThreadID :: () -> SDL_ThreadID #foreign sdl3;
+SDL_GetThreadID :: (thread: *SDL_Thread) -> SDL_ThreadID #foreign sdl3;
+SDL_SetCurrentThreadPriority :: (priority: SDL_ThreadPriority) -> bool #foreign sdl3;
+SDL_WaitThread :: (thread: *SDL_Thread, status: *s32) -> void #foreign sdl3;
+SDL_DetachThread :: (thread: *SDL_Thread) -> void #foreign sdl3;
+SDL_GetTLS :: (id: *SDL_TLSID) -> *void #foreign sdl3;
+SDL_TLSDestructorCallback :: #type (value: *void) -> void #c_call;
+SDL_SetTLS :: (id: *SDL_TLSID, value: *void, destructor: SDL_TLSDestructorCallback) -> bool #foreign sdl3;
+SDL_CleanupTLS :: () -> void #foreign sdl3;
+SDL_Mutex :: struct {}
+SDL_CreateMutex :: () -> *SDL_Mutex #foreign sdl3;
+SDL_LockMutex :: (mutex: *SDL_Mutex) -> void #foreign sdl3;
+SDL_TryLockMutex :: (mutex: *SDL_Mutex) -> bool #foreign sdl3;
+SDL_UnlockMutex :: (mutex: *SDL_Mutex) -> void #foreign sdl3;
+SDL_DestroyMutex :: (mutex: *SDL_Mutex) -> void #foreign sdl3;
+SDL_RWLock :: struct {}
+SDL_CreateRWLock :: () -> *SDL_RWLock #foreign sdl3;
+SDL_LockRWLockForReading :: (rwlock: *SDL_RWLock) -> void #foreign sdl3;
+SDL_LockRWLockForWriting :: (rwlock: *SDL_RWLock) -> void #foreign sdl3;
+SDL_TryLockRWLockForReading :: (rwlock: *SDL_RWLock) -> bool #foreign sdl3;
+SDL_TryLockRWLockForWriting :: (rwlock: *SDL_RWLock) -> bool #foreign sdl3;
+SDL_UnlockRWLock :: (rwlock: *SDL_RWLock) -> void #foreign sdl3;
+SDL_DestroyRWLock :: (rwlock: *SDL_RWLock) -> void #foreign sdl3;
+SDL_Semaphore :: struct {}
+SDL_CreateSemaphore :: (initial_value: Uint32) -> *SDL_Semaphore #foreign sdl3;
+SDL_DestroySemaphore :: (sem: *SDL_Semaphore) -> void #foreign sdl3;
+SDL_WaitSemaphore :: (sem: *SDL_Semaphore) -> void #foreign sdl3;
+SDL_TryWaitSemaphore :: (sem: *SDL_Semaphore) -> bool #foreign sdl3;
+SDL_WaitSemaphoreTimeout :: (sem: *SDL_Semaphore, timeoutMS: Sint32) -> bool #foreign sdl3;
+SDL_SignalSemaphore :: (sem: *SDL_Semaphore) -> void #foreign sdl3;
+SDL_GetSemaphoreValue :: (sem: *SDL_Semaphore) -> Uint32 #foreign sdl3;
+SDL_Condition :: struct {}
+SDL_CreateCondition :: () -> *SDL_Condition #foreign sdl3;
+SDL_DestroyCondition :: (cond: *SDL_Condition) -> void #foreign sdl3;
+SDL_SignalCondition :: (cond: *SDL_Condition) -> void #foreign sdl3;
+SDL_BroadcastCondition :: (cond: *SDL_Condition) -> void #foreign sdl3;
+SDL_WaitCondition :: (cond: *SDL_Condition, mutex: *SDL_Mutex) -> void #foreign sdl3;
+SDL_WaitConditionTimeout :: (cond: *SDL_Condition, mutex: *SDL_Mutex, timeoutMS: Sint32) -> bool #foreign sdl3;
+SDL_InitStatus :: enum u32 {
+    UNINITIALIZED  :: 0;
+    INITIALIZING   :: 1;
+    INITIALIZED    :: 2;
+    UNINITIALIZING :: 3;
+
+    SDL_INIT_STATUS_UNINITIALIZED  :: UNINITIALIZED;
+    SDL_INIT_STATUS_INITIALIZING   :: INITIALIZING;
+    SDL_INIT_STATUS_INITIALIZED    :: INITIALIZED;
+    SDL_INIT_STATUS_UNINITIALIZING :: UNINITIALIZING;
+}
+SDL_InitState :: struct {
+    status:   SDL_AtomicInt;
+    thread:   SDL_ThreadID;
+    reserved: *void;
+}
+SDL_ShouldInit :: (state: *SDL_InitState) -> bool #foreign sdl3;
+SDL_ShouldQuit :: (state: *SDL_InitState) -> bool #foreign sdl3;
+SDL_SetInitialized :: (state: *SDL_InitState, initialized: bool) -> void #foreign sdl3;
+SDL_IOStatus :: enum u32 {
+    READY     :: 0;
+    ERROR     :: 1;
+    EOF       :: 2;
+    NOT_READY :: 3;
+    READONLY  :: 4;
+    WRITEONLY :: 5;
+
+    SDL_IO_STATUS_READY     :: READY;
+    SDL_IO_STATUS_ERROR     :: ERROR;
+    SDL_IO_STATUS_EOF       :: EOF;
+    SDL_IO_STATUS_NOT_READY :: NOT_READY;
+    SDL_IO_STATUS_READONLY  :: READONLY;
+    SDL_IO_STATUS_WRITEONLY :: WRITEONLY;
+}
+SDL_IOWhence :: enum u32 {
+    SET :: 0;
+    CUR :: 1;
+    END :: 2;
+
+    SDL_IO_SEEK_SET :: SET;
+    SDL_IO_SEEK_CUR :: CUR;
+    SDL_IO_SEEK_END :: END;
+}
+SDL_IOStreamInterface :: struct {
+    version: Uint32;
+    size:    #type (userdata: *void) -> Sint64 #c_call;
+    seek:    #type (userdata: *void, offset: Sint64, whence: SDL_IOWhence) -> Sint64 #c_call;
+    read:    #type (userdata: *void, ptr: *void, size: u64, status: *SDL_IOStatus) -> u64 #c_call;
+    write:   #type (userdata: *void, ptr: *void, size: u64, status: *SDL_IOStatus) -> u64 #c_call;
+    flush:   #type (userdata: *void, status: *SDL_IOStatus) -> bool #c_call;
+    close:   #type (userdata: *void) -> bool #c_call;
+}
+SDL_IOStream :: struct {}
+SDL_IOFromFile :: (file: *u8, mode: *u8) -> *SDL_IOStream #foreign sdl3;
+SDL_IOFromMem :: (mem: *void, size: u64) -> *SDL_IOStream #foreign sdl3;
+SDL_IOFromConstMem :: (mem: *void, size: u64) -> *SDL_IOStream #foreign sdl3;
+SDL_IOFromDynamicMem :: () -> *SDL_IOStream #foreign sdl3;
+SDL_OpenIO :: (iface: *SDL_IOStreamInterface, userdata: *void) -> *SDL_IOStream #foreign sdl3;
+SDL_CloseIO :: (_context: *SDL_IOStream) -> bool #foreign sdl3;
+SDL_GetIOProperties :: (_context: *SDL_IOStream) -> SDL_PropertiesID #foreign sdl3;
+SDL_GetIOStatus :: (_context: *SDL_IOStream) -> SDL_IOStatus #foreign sdl3;
+SDL_GetIOSize :: (_context: *SDL_IOStream) -> Sint64 #foreign sdl3;
+SDL_SeekIO :: (_context: *SDL_IOStream, offset: Sint64, whence: SDL_IOWhence) -> Sint64 #foreign sdl3;
+SDL_TellIO :: (_context: *SDL_IOStream) -> Sint64 #foreign sdl3;
+SDL_ReadIO :: (_context: *SDL_IOStream, ptr: *void, size: u64) -> u64 #foreign sdl3;
+SDL_WriteIO :: (_context: *SDL_IOStream, ptr: *void, size: u64) -> u64 #foreign sdl3;
+SDL_IOprintf_CFormat :: (_context: *SDL_IOStream, fmt: *u8, __args: ..Any) -> u64 #foreign sdl3 "SDL_IOprintf";
+SDL_IOprintf :: (_context: *SDL_IOStream, fmt: string, __args: ..Any) -> u64 {
+    push_allocator(temp);
+    formatted_text_builder: String_Builder;
+    print_to_builder(*formatted_text_builder, fmt, ..__args);
+    append(*formatted_text_builder, "\0");
+    formatted_text := builder_to_string(*formatted_text_builder);
+    return SDL_IOprintf_CFormat(_context, "%s", formatted_text.data);
+} @PrintLike
+SDL_FlushIO :: (_context: *SDL_IOStream) -> bool #foreign sdl3;
+SDL_LoadFile_IO :: (src: *SDL_IOStream, datasize: *u64, closeio: bool) -> *void #foreign sdl3;
+SDL_LoadFile :: (file: *u8, datasize: *u64) -> *void #foreign sdl3;
+SDL_ReadU8 :: (src: *SDL_IOStream, value: *Uint8) -> bool #foreign sdl3;
+SDL_ReadS8 :: (src: *SDL_IOStream, value: *Sint8) -> bool #foreign sdl3;
+SDL_ReadU16LE :: (src: *SDL_IOStream, value: *Uint16) -> bool #foreign sdl3;
+SDL_ReadS16LE :: (src: *SDL_IOStream, value: *Sint16) -> bool #foreign sdl3;
+SDL_ReadU16BE :: (src: *SDL_IOStream, value: *Uint16) -> bool #foreign sdl3;
+SDL_ReadS16BE :: (src: *SDL_IOStream, value: *Sint16) -> bool #foreign sdl3;
+SDL_ReadU32LE :: (src: *SDL_IOStream, value: *Uint32) -> bool #foreign sdl3;
+SDL_ReadS32LE :: (src: *SDL_IOStream, value: *Sint32) -> bool #foreign sdl3;
+SDL_ReadU32BE :: (src: *SDL_IOStream, value: *Uint32) -> bool #foreign sdl3;
+SDL_ReadS32BE :: (src: *SDL_IOStream, value: *Sint32) -> bool #foreign sdl3;
+SDL_ReadU64LE :: (src: *SDL_IOStream, value: *Uint64) -> bool #foreign sdl3;
+SDL_ReadS64LE :: (src: *SDL_IOStream, value: *Sint64) -> bool #foreign sdl3;
+SDL_ReadU64BE :: (src: *SDL_IOStream, value: *Uint64) -> bool #foreign sdl3;
+SDL_ReadS64BE :: (src: *SDL_IOStream, value: *Sint64) -> bool #foreign sdl3;
+SDL_WriteU8 :: (dst: *SDL_IOStream, value: Uint8) -> bool #foreign sdl3;
+SDL_WriteS8 :: (dst: *SDL_IOStream, value: Sint8) -> bool #foreign sdl3;
+SDL_WriteU16LE :: (dst: *SDL_IOStream, value: Uint16) -> bool #foreign sdl3;
+SDL_WriteS16LE :: (dst: *SDL_IOStream, value: Sint16) -> bool #foreign sdl3;
+SDL_WriteU16BE :: (dst: *SDL_IOStream, value: Uint16) -> bool #foreign sdl3;
+SDL_WriteS16BE :: (dst: *SDL_IOStream, value: Sint16) -> bool #foreign sdl3;
+SDL_WriteU32LE :: (dst: *SDL_IOStream, value: Uint32) -> bool #foreign sdl3;
+SDL_WriteS32LE :: (dst: *SDL_IOStream, value: Sint32) -> bool #foreign sdl3;
+SDL_WriteU32BE :: (dst: *SDL_IOStream, value: Uint32) -> bool #foreign sdl3;
+SDL_WriteS32BE :: (dst: *SDL_IOStream, value: Sint32) -> bool #foreign sdl3;
+SDL_WriteU64LE :: (dst: *SDL_IOStream, value: Uint64) -> bool #foreign sdl3;
+SDL_WriteS64LE :: (dst: *SDL_IOStream, value: Sint64) -> bool #foreign sdl3;
+SDL_WriteU64BE :: (dst: *SDL_IOStream, value: Uint64) -> bool #foreign sdl3;
+SDL_WriteS64BE :: (dst: *SDL_IOStream, value: Sint64) -> bool #foreign sdl3;
+SDL_AudioFormat :: enum u32 {
     UNKNOWN :: 0;
     U8      :: 8;
     S8      :: 32776;
@@ -337,7 +1258,7 @@ SDL_ConvertAudioSamples :: (src_spec: *SDL_AudioSpec, src_data: *Uint8, src_len:
 SDL_GetAudioFormatName :: (format: SDL_AudioFormat) -> *u8 #foreign sdl3;
 SDL_GetSilenceValueForFormat :: (format: SDL_AudioFormat) -> s32 #foreign sdl3;
 SDL_BlendMode :: Uint32;
-SDL_BlendOperation :: enum s32 {
+SDL_BlendOperation :: enum u32 {
     ADD          :: 1;
     SUBTRACT     :: 2;
     REV_SUBTRACT :: 3;
@@ -350,7 +1271,7 @@ SDL_BlendOperation :: enum s32 {
     SDL_BLENDOPERATION_MINIMUM      :: MINIMUM;
     SDL_BLENDOPERATION_MAXIMUM      :: MAXIMUM;
 }
-SDL_BlendFactor :: enum s32 {
+SDL_BlendFactor :: enum u32 {
     ZERO                :: 1;
     ONE                 :: 2;
     SRC_COLOR           :: 3;
@@ -374,6 +1295,574 @@ SDL_BlendFactor :: enum s32 {
     SDL_BLENDFACTOR_ONE_MINUS_DST_ALPHA :: ONE_MINUS_DST_ALPHA;
 }
 SDL_ComposeCustomBlendMode :: (srcColorFactor: SDL_BlendFactor, dstColorFactor: SDL_BlendFactor, colorOperation: SDL_BlendOperation, srcAlphaFactor: SDL_BlendFactor, dstAlphaFactor: SDL_BlendFactor, alphaOperation: SDL_BlendOperation) -> SDL_BlendMode #foreign sdl3;
+SDL_PixelType :: enum u32 {
+    UNKNOWN  :: 0;
+    INDEX1   :: 1;
+    INDEX4   :: 2;
+    INDEX8   :: 3;
+    PACKED8  :: 4;
+    PACKED16 :: 5;
+    PACKED32 :: 6;
+    ARRAYU8  :: 7;
+    ARRAYU16 :: 8;
+    ARRAYU32 :: 9;
+    ARRAYF16 :: 10;
+    ARRAYF32 :: 11;
+    INDEX2   :: 12;
+
+    SDL_PIXELTYPE_UNKNOWN  :: UNKNOWN;
+    SDL_PIXELTYPE_INDEX1   :: INDEX1;
+    SDL_PIXELTYPE_INDEX4   :: INDEX4;
+    SDL_PIXELTYPE_INDEX8   :: INDEX8;
+    SDL_PIXELTYPE_PACKED8  :: PACKED8;
+    SDL_PIXELTYPE_PACKED16 :: PACKED16;
+    SDL_PIXELTYPE_PACKED32 :: PACKED32;
+    SDL_PIXELTYPE_ARRAYU8  :: ARRAYU8;
+    SDL_PIXELTYPE_ARRAYU16 :: ARRAYU16;
+    SDL_PIXELTYPE_ARRAYU32 :: ARRAYU32;
+    SDL_PIXELTYPE_ARRAYF16 :: ARRAYF16;
+    SDL_PIXELTYPE_ARRAYF32 :: ARRAYF32;
+    SDL_PIXELTYPE_INDEX2   :: INDEX2;
+}
+SDL_BitmapOrder :: enum u32 {
+    NONE  :: 0;
+    _4321 :: 1;
+    _1234 :: 2;
+
+    SDL_BITMAPORDER_NONE :: NONE;
+    SDL_BITMAPORDER_4321 :: _4321;
+    SDL_BITMAPORDER_1234 :: _1234;
+}
+SDL_PackedOrder :: enum u32 {
+    NONE :: 0;
+    XRGB :: 1;
+    RGBX :: 2;
+    ARGB :: 3;
+    RGBA :: 4;
+    XBGR :: 5;
+    BGRX :: 6;
+    ABGR :: 7;
+    BGRA :: 8;
+
+    SDL_PACKEDORDER_NONE :: NONE;
+    SDL_PACKEDORDER_XRGB :: XRGB;
+    SDL_PACKEDORDER_RGBX :: RGBX;
+    SDL_PACKEDORDER_ARGB :: ARGB;
+    SDL_PACKEDORDER_RGBA :: RGBA;
+    SDL_PACKEDORDER_XBGR :: XBGR;
+    SDL_PACKEDORDER_BGRX :: BGRX;
+    SDL_PACKEDORDER_ABGR :: ABGR;
+    SDL_PACKEDORDER_BGRA :: BGRA;
+}
+SDL_ArrayOrder :: enum u32 {
+    NONE :: 0;
+    RGB  :: 1;
+    RGBA :: 2;
+    ARGB :: 3;
+    BGR  :: 4;
+    BGRA :: 5;
+    ABGR :: 6;
+
+    SDL_ARRAYORDER_NONE :: NONE;
+    SDL_ARRAYORDER_RGB  :: RGB;
+    SDL_ARRAYORDER_RGBA :: RGBA;
+    SDL_ARRAYORDER_ARGB :: ARGB;
+    SDL_ARRAYORDER_BGR  :: BGR;
+    SDL_ARRAYORDER_BGRA :: BGRA;
+    SDL_ARRAYORDER_ABGR :: ABGR;
+}
+SDL_PackedLayout :: enum u32 {
+    NONE     :: 0;
+    _332     :: 1;
+    _4444    :: 2;
+    _1555    :: 3;
+    _5551    :: 4;
+    _565     :: 5;
+    _8888    :: 6;
+    _2101010 :: 7;
+    _1010102 :: 8;
+
+    SDL_PACKEDLAYOUT_NONE    :: NONE;
+    SDL_PACKEDLAYOUT_332     :: _332;
+    SDL_PACKEDLAYOUT_4444    :: _4444;
+    SDL_PACKEDLAYOUT_1555    :: _1555;
+    SDL_PACKEDLAYOUT_5551    :: _5551;
+    SDL_PACKEDLAYOUT_565     :: _565;
+    SDL_PACKEDLAYOUT_8888    :: _8888;
+    SDL_PACKEDLAYOUT_2101010 :: _2101010;
+    SDL_PACKEDLAYOUT_1010102 :: _1010102;
+}
+SDL_PixelFormat :: enum u32 {
+    UNKNOWN       :: 0;
+    INDEX1LSB     :: 286261504;
+    INDEX1MSB     :: 287310080;
+    INDEX2LSB     :: 470811136;
+    INDEX2MSB     :: 471859712;
+    INDEX4LSB     :: 303039488;
+    INDEX4MSB     :: 304088064;
+    INDEX8        :: 318769153;
+    RGB332        :: 336660481;
+    XRGB4444      :: 353504258;
+    XBGR4444      :: 357698562;
+    XRGB1555      :: 353570562;
+    XBGR1555      :: 357764866;
+    ARGB4444      :: 355602434;
+    RGBA4444      :: 356651010;
+    ABGR4444      :: 359796738;
+    BGRA4444      :: 360845314;
+    ARGB1555      :: 355667970;
+    RGBA5551      :: 356782082;
+    ABGR1555      :: 359862274;
+    BGRA5551      :: 360976386;
+    RGB565        :: 353701890;
+    BGR565        :: 357896194;
+    RGB24         :: 386930691;
+    BGR24         :: 390076419;
+    XRGB8888      :: 370546692;
+    RGBX8888      :: 371595268;
+    XBGR8888      :: 374740996;
+    BGRX8888      :: 375789572;
+    ARGB8888      :: 372645892;
+    RGBA8888      :: 373694468;
+    ABGR8888      :: 376840196;
+    BGRA8888      :: 377888772;
+    XRGB2101010   :: 370614276;
+    XBGR2101010   :: 374808580;
+    ARGB2101010   :: 372711428;
+    ABGR2101010   :: 376905732;
+    RGB48         :: 403714054;
+    BGR48         :: 406859782;
+    RGBA64        :: 404766728;
+    ARGB64        :: 405815304;
+    BGRA64        :: 407912456;
+    ABGR64        :: 408961032;
+    RGB48_FLOAT   :: 437268486;
+    BGR48_FLOAT   :: 440414214;
+    RGBA64_FLOAT  :: 438321160;
+    ARGB64_FLOAT  :: 439369736;
+    BGRA64_FLOAT  :: 441466888;
+    ABGR64_FLOAT  :: 442515464;
+    RGB96_FLOAT   :: 454057996;
+    BGR96_FLOAT   :: 457203724;
+    RGBA128_FLOAT :: 455114768;
+    ARGB128_FLOAT :: 456163344;
+    BGRA128_FLOAT :: 458260496;
+    ABGR128_FLOAT :: 459309072;
+    YV12          :: 842094169;
+    IYUV          :: 1448433993;
+    YUY2          :: 844715353;
+    UYVY          :: 1498831189;
+    YVYU          :: 1431918169;
+    NV12          :: 842094158;
+    NV21          :: 825382478;
+    P010          :: 808530000;
+    EXTERNAL_OES  :: 542328143;
+    RGBA32        :: 376840196;
+    ARGB32        :: 377888772;
+    BGRA32        :: 372645892;
+    ABGR32        :: 373694468;
+    RGBX32        :: 374740996;
+    XRGB32        :: 375789572;
+    BGRX32        :: 370546692;
+    XBGR32        :: 371595268;
+
+    SDL_PIXELFORMAT_UNKNOWN       :: UNKNOWN;
+    SDL_PIXELFORMAT_INDEX1LSB     :: INDEX1LSB;
+    SDL_PIXELFORMAT_INDEX1MSB     :: INDEX1MSB;
+    SDL_PIXELFORMAT_INDEX2LSB     :: INDEX2LSB;
+    SDL_PIXELFORMAT_INDEX2MSB     :: INDEX2MSB;
+    SDL_PIXELFORMAT_INDEX4LSB     :: INDEX4LSB;
+    SDL_PIXELFORMAT_INDEX4MSB     :: INDEX4MSB;
+    SDL_PIXELFORMAT_INDEX8        :: INDEX8;
+    SDL_PIXELFORMAT_RGB332        :: RGB332;
+    SDL_PIXELFORMAT_XRGB4444      :: XRGB4444;
+    SDL_PIXELFORMAT_XBGR4444      :: XBGR4444;
+    SDL_PIXELFORMAT_XRGB1555      :: XRGB1555;
+    SDL_PIXELFORMAT_XBGR1555      :: XBGR1555;
+    SDL_PIXELFORMAT_ARGB4444      :: ARGB4444;
+    SDL_PIXELFORMAT_RGBA4444      :: RGBA4444;
+    SDL_PIXELFORMAT_ABGR4444      :: ABGR4444;
+    SDL_PIXELFORMAT_BGRA4444      :: BGRA4444;
+    SDL_PIXELFORMAT_ARGB1555      :: ARGB1555;
+    SDL_PIXELFORMAT_RGBA5551      :: RGBA5551;
+    SDL_PIXELFORMAT_ABGR1555      :: ABGR1555;
+    SDL_PIXELFORMAT_BGRA5551      :: BGRA5551;
+    SDL_PIXELFORMAT_RGB565        :: RGB565;
+    SDL_PIXELFORMAT_BGR565        :: BGR565;
+    SDL_PIXELFORMAT_RGB24         :: RGB24;
+    SDL_PIXELFORMAT_BGR24         :: BGR24;
+    SDL_PIXELFORMAT_XRGB8888      :: XRGB8888;
+    SDL_PIXELFORMAT_RGBX8888      :: RGBX8888;
+    SDL_PIXELFORMAT_XBGR8888      :: XBGR8888;
+    SDL_PIXELFORMAT_BGRX8888      :: BGRX8888;
+    SDL_PIXELFORMAT_ARGB8888      :: ARGB8888;
+    SDL_PIXELFORMAT_RGBA8888      :: RGBA8888;
+    SDL_PIXELFORMAT_ABGR8888      :: ABGR8888;
+    SDL_PIXELFORMAT_BGRA8888      :: BGRA8888;
+    SDL_PIXELFORMAT_XRGB2101010   :: XRGB2101010;
+    SDL_PIXELFORMAT_XBGR2101010   :: XBGR2101010;
+    SDL_PIXELFORMAT_ARGB2101010   :: ARGB2101010;
+    SDL_PIXELFORMAT_ABGR2101010   :: ABGR2101010;
+    SDL_PIXELFORMAT_RGB48         :: RGB48;
+    SDL_PIXELFORMAT_BGR48         :: BGR48;
+    SDL_PIXELFORMAT_RGBA64        :: RGBA64;
+    SDL_PIXELFORMAT_ARGB64        :: ARGB64;
+    SDL_PIXELFORMAT_BGRA64        :: BGRA64;
+    SDL_PIXELFORMAT_ABGR64        :: ABGR64;
+    SDL_PIXELFORMAT_RGB48_FLOAT   :: RGB48_FLOAT;
+    SDL_PIXELFORMAT_BGR48_FLOAT   :: BGR48_FLOAT;
+    SDL_PIXELFORMAT_RGBA64_FLOAT  :: RGBA64_FLOAT;
+    SDL_PIXELFORMAT_ARGB64_FLOAT  :: ARGB64_FLOAT;
+    SDL_PIXELFORMAT_BGRA64_FLOAT  :: BGRA64_FLOAT;
+    SDL_PIXELFORMAT_ABGR64_FLOAT  :: ABGR64_FLOAT;
+    SDL_PIXELFORMAT_RGB96_FLOAT   :: RGB96_FLOAT;
+    SDL_PIXELFORMAT_BGR96_FLOAT   :: BGR96_FLOAT;
+    SDL_PIXELFORMAT_RGBA128_FLOAT :: RGBA128_FLOAT;
+    SDL_PIXELFORMAT_ARGB128_FLOAT :: ARGB128_FLOAT;
+    SDL_PIXELFORMAT_BGRA128_FLOAT :: BGRA128_FLOAT;
+    SDL_PIXELFORMAT_ABGR128_FLOAT :: ABGR128_FLOAT;
+    SDL_PIXELFORMAT_YV12          :: YV12;
+    SDL_PIXELFORMAT_IYUV          :: IYUV;
+    SDL_PIXELFORMAT_YUY2          :: YUY2;
+    SDL_PIXELFORMAT_UYVY          :: UYVY;
+    SDL_PIXELFORMAT_YVYU          :: YVYU;
+    SDL_PIXELFORMAT_NV12          :: NV12;
+    SDL_PIXELFORMAT_NV21          :: NV21;
+    SDL_PIXELFORMAT_P010          :: P010;
+    SDL_PIXELFORMAT_EXTERNAL_OES  :: EXTERNAL_OES;
+    SDL_PIXELFORMAT_RGBA32        :: RGBA32;
+    SDL_PIXELFORMAT_ARGB32        :: ARGB32;
+    SDL_PIXELFORMAT_BGRA32        :: BGRA32;
+    SDL_PIXELFORMAT_ABGR32        :: ABGR32;
+    SDL_PIXELFORMAT_RGBX32        :: RGBX32;
+    SDL_PIXELFORMAT_XRGB32        :: XRGB32;
+    SDL_PIXELFORMAT_BGRX32        :: BGRX32;
+    SDL_PIXELFORMAT_XBGR32        :: XBGR32;
+}
+SDL_ColorType :: enum u32 {
+    UNKNOWN :: 0;
+    RGB     :: 1;
+    YCBCR   :: 2;
+
+    SDL_COLOR_TYPE_UNKNOWN :: UNKNOWN;
+    SDL_COLOR_TYPE_RGB     :: RGB;
+    SDL_COLOR_TYPE_YCBCR   :: YCBCR;
+}
+SDL_ColorRange :: enum u32 {
+    UNKNOWN :: 0;
+    LIMITED :: 1;
+    FULL    :: 2;
+
+    SDL_COLOR_RANGE_UNKNOWN :: UNKNOWN;
+    SDL_COLOR_RANGE_LIMITED :: LIMITED;
+    SDL_COLOR_RANGE_FULL    :: FULL;
+}
+SDL_ColorPrimaries :: enum u32 {
+    UNKNOWN      :: 0;
+    BT709        :: 1;
+    UNSPECIFIED  :: 2;
+    BT470M       :: 4;
+    BT470BG      :: 5;
+    BT601        :: 6;
+    SMPTE240     :: 7;
+    GENERIC_FILM :: 8;
+    BT2020       :: 9;
+    XYZ          :: 10;
+    SMPTE431     :: 11;
+    SMPTE432     :: 12;
+    EBU3213      :: 22;
+    CUSTOM       :: 31;
+
+    SDL_COLOR_PRIMARIES_UNKNOWN      :: UNKNOWN;
+    SDL_COLOR_PRIMARIES_BT709        :: BT709;
+    SDL_COLOR_PRIMARIES_UNSPECIFIED  :: UNSPECIFIED;
+    SDL_COLOR_PRIMARIES_BT470M       :: BT470M;
+    SDL_COLOR_PRIMARIES_BT470BG      :: BT470BG;
+    SDL_COLOR_PRIMARIES_BT601        :: BT601;
+    SDL_COLOR_PRIMARIES_SMPTE240     :: SMPTE240;
+    SDL_COLOR_PRIMARIES_GENERIC_FILM :: GENERIC_FILM;
+    SDL_COLOR_PRIMARIES_BT2020       :: BT2020;
+    SDL_COLOR_PRIMARIES_XYZ          :: XYZ;
+    SDL_COLOR_PRIMARIES_SMPTE431     :: SMPTE431;
+    SDL_COLOR_PRIMARIES_SMPTE432     :: SMPTE432;
+    SDL_COLOR_PRIMARIES_EBU3213      :: EBU3213;
+    SDL_COLOR_PRIMARIES_CUSTOM       :: CUSTOM;
+}
+SDL_TransferCharacteristics :: enum u32 {
+    UNKNOWN       :: 0;
+    BT709         :: 1;
+    UNSPECIFIED   :: 2;
+    GAMMA22       :: 4;
+    GAMMA28       :: 5;
+    BT601         :: 6;
+    SMPTE240      :: 7;
+    LINEAR        :: 8;
+    LOG100        :: 9;
+    LOG100_SQRT10 :: 10;
+    IEC61966      :: 11;
+    BT1361        :: 12;
+    SRGB          :: 13;
+    BT2020_10BIT  :: 14;
+    BT2020_12BIT  :: 15;
+    PQ            :: 16;
+    SMPTE428      :: 17;
+    HLG           :: 18;
+    CUSTOM        :: 31;
+
+    SDL_TRANSFER_CHARACTERISTICS_UNKNOWN       :: UNKNOWN;
+    SDL_TRANSFER_CHARACTERISTICS_BT709         :: BT709;
+    SDL_TRANSFER_CHARACTERISTICS_UNSPECIFIED   :: UNSPECIFIED;
+    SDL_TRANSFER_CHARACTERISTICS_GAMMA22       :: GAMMA22;
+    SDL_TRANSFER_CHARACTERISTICS_GAMMA28       :: GAMMA28;
+    SDL_TRANSFER_CHARACTERISTICS_BT601         :: BT601;
+    SDL_TRANSFER_CHARACTERISTICS_SMPTE240      :: SMPTE240;
+    SDL_TRANSFER_CHARACTERISTICS_LINEAR        :: LINEAR;
+    SDL_TRANSFER_CHARACTERISTICS_LOG100        :: LOG100;
+    SDL_TRANSFER_CHARACTERISTICS_LOG100_SQRT10 :: LOG100_SQRT10;
+    SDL_TRANSFER_CHARACTERISTICS_IEC61966      :: IEC61966;
+    SDL_TRANSFER_CHARACTERISTICS_BT1361        :: BT1361;
+    SDL_TRANSFER_CHARACTERISTICS_SRGB          :: SRGB;
+    SDL_TRANSFER_CHARACTERISTICS_BT2020_10BIT  :: BT2020_10BIT;
+    SDL_TRANSFER_CHARACTERISTICS_BT2020_12BIT  :: BT2020_12BIT;
+    SDL_TRANSFER_CHARACTERISTICS_PQ            :: PQ;
+    SDL_TRANSFER_CHARACTERISTICS_SMPTE428      :: SMPTE428;
+    SDL_TRANSFER_CHARACTERISTICS_HLG           :: HLG;
+    SDL_TRANSFER_CHARACTERISTICS_CUSTOM        :: CUSTOM;
+}
+SDL_MatrixCoefficients :: enum u32 {
+    IDENTITY           :: 0;
+    BT709              :: 1;
+    UNSPECIFIED        :: 2;
+    FCC                :: 4;
+    BT470BG            :: 5;
+    BT601              :: 6;
+    SMPTE240           :: 7;
+    YCGCO              :: 8;
+    BT2020_NCL         :: 9;
+    BT2020_CL          :: 10;
+    SMPTE2085          :: 11;
+    CHROMA_DERIVED_NCL :: 12;
+    CHROMA_DERIVED_CL  :: 13;
+    ICTCP              :: 14;
+    CUSTOM             :: 31;
+
+    SDL_MATRIX_COEFFICIENTS_IDENTITY           :: IDENTITY;
+    SDL_MATRIX_COEFFICIENTS_BT709              :: BT709;
+    SDL_MATRIX_COEFFICIENTS_UNSPECIFIED        :: UNSPECIFIED;
+    SDL_MATRIX_COEFFICIENTS_FCC                :: FCC;
+    SDL_MATRIX_COEFFICIENTS_BT470BG            :: BT470BG;
+    SDL_MATRIX_COEFFICIENTS_BT601              :: BT601;
+    SDL_MATRIX_COEFFICIENTS_SMPTE240           :: SMPTE240;
+    SDL_MATRIX_COEFFICIENTS_YCGCO              :: YCGCO;
+    SDL_MATRIX_COEFFICIENTS_BT2020_NCL         :: BT2020_NCL;
+    SDL_MATRIX_COEFFICIENTS_BT2020_CL          :: BT2020_CL;
+    SDL_MATRIX_COEFFICIENTS_SMPTE2085          :: SMPTE2085;
+    SDL_MATRIX_COEFFICIENTS_CHROMA_DERIVED_NCL :: CHROMA_DERIVED_NCL;
+    SDL_MATRIX_COEFFICIENTS_CHROMA_DERIVED_CL  :: CHROMA_DERIVED_CL;
+    SDL_MATRIX_COEFFICIENTS_ICTCP              :: ICTCP;
+    SDL_MATRIX_COEFFICIENTS_CUSTOM             :: CUSTOM;
+}
+SDL_ChromaLocation :: enum u32 {
+    NONE    :: 0;
+    LEFT    :: 1;
+    CENTER  :: 2;
+    TOPLEFT :: 3;
+
+    SDL_CHROMA_LOCATION_NONE    :: NONE;
+    SDL_CHROMA_LOCATION_LEFT    :: LEFT;
+    SDL_CHROMA_LOCATION_CENTER  :: CENTER;
+    SDL_CHROMA_LOCATION_TOPLEFT :: TOPLEFT;
+}
+SDL_Colorspace :: enum u32 {
+    UNKNOWN        :: 0;
+    SRGB           :: 301991328;
+    SRGB_LINEAR    :: 301991168;
+    HDR10          :: 301999616;
+    JPEG           :: 570426566;
+    BT601_LIMITED  :: 554703046;
+    BT601_FULL     :: 571480262;
+    BT709_LIMITED  :: 554697761;
+    BT709_FULL     :: 571474977;
+    BT2020_LIMITED :: 554706441;
+    BT2020_FULL    :: 571483657;
+    RGB_DEFAULT    :: 301991328;
+    YUV_DEFAULT    :: 570426566;
+
+    SDL_COLORSPACE_UNKNOWN        :: UNKNOWN;
+    SDL_COLORSPACE_SRGB           :: SRGB;
+    SDL_COLORSPACE_SRGB_LINEAR    :: SRGB_LINEAR;
+    SDL_COLORSPACE_HDR10          :: HDR10;
+    SDL_COLORSPACE_JPEG           :: JPEG;
+    SDL_COLORSPACE_BT601_LIMITED  :: BT601_LIMITED;
+    SDL_COLORSPACE_BT601_FULL     :: BT601_FULL;
+    SDL_COLORSPACE_BT709_LIMITED  :: BT709_LIMITED;
+    SDL_COLORSPACE_BT709_FULL     :: BT709_FULL;
+    SDL_COLORSPACE_BT2020_LIMITED :: BT2020_LIMITED;
+    SDL_COLORSPACE_BT2020_FULL    :: BT2020_FULL;
+    SDL_COLORSPACE_RGB_DEFAULT    :: RGB_DEFAULT;
+    SDL_COLORSPACE_YUV_DEFAULT    :: YUV_DEFAULT;
+}
+SDL_Color :: struct {
+    r: Uint8;
+    g: Uint8;
+    b: Uint8;
+    a: Uint8;
+}
+SDL_FColor :: struct {
+    r: float;
+    g: float;
+    b: float;
+    a: float;
+}
+SDL_Palette :: struct {
+    ncolors:  s32;
+    colors:   *SDL_Color;
+    version:  Uint32;
+    refcount: s32;
+}
+SDL_PixelFormatDetails :: struct {
+    format:          SDL_PixelFormat;
+    bits_per_pixel:  Uint8;
+    bytes_per_pixel: Uint8;
+    padding:         [2] Uint8;
+    Rmask:           Uint32;
+    Gmask:           Uint32;
+    Bmask:           Uint32;
+    Amask:           Uint32;
+    Rbits:           Uint8;
+    Gbits:           Uint8;
+    Bbits:           Uint8;
+    Abits:           Uint8;
+    Rshift:          Uint8;
+    Gshift:          Uint8;
+    Bshift:          Uint8;
+    Ashift:          Uint8;
+}
+SDL_GetPixelFormatName :: (format: SDL_PixelFormat) -> *u8 #foreign sdl3;
+SDL_GetMasksForPixelFormat :: (format: SDL_PixelFormat, bpp: *s32, Rmask: *Uint32, Gmask: *Uint32, Bmask: *Uint32, Amask: *Uint32) -> bool #foreign sdl3;
+SDL_GetPixelFormatForMasks :: (bpp: s32, Rmask: Uint32, Gmask: Uint32, Bmask: Uint32, Amask: Uint32) -> SDL_PixelFormat #foreign sdl3;
+SDL_GetPixelFormatDetails :: (format: SDL_PixelFormat) -> *SDL_PixelFormatDetails #foreign sdl3;
+SDL_CreatePalette :: (ncolors: s32) -> *SDL_Palette #foreign sdl3;
+SDL_SetPaletteColors :: (palette: *SDL_Palette, colors: *SDL_Color, firstcolor: s32, ncolors: s32) -> bool #foreign sdl3;
+SDL_DestroyPalette :: (palette: *SDL_Palette) -> void #foreign sdl3;
+SDL_MapRGB :: (format: *SDL_PixelFormatDetails, palette: *SDL_Palette, r: Uint8, g: Uint8, b: Uint8) -> Uint32 #foreign sdl3;
+SDL_MapRGBA :: (format: *SDL_PixelFormatDetails, palette: *SDL_Palette, r: Uint8, g: Uint8, b: Uint8, a: Uint8) -> Uint32 #foreign sdl3;
+SDL_GetRGB :: (pixel: Uint32, format: *SDL_PixelFormatDetails, palette: *SDL_Palette, r: *Uint8, g: *Uint8, b: *Uint8) -> void #foreign sdl3;
+SDL_GetRGBA :: (pixel: Uint32, format: *SDL_PixelFormatDetails, palette: *SDL_Palette, r: *Uint8, g: *Uint8, b: *Uint8, a: *Uint8) -> void #foreign sdl3;
+SDL_Point :: struct {
+    x: s32;
+    y: s32;
+}
+SDL_FPoint :: struct {
+    x: float;
+    y: float;
+}
+SDL_Rect :: struct {
+    x: s32;
+    y: s32;
+    w: s32;
+    h: s32;
+}
+SDL_FRect :: struct {
+    x: float;
+    y: float;
+    w: float;
+    h: float;
+}
+SDL_HasRectIntersection :: (A: *SDL_Rect, B: *SDL_Rect) -> bool #foreign sdl3;
+SDL_GetRectIntersection :: (A: *SDL_Rect, B: *SDL_Rect, result: *SDL_Rect) -> bool #foreign sdl3;
+SDL_GetRectUnion :: (A: *SDL_Rect, B: *SDL_Rect, result: *SDL_Rect) -> bool #foreign sdl3;
+SDL_GetRectEnclosingPoints :: (points: *SDL_Point, count: s32, clip: *SDL_Rect, result: *SDL_Rect) -> bool #foreign sdl3;
+SDL_GetRectAndLineIntersection :: (rect: *SDL_Rect, X1: *s32, Y1: *s32, X2: *s32, Y2: *s32) -> bool #foreign sdl3;
+SDL_HasRectIntersectionFloat :: (A: *SDL_FRect, B: *SDL_FRect) -> bool #foreign sdl3;
+SDL_GetRectIntersectionFloat :: (A: *SDL_FRect, B: *SDL_FRect, result: *SDL_FRect) -> bool #foreign sdl3;
+SDL_GetRectUnionFloat :: (A: *SDL_FRect, B: *SDL_FRect, result: *SDL_FRect) -> bool #foreign sdl3;
+SDL_GetRectEnclosingPointsFloat :: (points: *SDL_FPoint, count: s32, clip: *SDL_FRect, result: *SDL_FRect) -> bool #foreign sdl3;
+SDL_GetRectAndLineIntersectionFloat :: (rect: *SDL_FRect, X1: *float, Y1: *float, X2: *float, Y2: *float) -> bool #foreign sdl3;
+SDL_SurfaceFlags :: Uint32;
+SDL_ScaleMode :: enum u32 {
+    NEAREST :: 0;
+    LINEAR  :: 1;
+
+    SDL_SCALEMODE_NEAREST :: NEAREST;
+    SDL_SCALEMODE_LINEAR  :: LINEAR;
+}
+SDL_FlipMode :: enum u32 {
+    NONE       :: 0;
+    HORIZONTAL :: 1;
+    VERTICAL   :: 2;
+
+    SDL_FLIP_NONE       :: NONE;
+    SDL_FLIP_HORIZONTAL :: HORIZONTAL;
+    SDL_FLIP_VERTICAL   :: VERTICAL;
+}
+SDL_Surface :: struct {
+    flags:    SDL_SurfaceFlags;
+    format:   SDL_PixelFormat;
+    w:        s32;
+    h:        s32;
+    pitch:    s32;
+    pixels:   *void;
+    refcount: s32;
+    reserved: *void;
+}
+SDL_CreateSurface :: (width: s32, height: s32, format: SDL_PixelFormat) -> *SDL_Surface #foreign sdl3;
+SDL_CreateSurfaceFrom :: (width: s32, height: s32, format: SDL_PixelFormat, pixels: *void, pitch: s32) -> *SDL_Surface #foreign sdl3;
+SDL_DestroySurface :: (surface: *SDL_Surface) -> void #foreign sdl3;
+SDL_GetSurfaceProperties :: (surface: *SDL_Surface) -> SDL_PropertiesID #foreign sdl3;
+SDL_SetSurfaceColorspace :: (surface: *SDL_Surface, colorspace: SDL_Colorspace) -> bool #foreign sdl3;
+SDL_GetSurfaceColorspace :: (surface: *SDL_Surface) -> SDL_Colorspace #foreign sdl3;
+SDL_CreateSurfacePalette :: (surface: *SDL_Surface) -> *SDL_Palette #foreign sdl3;
+SDL_SetSurfacePalette :: (surface: *SDL_Surface, palette: *SDL_Palette) -> bool #foreign sdl3;
+SDL_GetSurfacePalette :: (surface: *SDL_Surface) -> *SDL_Palette #foreign sdl3;
+SDL_AddSurfaceAlternateImage :: (surface: *SDL_Surface, image: *SDL_Surface) -> bool #foreign sdl3;
+SDL_SurfaceHasAlternateImages :: (surface: *SDL_Surface) -> bool #foreign sdl3;
+SDL_GetSurfaceImages :: (surface: *SDL_Surface, count: *s32) -> **SDL_Surface #foreign sdl3;
+SDL_RemoveSurfaceAlternateImages :: (surface: *SDL_Surface) -> void #foreign sdl3;
+SDL_LockSurface :: (surface: *SDL_Surface) -> bool #foreign sdl3;
+SDL_UnlockSurface :: (surface: *SDL_Surface) -> void #foreign sdl3;
+SDL_LoadBMP_IO :: (src: *SDL_IOStream, closeio: bool) -> *SDL_Surface #foreign sdl3;
+SDL_LoadBMP :: (file: *u8) -> *SDL_Surface #foreign sdl3;
+SDL_SaveBMP_IO :: (surface: *SDL_Surface, dst: *SDL_IOStream, closeio: bool) -> bool #foreign sdl3;
+SDL_SaveBMP :: (surface: *SDL_Surface, file: *u8) -> bool #foreign sdl3;
+SDL_SetSurfaceRLE :: (surface: *SDL_Surface, enabled: bool) -> bool #foreign sdl3;
+SDL_SurfaceHasRLE :: (surface: *SDL_Surface) -> bool #foreign sdl3;
+SDL_SetSurfaceColorKey :: (surface: *SDL_Surface, enabled: bool, key: Uint32) -> bool #foreign sdl3;
+SDL_SurfaceHasColorKey :: (surface: *SDL_Surface) -> bool #foreign sdl3;
+SDL_GetSurfaceColorKey :: (surface: *SDL_Surface, key: *Uint32) -> bool #foreign sdl3;
+SDL_SetSurfaceColorMod :: (surface: *SDL_Surface, r: Uint8, g: Uint8, b: Uint8) -> bool #foreign sdl3;
+SDL_GetSurfaceColorMod :: (surface: *SDL_Surface, r: *Uint8, g: *Uint8, b: *Uint8) -> bool #foreign sdl3;
+SDL_SetSurfaceAlphaMod :: (surface: *SDL_Surface, alpha: Uint8) -> bool #foreign sdl3;
+SDL_GetSurfaceAlphaMod :: (surface: *SDL_Surface, alpha: *Uint8) -> bool #foreign sdl3;
+SDL_SetSurfaceBlendMode :: (surface: *SDL_Surface, blendMode: SDL_BlendMode) -> bool #foreign sdl3;
+SDL_GetSurfaceBlendMode :: (surface: *SDL_Surface, blendMode: *SDL_BlendMode) -> bool #foreign sdl3;
+SDL_SetSurfaceClipRect :: (surface: *SDL_Surface, rect: *SDL_Rect) -> bool #foreign sdl3;
+SDL_GetSurfaceClipRect :: (surface: *SDL_Surface, rect: *SDL_Rect) -> bool #foreign sdl3;
+SDL_FlipSurface :: (surface: *SDL_Surface, flip: SDL_FlipMode) -> bool #foreign sdl3;
+SDL_DuplicateSurface :: (surface: *SDL_Surface) -> *SDL_Surface #foreign sdl3;
+SDL_ScaleSurface :: (surface: *SDL_Surface, width: s32, height: s32, scaleMode: SDL_ScaleMode) -> *SDL_Surface #foreign sdl3;
+SDL_ConvertSurface :: (surface: *SDL_Surface, format: SDL_PixelFormat) -> *SDL_Surface #foreign sdl3;
+SDL_ConvertSurfaceAndColorspace :: (surface: *SDL_Surface, format: SDL_PixelFormat, palette: *SDL_Palette, colorspace: SDL_Colorspace, props: SDL_PropertiesID) -> *SDL_Surface #foreign sdl3;
+SDL_ConvertPixels :: (width: s32, height: s32, src_format: SDL_PixelFormat, src: *void, src_pitch: s32, dst_format: SDL_PixelFormat, dst: *void, dst_pitch: s32) -> bool #foreign sdl3;
+SDL_ConvertPixelsAndColorspace :: (width: s32, height: s32, src_format: SDL_PixelFormat, src_colorspace: SDL_Colorspace, src_properties: SDL_PropertiesID, src: *void, src_pitch: s32, dst_format: SDL_PixelFormat, dst_colorspace: SDL_Colorspace, dst_properties: SDL_PropertiesID, dst: *void, dst_pitch: s32) -> bool #foreign sdl3;
+SDL_PremultiplyAlpha :: (width: s32, height: s32, src_format: SDL_PixelFormat, src: *void, src_pitch: s32, dst_format: SDL_PixelFormat, dst: *void, dst_pitch: s32, linear: bool) -> bool #foreign sdl3;
+SDL_PremultiplySurfaceAlpha :: (surface: *SDL_Surface, linear: bool) -> bool #foreign sdl3;
+SDL_ClearSurface :: (surface: *SDL_Surface, r: float, g: float, b: float, a: float) -> bool #foreign sdl3;
+SDL_FillSurfaceRect :: (dst: *SDL_Surface, rect: *SDL_Rect, color: Uint32) -> bool #foreign sdl3;
+SDL_FillSurfaceRects :: (dst: *SDL_Surface, rects: *SDL_Rect, count: s32, color: Uint32) -> bool #foreign sdl3;
+SDL_BlitSurface :: (src: *SDL_Surface, srcrect: *SDL_Rect, dst: *SDL_Surface, dstrect: *SDL_Rect) -> bool #foreign sdl3;
+SDL_BlitSurfaceUnchecked :: (src: *SDL_Surface, srcrect: *SDL_Rect, dst: *SDL_Surface, dstrect: *SDL_Rect) -> bool #foreign sdl3;
+SDL_BlitSurfaceScaled :: (src: *SDL_Surface, srcrect: *SDL_Rect, dst: *SDL_Surface, dstrect: *SDL_Rect, scaleMode: SDL_ScaleMode) -> bool #foreign sdl3;
+SDL_BlitSurfaceUncheckedScaled :: (src: *SDL_Surface, srcrect: *SDL_Rect, dst: *SDL_Surface, dstrect: *SDL_Rect, scaleMode: SDL_ScaleMode) -> bool #foreign sdl3;
+SDL_BlitSurfaceTiled :: (src: *SDL_Surface, srcrect: *SDL_Rect, dst: *SDL_Surface, dstrect: *SDL_Rect) -> bool #foreign sdl3;
+SDL_BlitSurfaceTiledWithScale :: (src: *SDL_Surface, srcrect: *SDL_Rect, scale: float, scaleMode: SDL_ScaleMode, dst: *SDL_Surface, dstrect: *SDL_Rect) -> bool #foreign sdl3;
+SDL_BlitSurface9Grid :: (src: *SDL_Surface, srcrect: *SDL_Rect, left_width: s32, right_width: s32, top_height: s32, bottom_height: s32, scale: float, scaleMode: SDL_ScaleMode, dst: *SDL_Surface, dstrect: *SDL_Rect) -> bool #foreign sdl3;
+SDL_MapSurfaceRGB :: (surface: *SDL_Surface, r: Uint8, g: Uint8, b: Uint8) -> Uint32 #foreign sdl3;
+SDL_MapSurfaceRGBA :: (surface: *SDL_Surface, r: Uint8, g: Uint8, b: Uint8, a: Uint8) -> Uint32 #foreign sdl3;
+SDL_ReadSurfacePixel :: (surface: *SDL_Surface, x: s32, y: s32, r: *Uint8, g: *Uint8, b: *Uint8, a: *Uint8) -> bool #foreign sdl3;
+SDL_ReadSurfacePixelFloat :: (surface: *SDL_Surface, x: s32, y: s32, r: *float, g: *float, b: *float, a: *float) -> bool #foreign sdl3;
+SDL_WriteSurfacePixel :: (surface: *SDL_Surface, x: s32, y: s32, r: Uint8, g: Uint8, b: Uint8, a: Uint8) -> bool #foreign sdl3;
+SDL_WriteSurfacePixelFloat :: (surface: *SDL_Surface, x: s32, y: s32, r: float, g: float, b: float, a: float) -> bool #foreign sdl3;
 SDL_CameraID :: Uint32;
 SDL_Camera :: struct {}
 SDL_CameraSpec :: struct {
@@ -384,7 +1873,7 @@ SDL_CameraSpec :: struct {
     framerate_numerator:   s32;
     framerate_denominator: s32;
 }
-SDL_CameraPosition :: enum s32 {
+SDL_CameraPosition :: enum u32 {
     UNKNOWN      :: 0;
     FRONT_FACING :: 1;
     BACK_FACING  :: 2;
@@ -439,6 +1928,258 @@ SDL_HasLSX :: () -> bool #foreign sdl3;
 SDL_HasLASX :: () -> bool #foreign sdl3;
 SDL_GetSystemRAM :: () -> s32 #foreign sdl3;
 SDL_GetSIMDAlignment :: () -> u64 #foreign sdl3;
+SDL_DisplayID :: Uint32;
+SDL_WindowID :: Uint32;
+SDL_SystemTheme :: enum u32 {
+    UNKNOWN :: 0;
+    LIGHT   :: 1;
+    DARK    :: 2;
+
+    SDL_SYSTEM_THEME_UNKNOWN :: UNKNOWN;
+    SDL_SYSTEM_THEME_LIGHT   :: LIGHT;
+    SDL_SYSTEM_THEME_DARK    :: DARK;
+}
+SDL_DisplayModeData :: struct {}
+SDL_DisplayMode :: struct {
+    displayID:                SDL_DisplayID;
+    format:                   SDL_PixelFormat;
+    w:                        s32;
+    h:                        s32;
+    pixel_density:            float;
+    refresh_rate:             float;
+    refresh_rate_numerator:   s32;
+    refresh_rate_denominator: s32;
+    internal:                 *SDL_DisplayModeData;
+}
+SDL_DisplayOrientation :: enum u32 {
+    UNKNOWN           :: 0;
+    LANDSCAPE         :: 1;
+    LANDSCAPE_FLIPPED :: 2;
+    PORTRAIT          :: 3;
+    PORTRAIT_FLIPPED  :: 4;
+
+    SDL_ORIENTATION_UNKNOWN           :: UNKNOWN;
+    SDL_ORIENTATION_LANDSCAPE         :: LANDSCAPE;
+    SDL_ORIENTATION_LANDSCAPE_FLIPPED :: LANDSCAPE_FLIPPED;
+    SDL_ORIENTATION_PORTRAIT          :: PORTRAIT;
+    SDL_ORIENTATION_PORTRAIT_FLIPPED  :: PORTRAIT_FLIPPED;
+}
+SDL_Window :: struct {}
+SDL_WindowFlags :: Uint64;
+SDL_FlashOperation :: enum u32 {
+    CANCEL        :: 0;
+    BRIEFLY       :: 1;
+    UNTIL_FOCUSED :: 2;
+
+    SDL_FLASH_CANCEL        :: CANCEL;
+    SDL_FLASH_BRIEFLY       :: BRIEFLY;
+    SDL_FLASH_UNTIL_FOCUSED :: UNTIL_FOCUSED;
+}
+SDL_GLContextState :: struct {}
+SDL_GLContext :: *SDL_GLContextState;
+SDL_EGLDisplay :: *void;
+SDL_EGLConfig :: *void;
+SDL_EGLSurface :: *void;
+SDL_EGLAttrib :: s64;
+SDL_EGLint :: s32;
+SDL_EGLAttribArrayCallback :: #type (userdata: *void) -> *SDL_EGLAttrib #c_call;
+SDL_EGLIntArrayCallback :: #type (userdata: *void, display: SDL_EGLDisplay, config: SDL_EGLConfig) -> *SDL_EGLint #c_call;
+SDL_GLAttr :: enum u32 {
+    RED_SIZE                   :: 0;
+    GREEN_SIZE                 :: 1;
+    BLUE_SIZE                  :: 2;
+    ALPHA_SIZE                 :: 3;
+    BUFFER_SIZE                :: 4;
+    DOUBLEBUFFER               :: 5;
+    DEPTH_SIZE                 :: 6;
+    STENCIL_SIZE               :: 7;
+    ACCUM_RED_SIZE             :: 8;
+    ACCUM_GREEN_SIZE           :: 9;
+    ACCUM_BLUE_SIZE            :: 10;
+    ACCUM_ALPHA_SIZE           :: 11;
+    STEREO                     :: 12;
+    MULTISAMPLEBUFFERS         :: 13;
+    MULTISAMPLESAMPLES         :: 14;
+    ACCELERATED_VISUAL         :: 15;
+    RETAINED_BACKING           :: 16;
+    CONTEXT_MAJOR_VERSION      :: 17;
+    CONTEXT_MINOR_VERSION      :: 18;
+    CONTEXT_FLAGS              :: 19;
+    CONTEXT_PROFILE_MASK       :: 20;
+    SHARE_WITH_CURRENT_CONTEXT :: 21;
+    FRAMEBUFFER_SRGB_CAPABLE   :: 22;
+    CONTEXT_RELEASE_BEHAVIOR   :: 23;
+    CONTEXT_RESET_NOTIFICATION :: 24;
+    CONTEXT_NO_ERROR           :: 25;
+    FLOATBUFFERS               :: 26;
+    EGL_PLATFORM               :: 27;
+
+    SDL_GL_RED_SIZE                   :: RED_SIZE;
+    SDL_GL_GREEN_SIZE                 :: GREEN_SIZE;
+    SDL_GL_BLUE_SIZE                  :: BLUE_SIZE;
+    SDL_GL_ALPHA_SIZE                 :: ALPHA_SIZE;
+    SDL_GL_BUFFER_SIZE                :: BUFFER_SIZE;
+    SDL_GL_DOUBLEBUFFER               :: DOUBLEBUFFER;
+    SDL_GL_DEPTH_SIZE                 :: DEPTH_SIZE;
+    SDL_GL_STENCIL_SIZE               :: STENCIL_SIZE;
+    SDL_GL_ACCUM_RED_SIZE             :: ACCUM_RED_SIZE;
+    SDL_GL_ACCUM_GREEN_SIZE           :: ACCUM_GREEN_SIZE;
+    SDL_GL_ACCUM_BLUE_SIZE            :: ACCUM_BLUE_SIZE;
+    SDL_GL_ACCUM_ALPHA_SIZE           :: ACCUM_ALPHA_SIZE;
+    SDL_GL_STEREO                     :: STEREO;
+    SDL_GL_MULTISAMPLEBUFFERS         :: MULTISAMPLEBUFFERS;
+    SDL_GL_MULTISAMPLESAMPLES         :: MULTISAMPLESAMPLES;
+    SDL_GL_ACCELERATED_VISUAL         :: ACCELERATED_VISUAL;
+    SDL_GL_RETAINED_BACKING           :: RETAINED_BACKING;
+    SDL_GL_CONTEXT_MAJOR_VERSION      :: CONTEXT_MAJOR_VERSION;
+    SDL_GL_CONTEXT_MINOR_VERSION      :: CONTEXT_MINOR_VERSION;
+    SDL_GL_CONTEXT_FLAGS              :: CONTEXT_FLAGS;
+    SDL_GL_CONTEXT_PROFILE_MASK       :: CONTEXT_PROFILE_MASK;
+    SDL_GL_SHARE_WITH_CURRENT_CONTEXT :: SHARE_WITH_CURRENT_CONTEXT;
+    SDL_GL_FRAMEBUFFER_SRGB_CAPABLE   :: FRAMEBUFFER_SRGB_CAPABLE;
+    SDL_GL_CONTEXT_RELEASE_BEHAVIOR   :: CONTEXT_RELEASE_BEHAVIOR;
+    SDL_GL_CONTEXT_RESET_NOTIFICATION :: CONTEXT_RESET_NOTIFICATION;
+    SDL_GL_CONTEXT_NO_ERROR           :: CONTEXT_NO_ERROR;
+    SDL_GL_FLOATBUFFERS               :: FLOATBUFFERS;
+    SDL_GL_EGL_PLATFORM               :: EGL_PLATFORM;
+}
+SDL_GLProfile :: Uint32;
+SDL_GLContextFlag :: Uint32;
+SDL_GLContextReleaseFlag :: Uint32;
+SDL_GLContextResetNotification :: Uint32;
+SDL_GetNumVideoDrivers :: () -> s32 #foreign sdl3;
+SDL_GetVideoDriver :: (index: s32) -> *u8 #foreign sdl3;
+SDL_GetCurrentVideoDriver :: () -> *u8 #foreign sdl3;
+SDL_GetSystemTheme :: () -> SDL_SystemTheme #foreign sdl3;
+SDL_GetDisplays :: (count: *s32) -> *SDL_DisplayID #foreign sdl3;
+SDL_GetPrimaryDisplay :: () -> SDL_DisplayID #foreign sdl3;
+SDL_GetDisplayProperties :: (displayID: SDL_DisplayID) -> SDL_PropertiesID #foreign sdl3;
+SDL_GetDisplayName :: (displayID: SDL_DisplayID) -> *u8 #foreign sdl3;
+SDL_GetDisplayBounds :: (displayID: SDL_DisplayID, rect: *SDL_Rect) -> bool #foreign sdl3;
+SDL_GetDisplayUsableBounds :: (displayID: SDL_DisplayID, rect: *SDL_Rect) -> bool #foreign sdl3;
+SDL_GetNaturalDisplayOrientation :: (displayID: SDL_DisplayID) -> SDL_DisplayOrientation #foreign sdl3;
+SDL_GetCurrentDisplayOrientation :: (displayID: SDL_DisplayID) -> SDL_DisplayOrientation #foreign sdl3;
+SDL_GetDisplayContentScale :: (displayID: SDL_DisplayID) -> float #foreign sdl3;
+SDL_GetFullscreenDisplayModes :: (displayID: SDL_DisplayID, count: *s32) -> **SDL_DisplayMode #foreign sdl3;
+SDL_GetClosestFullscreenDisplayMode :: (displayID: SDL_DisplayID, w: s32, h: s32, refresh_rate: float, include_high_density_modes: bool, mode: *SDL_DisplayMode) -> bool #foreign sdl3;
+SDL_GetDesktopDisplayMode :: (displayID: SDL_DisplayID) -> *SDL_DisplayMode #foreign sdl3;
+SDL_GetCurrentDisplayMode :: (displayID: SDL_DisplayID) -> *SDL_DisplayMode #foreign sdl3;
+SDL_GetDisplayForPoint :: (point: *SDL_Point) -> SDL_DisplayID #foreign sdl3;
+SDL_GetDisplayForRect :: (rect: *SDL_Rect) -> SDL_DisplayID #foreign sdl3;
+SDL_GetDisplayForWindow :: (window: *SDL_Window) -> SDL_DisplayID #foreign sdl3;
+SDL_GetWindowPixelDensity :: (window: *SDL_Window) -> float #foreign sdl3;
+SDL_GetWindowDisplayScale :: (window: *SDL_Window) -> float #foreign sdl3;
+SDL_SetWindowFullscreenMode :: (window: *SDL_Window, mode: *SDL_DisplayMode) -> bool #foreign sdl3;
+SDL_GetWindowFullscreenMode :: (window: *SDL_Window) -> *SDL_DisplayMode #foreign sdl3;
+SDL_GetWindowICCProfile :: (window: *SDL_Window, size: *u64) -> *void #foreign sdl3;
+SDL_GetWindowPixelFormat :: (window: *SDL_Window) -> SDL_PixelFormat #foreign sdl3;
+SDL_GetWindows :: (count: *s32) -> **SDL_Window #foreign sdl3;
+SDL_CreateWindow :: (title: *u8, w: s32, h: s32, flags: SDL_WindowFlags) -> *SDL_Window #foreign sdl3;
+SDL_CreatePopupWindow :: (parent: *SDL_Window, offset_x: s32, offset_y: s32, w: s32, h: s32, flags: SDL_WindowFlags) -> *SDL_Window #foreign sdl3;
+SDL_CreateWindowWithProperties :: (props: SDL_PropertiesID) -> *SDL_Window #foreign sdl3;
+SDL_GetWindowID :: (window: *SDL_Window) -> SDL_WindowID #foreign sdl3;
+SDL_GetWindowFromID :: (id: SDL_WindowID) -> *SDL_Window #foreign sdl3;
+SDL_GetWindowParent :: (window: *SDL_Window) -> *SDL_Window #foreign sdl3;
+SDL_GetWindowProperties :: (window: *SDL_Window) -> SDL_PropertiesID #foreign sdl3;
+SDL_GetWindowFlags :: (window: *SDL_Window) -> SDL_WindowFlags #foreign sdl3;
+SDL_SetWindowTitle :: (window: *SDL_Window, title: *u8) -> bool #foreign sdl3;
+SDL_GetWindowTitle :: (window: *SDL_Window) -> *u8 #foreign sdl3;
+SDL_SetWindowIcon :: (window: *SDL_Window, icon: *SDL_Surface) -> bool #foreign sdl3;
+SDL_SetWindowPosition :: (window: *SDL_Window, x: s32, y: s32) -> bool #foreign sdl3;
+SDL_GetWindowPosition :: (window: *SDL_Window, x: *s32, y: *s32) -> bool #foreign sdl3;
+SDL_SetWindowSize :: (window: *SDL_Window, w: s32, h: s32) -> bool #foreign sdl3;
+SDL_GetWindowSize :: (window: *SDL_Window, w: *s32, h: *s32) -> bool #foreign sdl3;
+SDL_GetWindowSafeArea :: (window: *SDL_Window, rect: *SDL_Rect) -> bool #foreign sdl3;
+SDL_SetWindowAspectRatio :: (window: *SDL_Window, min_aspect: float, max_aspect: float) -> bool #foreign sdl3;
+SDL_GetWindowAspectRatio :: (window: *SDL_Window, min_aspect: *float, max_aspect: *float) -> bool #foreign sdl3;
+SDL_GetWindowBordersSize :: (window: *SDL_Window, top: *s32, left: *s32, bottom: *s32, right: *s32) -> bool #foreign sdl3;
+SDL_GetWindowSizeInPixels :: (window: *SDL_Window, w: *s32, h: *s32) -> bool #foreign sdl3;
+SDL_SetWindowMinimumSize :: (window: *SDL_Window, min_w: s32, min_h: s32) -> bool #foreign sdl3;
+SDL_GetWindowMinimumSize :: (window: *SDL_Window, w: *s32, h: *s32) -> bool #foreign sdl3;
+SDL_SetWindowMaximumSize :: (window: *SDL_Window, max_w: s32, max_h: s32) -> bool #foreign sdl3;
+SDL_GetWindowMaximumSize :: (window: *SDL_Window, w: *s32, h: *s32) -> bool #foreign sdl3;
+SDL_SetWindowBordered :: (window: *SDL_Window, bordered: bool) -> bool #foreign sdl3;
+SDL_SetWindowResizable :: (window: *SDL_Window, resizable: bool) -> bool #foreign sdl3;
+SDL_SetWindowAlwaysOnTop :: (window: *SDL_Window, on_top: bool) -> bool #foreign sdl3;
+SDL_ShowWindow :: (window: *SDL_Window) -> bool #foreign sdl3;
+SDL_HideWindow :: (window: *SDL_Window) -> bool #foreign sdl3;
+SDL_RaiseWindow :: (window: *SDL_Window) -> bool #foreign sdl3;
+SDL_MaximizeWindow :: (window: *SDL_Window) -> bool #foreign sdl3;
+SDL_MinimizeWindow :: (window: *SDL_Window) -> bool #foreign sdl3;
+SDL_RestoreWindow :: (window: *SDL_Window) -> bool #foreign sdl3;
+SDL_SetWindowFullscreen :: (window: *SDL_Window, fullscreen: bool) -> bool #foreign sdl3;
+SDL_SyncWindow :: (window: *SDL_Window) -> bool #foreign sdl3;
+SDL_WindowHasSurface :: (window: *SDL_Window) -> bool #foreign sdl3;
+SDL_GetWindowSurface :: (window: *SDL_Window) -> *SDL_Surface #foreign sdl3;
+SDL_SetWindowSurfaceVSync :: (window: *SDL_Window, vsync: s32) -> bool #foreign sdl3;
+SDL_GetWindowSurfaceVSync :: (window: *SDL_Window, vsync: *s32) -> bool #foreign sdl3;
+SDL_UpdateWindowSurface :: (window: *SDL_Window) -> bool #foreign sdl3;
+SDL_UpdateWindowSurfaceRects :: (window: *SDL_Window, rects: *SDL_Rect, numrects: s32) -> bool #foreign sdl3;
+SDL_DestroyWindowSurface :: (window: *SDL_Window) -> bool #foreign sdl3;
+SDL_SetWindowKeyboardGrab :: (window: *SDL_Window, grabbed: bool) -> bool #foreign sdl3;
+SDL_SetWindowMouseGrab :: (window: *SDL_Window, grabbed: bool) -> bool #foreign sdl3;
+SDL_GetWindowKeyboardGrab :: (window: *SDL_Window) -> bool #foreign sdl3;
+SDL_GetWindowMouseGrab :: (window: *SDL_Window) -> bool #foreign sdl3;
+SDL_GetGrabbedWindow :: () -> *SDL_Window #foreign sdl3;
+SDL_SetWindowMouseRect :: (window: *SDL_Window, rect: *SDL_Rect) -> bool #foreign sdl3;
+SDL_GetWindowMouseRect :: (window: *SDL_Window) -> *SDL_Rect #foreign sdl3;
+SDL_SetWindowOpacity :: (window: *SDL_Window, opacity: float) -> bool #foreign sdl3;
+SDL_GetWindowOpacity :: (window: *SDL_Window) -> float #foreign sdl3;
+SDL_SetWindowParent :: (window: *SDL_Window, parent: *SDL_Window) -> bool #foreign sdl3;
+SDL_SetWindowModal :: (window: *SDL_Window, modal: bool) -> bool #foreign sdl3;
+SDL_SetWindowFocusable :: (window: *SDL_Window, focusable: bool) -> bool #foreign sdl3;
+SDL_ShowWindowSystemMenu :: (window: *SDL_Window, x: s32, y: s32) -> bool #foreign sdl3;
+SDL_HitTestResult :: enum u32 {
+    NORMAL             :: 0;
+    DRAGGABLE          :: 1;
+    RESIZE_TOPLEFT     :: 2;
+    RESIZE_TOP         :: 3;
+    RESIZE_TOPRIGHT    :: 4;
+    RESIZE_RIGHT       :: 5;
+    RESIZE_BOTTOMRIGHT :: 6;
+    RESIZE_BOTTOM      :: 7;
+    RESIZE_BOTTOMLEFT  :: 8;
+    RESIZE_LEFT        :: 9;
+
+    SDL_HITTEST_NORMAL             :: NORMAL;
+    SDL_HITTEST_DRAGGABLE          :: DRAGGABLE;
+    SDL_HITTEST_RESIZE_TOPLEFT     :: RESIZE_TOPLEFT;
+    SDL_HITTEST_RESIZE_TOP         :: RESIZE_TOP;
+    SDL_HITTEST_RESIZE_TOPRIGHT    :: RESIZE_TOPRIGHT;
+    SDL_HITTEST_RESIZE_RIGHT       :: RESIZE_RIGHT;
+    SDL_HITTEST_RESIZE_BOTTOMRIGHT :: RESIZE_BOTTOMRIGHT;
+    SDL_HITTEST_RESIZE_BOTTOM      :: RESIZE_BOTTOM;
+    SDL_HITTEST_RESIZE_BOTTOMLEFT  :: RESIZE_BOTTOMLEFT;
+    SDL_HITTEST_RESIZE_LEFT        :: RESIZE_LEFT;
+}
+SDL_HitTest :: #type (win: *SDL_Window, area: *SDL_Point, data: *void) -> SDL_HitTestResult #c_call;
+SDL_SetWindowHitTest :: (window: *SDL_Window, callback: SDL_HitTest, callback_data: *void) -> bool #foreign sdl3;
+SDL_SetWindowShape :: (window: *SDL_Window, shape: *SDL_Surface) -> bool #foreign sdl3;
+SDL_FlashWindow :: (window: *SDL_Window, operation: SDL_FlashOperation) -> bool #foreign sdl3;
+SDL_DestroyWindow :: (window: *SDL_Window) -> void #foreign sdl3;
+SDL_ScreenSaverEnabled :: () -> bool #foreign sdl3;
+SDL_EnableScreenSaver :: () -> bool #foreign sdl3;
+SDL_DisableScreenSaver :: () -> bool #foreign sdl3;
+SDL_GL_LoadLibrary :: (path: *u8) -> bool #foreign sdl3;
+SDL_GL_GetProcAddress :: (proc: *u8) -> SDL_FunctionPointer #foreign sdl3;
+SDL_EGL_GetProcAddress :: (proc: *u8) -> SDL_FunctionPointer #foreign sdl3;
+SDL_GL_UnloadLibrary :: () -> void #foreign sdl3;
+SDL_GL_ExtensionSupported :: (extension: *u8) -> bool #foreign sdl3;
+SDL_GL_ResetAttributes :: () -> void #foreign sdl3;
+SDL_GL_SetAttribute :: (attr: SDL_GLAttr, value: s32) -> bool #foreign sdl3;
+SDL_GL_GetAttribute :: (attr: SDL_GLAttr, value: *s32) -> bool #foreign sdl3;
+SDL_GL_CreateContext :: (window: *SDL_Window) -> SDL_GLContext #foreign sdl3;
+SDL_GL_MakeCurrent :: (window: *SDL_Window, _context: SDL_GLContext) -> bool #foreign sdl3;
+SDL_GL_GetCurrentWindow :: () -> *SDL_Window #foreign sdl3;
+SDL_GL_GetCurrentContext :: () -> SDL_GLContext #foreign sdl3;
+SDL_EGL_GetCurrentDisplay :: () -> SDL_EGLDisplay #foreign sdl3;
+SDL_EGL_GetCurrentConfig :: () -> SDL_EGLConfig #foreign sdl3;
+SDL_EGL_GetWindowSurface :: (window: *SDL_Window) -> SDL_EGLSurface #foreign sdl3;
+SDL_EGL_SetAttributeCallbacks :: (platformAttribCallback: SDL_EGLAttribArrayCallback, surfaceAttribCallback: SDL_EGLIntArrayCallback, contextAttribCallback: SDL_EGLIntArrayCallback, userdata: *void) -> void #foreign sdl3;
+SDL_GL_SetSwapInterval :: (interval: s32) -> bool #foreign sdl3;
+SDL_GL_GetSwapInterval :: (interval: *s32) -> bool #foreign sdl3;
+SDL_GL_SwapWindow :: (window: *SDL_Window) -> bool #foreign sdl3;
+SDL_GL_DestroyContext :: (_context: SDL_GLContext) -> bool #foreign sdl3;
 SDL_DialogFileFilter :: struct {
     name:    *u8;
     pattern: *u8;
@@ -447,7 +2188,1111 @@ SDL_DialogFileCallback :: #type (userdata: *void, filelist: **u8, filter: s32) -
 SDL_ShowOpenFileDialog :: (callback: SDL_DialogFileCallback, userdata: *void, window: *SDL_Window, filters: *SDL_DialogFileFilter, nfilters: s32, default_location: *u8, allow_many: bool) -> void #foreign sdl3;
 SDL_ShowSaveFileDialog :: (callback: SDL_DialogFileCallback, userdata: *void, window: *SDL_Window, filters: *SDL_DialogFileFilter, nfilters: s32, default_location: *u8) -> void #foreign sdl3;
 SDL_ShowOpenFolderDialog :: (callback: SDL_DialogFileCallback, userdata: *void, window: *SDL_Window, default_location: *u8, allow_many: bool) -> void #foreign sdl3;
-SDL_EventType :: enum s32 {
+SDL_GUID :: struct {
+    data: [16] Uint8;
+}
+SDL_GUIDToString :: (guid: SDL_GUID, pszGUID: *u8, cbGUID: s32) -> void #foreign sdl3;
+SDL_StringToGUID :: (pchGUID: *u8) -> SDL_GUID #foreign sdl3;
+SDL_PowerState :: enum s32 {
+    ERROR      :: -1;
+    UNKNOWN    :: 0;
+    ON_BATTERY :: 1;
+    NO_BATTERY :: 2;
+    CHARGING   :: 3;
+    CHARGED    :: 4;
+
+    SDL_POWERSTATE_ERROR      :: ERROR;
+    SDL_POWERSTATE_UNKNOWN    :: UNKNOWN;
+    SDL_POWERSTATE_ON_BATTERY :: ON_BATTERY;
+    SDL_POWERSTATE_NO_BATTERY :: NO_BATTERY;
+    SDL_POWERSTATE_CHARGING   :: CHARGING;
+    SDL_POWERSTATE_CHARGED    :: CHARGED;
+}
+SDL_GetPowerInfo :: (seconds: *s32, percent: *s32) -> SDL_PowerState #foreign sdl3;
+SDL_Sensor :: struct {}
+SDL_SensorID :: Uint32;
+SDL_SensorType :: enum s32 {
+    INVALID :: -1;
+    UNKNOWN :: 0;
+    ACCEL   :: 1;
+    GYRO    :: 2;
+    ACCEL_L :: 3;
+    GYRO_L  :: 4;
+    ACCEL_R :: 5;
+    GYRO_R  :: 6;
+
+    SDL_SENSOR_INVALID :: INVALID;
+    SDL_SENSOR_UNKNOWN :: UNKNOWN;
+    SDL_SENSOR_ACCEL   :: ACCEL;
+    SDL_SENSOR_GYRO    :: GYRO;
+    SDL_SENSOR_ACCEL_L :: ACCEL_L;
+    SDL_SENSOR_GYRO_L  :: GYRO_L;
+    SDL_SENSOR_ACCEL_R :: ACCEL_R;
+    SDL_SENSOR_GYRO_R  :: GYRO_R;
+}
+SDL_GetSensors :: (count: *s32) -> *SDL_SensorID #foreign sdl3;
+SDL_GetSensorNameForID :: (instance_id: SDL_SensorID) -> *u8 #foreign sdl3;
+SDL_GetSensorTypeForID :: (instance_id: SDL_SensorID) -> SDL_SensorType #foreign sdl3;
+SDL_GetSensorNonPortableTypeForID :: (instance_id: SDL_SensorID) -> s32 #foreign sdl3;
+SDL_OpenSensor :: (instance_id: SDL_SensorID) -> *SDL_Sensor #foreign sdl3;
+SDL_GetSensorFromID :: (instance_id: SDL_SensorID) -> *SDL_Sensor #foreign sdl3;
+SDL_GetSensorProperties :: (sensor: *SDL_Sensor) -> SDL_PropertiesID #foreign sdl3;
+SDL_GetSensorName :: (sensor: *SDL_Sensor) -> *u8 #foreign sdl3;
+SDL_GetSensorType :: (sensor: *SDL_Sensor) -> SDL_SensorType #foreign sdl3;
+SDL_GetSensorNonPortableType :: (sensor: *SDL_Sensor) -> s32 #foreign sdl3;
+SDL_GetSensorID :: (sensor: *SDL_Sensor) -> SDL_SensorID #foreign sdl3;
+SDL_GetSensorData :: (sensor: *SDL_Sensor, data: *float, num_values: s32) -> bool #foreign sdl3;
+SDL_CloseSensor :: (sensor: *SDL_Sensor) -> void #foreign sdl3;
+SDL_UpdateSensors :: () -> void #foreign sdl3;
+SDL_Joystick :: struct {}
+SDL_JoystickID :: Uint32;
+SDL_JoystickType :: enum u32 {
+    UNKNOWN      :: 0;
+    GAMEPAD      :: 1;
+    WHEEL        :: 2;
+    ARCADE_STICK :: 3;
+    FLIGHT_STICK :: 4;
+    DANCE_PAD    :: 5;
+    GUITAR       :: 6;
+    DRUM_KIT     :: 7;
+    ARCADE_PAD   :: 8;
+    THROTTLE     :: 9;
+    COUNT        :: 10;
+
+    SDL_JOYSTICK_TYPE_UNKNOWN      :: UNKNOWN;
+    SDL_JOYSTICK_TYPE_GAMEPAD      :: GAMEPAD;
+    SDL_JOYSTICK_TYPE_WHEEL        :: WHEEL;
+    SDL_JOYSTICK_TYPE_ARCADE_STICK :: ARCADE_STICK;
+    SDL_JOYSTICK_TYPE_FLIGHT_STICK :: FLIGHT_STICK;
+    SDL_JOYSTICK_TYPE_DANCE_PAD    :: DANCE_PAD;
+    SDL_JOYSTICK_TYPE_GUITAR       :: GUITAR;
+    SDL_JOYSTICK_TYPE_DRUM_KIT     :: DRUM_KIT;
+    SDL_JOYSTICK_TYPE_ARCADE_PAD   :: ARCADE_PAD;
+    SDL_JOYSTICK_TYPE_THROTTLE     :: THROTTLE;
+    SDL_JOYSTICK_TYPE_COUNT        :: COUNT;
+}
+SDL_JoystickConnectionState :: enum s32 {
+    INVALID  :: -1;
+    UNKNOWN  :: 0;
+    WIRED    :: 1;
+    WIRELESS :: 2;
+
+    SDL_JOYSTICK_CONNECTION_INVALID  :: INVALID;
+    SDL_JOYSTICK_CONNECTION_UNKNOWN  :: UNKNOWN;
+    SDL_JOYSTICK_CONNECTION_WIRED    :: WIRED;
+    SDL_JOYSTICK_CONNECTION_WIRELESS :: WIRELESS;
+}
+SDL_LockJoysticks :: () -> void #foreign sdl3;
+SDL_UnlockJoysticks :: () -> void #foreign sdl3;
+SDL_HasJoystick :: () -> bool #foreign sdl3;
+SDL_GetJoysticks :: (count: *s32) -> *SDL_JoystickID #foreign sdl3;
+SDL_GetJoystickNameForID :: (instance_id: SDL_JoystickID) -> *u8 #foreign sdl3;
+SDL_GetJoystickPathForID :: (instance_id: SDL_JoystickID) -> *u8 #foreign sdl3;
+SDL_GetJoystickPlayerIndexForID :: (instance_id: SDL_JoystickID) -> s32 #foreign sdl3;
+SDL_GetJoystickGUIDForID :: (instance_id: SDL_JoystickID) -> SDL_GUID #foreign sdl3;
+SDL_GetJoystickVendorForID :: (instance_id: SDL_JoystickID) -> Uint16 #foreign sdl3;
+SDL_GetJoystickProductForID :: (instance_id: SDL_JoystickID) -> Uint16 #foreign sdl3;
+SDL_GetJoystickProductVersionForID :: (instance_id: SDL_JoystickID) -> Uint16 #foreign sdl3;
+SDL_GetJoystickTypeForID :: (instance_id: SDL_JoystickID) -> SDL_JoystickType #foreign sdl3;
+SDL_OpenJoystick :: (instance_id: SDL_JoystickID) -> *SDL_Joystick #foreign sdl3;
+SDL_GetJoystickFromID :: (instance_id: SDL_JoystickID) -> *SDL_Joystick #foreign sdl3;
+SDL_GetJoystickFromPlayerIndex :: (player_index: s32) -> *SDL_Joystick #foreign sdl3;
+SDL_VirtualJoystickTouchpadDesc :: struct {
+    nfingers: Uint16;
+    padding:  [3] Uint16;
+}
+SDL_VirtualJoystickSensorDesc :: struct {
+    type: SDL_SensorType;
+    rate: float;
+}
+SDL_VirtualJoystickDesc :: struct {
+    version:           Uint32;
+    type:              Uint16;
+    padding:           Uint16;
+    vendor_id:         Uint16;
+    product_id:        Uint16;
+    naxes:             Uint16;
+    nbuttons:          Uint16;
+    nballs:            Uint16;
+    nhats:             Uint16;
+    ntouchpads:        Uint16;
+    nsensors:          Uint16;
+    padding2:          [2] Uint16;
+    button_mask:       Uint32;
+    axis_mask:         Uint32;
+    name:              *u8;
+    touchpads:         *SDL_VirtualJoystickTouchpadDesc;
+    sensors:           *SDL_VirtualJoystickSensorDesc;
+    userdata:          *void;
+    Update:            #type (userdata: *void) -> void #c_call;
+    SetPlayerIndex:    #type (userdata: *void, player_index: s32) -> void #c_call;
+    Rumble:            #type (userdata: *void, low_frequency_rumble: Uint16, high_frequency_rumble: Uint16) -> bool #c_call;
+    RumbleTriggers:    #type (userdata: *void, left_rumble: Uint16, right_rumble: Uint16) -> bool #c_call;
+    SetLED:            #type (userdata: *void, red: Uint8, green: Uint8, blue: Uint8) -> bool #c_call;
+    SendEffect:        #type (userdata: *void, data: *void, size: s32) -> bool #c_call;
+    SetSensorsEnabled: #type (userdata: *void, enabled: bool) -> bool #c_call;
+    Cleanup:           #type (userdata: *void) -> void #c_call;
+}
+SDL_AttachVirtualJoystick :: (desc: *SDL_VirtualJoystickDesc) -> SDL_JoystickID #foreign sdl3;
+SDL_DetachVirtualJoystick :: (instance_id: SDL_JoystickID) -> bool #foreign sdl3;
+SDL_IsJoystickVirtual :: (instance_id: SDL_JoystickID) -> bool #foreign sdl3;
+SDL_SetJoystickVirtualAxis :: (joystick: *SDL_Joystick, axis: s32, value: Sint16) -> bool #foreign sdl3;
+SDL_SetJoystickVirtualBall :: (joystick: *SDL_Joystick, ball: s32, xrel: Sint16, yrel: Sint16) -> bool #foreign sdl3;
+SDL_SetJoystickVirtualButton :: (joystick: *SDL_Joystick, button: s32, down: bool) -> bool #foreign sdl3;
+SDL_SetJoystickVirtualHat :: (joystick: *SDL_Joystick, hat: s32, value: Uint8) -> bool #foreign sdl3;
+SDL_SetJoystickVirtualTouchpad :: (joystick: *SDL_Joystick, touchpad: s32, finger: s32, down: bool, x: float, y: float, pressure: float) -> bool #foreign sdl3;
+SDL_SendJoystickVirtualSensorData :: (joystick: *SDL_Joystick, type: SDL_SensorType, sensor_timestamp: Uint64, data: *float, num_values: s32) -> bool #foreign sdl3;
+SDL_GetJoystickProperties :: (joystick: *SDL_Joystick) -> SDL_PropertiesID #foreign sdl3;
+SDL_GetJoystickName :: (joystick: *SDL_Joystick) -> *u8 #foreign sdl3;
+SDL_GetJoystickPath :: (joystick: *SDL_Joystick) -> *u8 #foreign sdl3;
+SDL_GetJoystickPlayerIndex :: (joystick: *SDL_Joystick) -> s32 #foreign sdl3;
+SDL_SetJoystickPlayerIndex :: (joystick: *SDL_Joystick, player_index: s32) -> bool #foreign sdl3;
+SDL_GetJoystickGUID :: (joystick: *SDL_Joystick) -> SDL_GUID #foreign sdl3;
+SDL_GetJoystickVendor :: (joystick: *SDL_Joystick) -> Uint16 #foreign sdl3;
+SDL_GetJoystickProduct :: (joystick: *SDL_Joystick) -> Uint16 #foreign sdl3;
+SDL_GetJoystickProductVersion :: (joystick: *SDL_Joystick) -> Uint16 #foreign sdl3;
+SDL_GetJoystickFirmwareVersion :: (joystick: *SDL_Joystick) -> Uint16 #foreign sdl3;
+SDL_GetJoystickSerial :: (joystick: *SDL_Joystick) -> *u8 #foreign sdl3;
+SDL_GetJoystickType :: (joystick: *SDL_Joystick) -> SDL_JoystickType #foreign sdl3;
+SDL_GetJoystickGUIDInfo :: (guid: SDL_GUID, vendor: *Uint16, product: *Uint16, version: *Uint16, crc16: *Uint16) -> void #foreign sdl3;
+SDL_JoystickConnected :: (joystick: *SDL_Joystick) -> bool #foreign sdl3;
+SDL_GetJoystickID :: (joystick: *SDL_Joystick) -> SDL_JoystickID #foreign sdl3;
+SDL_GetNumJoystickAxes :: (joystick: *SDL_Joystick) -> s32 #foreign sdl3;
+SDL_GetNumJoystickBalls :: (joystick: *SDL_Joystick) -> s32 #foreign sdl3;
+SDL_GetNumJoystickHats :: (joystick: *SDL_Joystick) -> s32 #foreign sdl3;
+SDL_GetNumJoystickButtons :: (joystick: *SDL_Joystick) -> s32 #foreign sdl3;
+SDL_SetJoystickEventsEnabled :: (enabled: bool) -> void #foreign sdl3;
+SDL_JoystickEventsEnabled :: () -> bool #foreign sdl3;
+SDL_UpdateJoysticks :: () -> void #foreign sdl3;
+SDL_GetJoystickAxis :: (joystick: *SDL_Joystick, axis: s32) -> Sint16 #foreign sdl3;
+SDL_GetJoystickAxisInitialState :: (joystick: *SDL_Joystick, axis: s32, state: *Sint16) -> bool #foreign sdl3;
+SDL_GetJoystickBall :: (joystick: *SDL_Joystick, ball: s32, dx: *s32, dy: *s32) -> bool #foreign sdl3;
+SDL_GetJoystickHat :: (joystick: *SDL_Joystick, hat: s32) -> Uint8 #foreign sdl3;
+SDL_GetJoystickButton :: (joystick: *SDL_Joystick, button: s32) -> bool #foreign sdl3;
+SDL_RumbleJoystick :: (joystick: *SDL_Joystick, low_frequency_rumble: Uint16, high_frequency_rumble: Uint16, duration_ms: Uint32) -> bool #foreign sdl3;
+SDL_RumbleJoystickTriggers :: (joystick: *SDL_Joystick, left_rumble: Uint16, right_rumble: Uint16, duration_ms: Uint32) -> bool #foreign sdl3;
+SDL_SetJoystickLED :: (joystick: *SDL_Joystick, red: Uint8, green: Uint8, blue: Uint8) -> bool #foreign sdl3;
+SDL_SendJoystickEffect :: (joystick: *SDL_Joystick, data: *void, size: s32) -> bool #foreign sdl3;
+SDL_CloseJoystick :: (joystick: *SDL_Joystick) -> void #foreign sdl3;
+SDL_GetJoystickConnectionState :: (joystick: *SDL_Joystick) -> SDL_JoystickConnectionState #foreign sdl3;
+SDL_GetJoystickPowerInfo :: (joystick: *SDL_Joystick, percent: *s32) -> SDL_PowerState #foreign sdl3;
+SDL_Gamepad :: struct {}
+SDL_GamepadType :: enum u32 {
+    UNKNOWN                      :: 0;
+    STANDARD                     :: 1;
+    XBOX360                      :: 2;
+    XBOXONE                      :: 3;
+    PS3                          :: 4;
+    PS4                          :: 5;
+    PS5                          :: 6;
+    NINTENDO_SWITCH_PRO          :: 7;
+    NINTENDO_SWITCH_JOYCON_LEFT  :: 8;
+    NINTENDO_SWITCH_JOYCON_RIGHT :: 9;
+    NINTENDO_SWITCH_JOYCON_PAIR  :: 10;
+    COUNT                        :: 11;
+
+    SDL_GAMEPAD_TYPE_UNKNOWN                      :: UNKNOWN;
+    SDL_GAMEPAD_TYPE_STANDARD                     :: STANDARD;
+    SDL_GAMEPAD_TYPE_XBOX360                      :: XBOX360;
+    SDL_GAMEPAD_TYPE_XBOXONE                      :: XBOXONE;
+    SDL_GAMEPAD_TYPE_PS3                          :: PS3;
+    SDL_GAMEPAD_TYPE_PS4                          :: PS4;
+    SDL_GAMEPAD_TYPE_PS5                          :: PS5;
+    SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_PRO          :: NINTENDO_SWITCH_PRO;
+    SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_LEFT  :: NINTENDO_SWITCH_JOYCON_LEFT;
+    SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_RIGHT :: NINTENDO_SWITCH_JOYCON_RIGHT;
+    SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_PAIR  :: NINTENDO_SWITCH_JOYCON_PAIR;
+    SDL_GAMEPAD_TYPE_COUNT                        :: COUNT;
+}
+SDL_GamepadButton :: enum s32 {
+    INVALID        :: -1;
+    SOUTH          :: 0;
+    EAST           :: 1;
+    WEST           :: 2;
+    NORTH          :: 3;
+    BACK           :: 4;
+    GUIDE          :: 5;
+    START          :: 6;
+    LEFT_STICK     :: 7;
+    RIGHT_STICK    :: 8;
+    LEFT_SHOULDER  :: 9;
+    RIGHT_SHOULDER :: 10;
+    DPAD_UP        :: 11;
+    DPAD_DOWN      :: 12;
+    DPAD_LEFT      :: 13;
+    DPAD_RIGHT     :: 14;
+    MISC1          :: 15;
+    RIGHT_PADDLE1  :: 16;
+    LEFT_PADDLE1   :: 17;
+    RIGHT_PADDLE2  :: 18;
+    LEFT_PADDLE2   :: 19;
+    TOUCHPAD       :: 20;
+    MISC2          :: 21;
+    MISC3          :: 22;
+    MISC4          :: 23;
+    MISC5          :: 24;
+    MISC6          :: 25;
+    COUNT          :: 26;
+
+    SDL_GAMEPAD_BUTTON_INVALID        :: INVALID;
+    SDL_GAMEPAD_BUTTON_SOUTH          :: SOUTH;
+    SDL_GAMEPAD_BUTTON_EAST           :: EAST;
+    SDL_GAMEPAD_BUTTON_WEST           :: WEST;
+    SDL_GAMEPAD_BUTTON_NORTH          :: NORTH;
+    SDL_GAMEPAD_BUTTON_BACK           :: BACK;
+    SDL_GAMEPAD_BUTTON_GUIDE          :: GUIDE;
+    SDL_GAMEPAD_BUTTON_START          :: START;
+    SDL_GAMEPAD_BUTTON_LEFT_STICK     :: LEFT_STICK;
+    SDL_GAMEPAD_BUTTON_RIGHT_STICK    :: RIGHT_STICK;
+    SDL_GAMEPAD_BUTTON_LEFT_SHOULDER  :: LEFT_SHOULDER;
+    SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER :: RIGHT_SHOULDER;
+    SDL_GAMEPAD_BUTTON_DPAD_UP        :: DPAD_UP;
+    SDL_GAMEPAD_BUTTON_DPAD_DOWN      :: DPAD_DOWN;
+    SDL_GAMEPAD_BUTTON_DPAD_LEFT      :: DPAD_LEFT;
+    SDL_GAMEPAD_BUTTON_DPAD_RIGHT     :: DPAD_RIGHT;
+    SDL_GAMEPAD_BUTTON_MISC1          :: MISC1;
+    SDL_GAMEPAD_BUTTON_RIGHT_PADDLE1  :: RIGHT_PADDLE1;
+    SDL_GAMEPAD_BUTTON_LEFT_PADDLE1   :: LEFT_PADDLE1;
+    SDL_GAMEPAD_BUTTON_RIGHT_PADDLE2  :: RIGHT_PADDLE2;
+    SDL_GAMEPAD_BUTTON_LEFT_PADDLE2   :: LEFT_PADDLE2;
+    SDL_GAMEPAD_BUTTON_TOUCHPAD       :: TOUCHPAD;
+    SDL_GAMEPAD_BUTTON_MISC2          :: MISC2;
+    SDL_GAMEPAD_BUTTON_MISC3          :: MISC3;
+    SDL_GAMEPAD_BUTTON_MISC4          :: MISC4;
+    SDL_GAMEPAD_BUTTON_MISC5          :: MISC5;
+    SDL_GAMEPAD_BUTTON_MISC6          :: MISC6;
+    SDL_GAMEPAD_BUTTON_COUNT          :: COUNT;
+}
+SDL_GamepadButtonLabel :: enum u32 {
+    UNKNOWN  :: 0;
+    A        :: 1;
+    B        :: 2;
+    X        :: 3;
+    Y        :: 4;
+    CROSS    :: 5;
+    CIRCLE   :: 6;
+    SQUARE   :: 7;
+    TRIANGLE :: 8;
+
+    SDL_GAMEPAD_BUTTON_LABEL_UNKNOWN  :: UNKNOWN;
+    SDL_GAMEPAD_BUTTON_LABEL_A        :: A;
+    SDL_GAMEPAD_BUTTON_LABEL_B        :: B;
+    SDL_GAMEPAD_BUTTON_LABEL_X        :: X;
+    SDL_GAMEPAD_BUTTON_LABEL_Y        :: Y;
+    SDL_GAMEPAD_BUTTON_LABEL_CROSS    :: CROSS;
+    SDL_GAMEPAD_BUTTON_LABEL_CIRCLE   :: CIRCLE;
+    SDL_GAMEPAD_BUTTON_LABEL_SQUARE   :: SQUARE;
+    SDL_GAMEPAD_BUTTON_LABEL_TRIANGLE :: TRIANGLE;
+}
+SDL_GamepadAxis :: enum s32 {
+    INVALID       :: -1;
+    LEFTX         :: 0;
+    LEFTY         :: 1;
+    RIGHTX        :: 2;
+    RIGHTY        :: 3;
+    LEFT_TRIGGER  :: 4;
+    RIGHT_TRIGGER :: 5;
+    COUNT         :: 6;
+
+    SDL_GAMEPAD_AXIS_INVALID       :: INVALID;
+    SDL_GAMEPAD_AXIS_LEFTX         :: LEFTX;
+    SDL_GAMEPAD_AXIS_LEFTY         :: LEFTY;
+    SDL_GAMEPAD_AXIS_RIGHTX        :: RIGHTX;
+    SDL_GAMEPAD_AXIS_RIGHTY        :: RIGHTY;
+    SDL_GAMEPAD_AXIS_LEFT_TRIGGER  :: LEFT_TRIGGER;
+    SDL_GAMEPAD_AXIS_RIGHT_TRIGGER :: RIGHT_TRIGGER;
+    SDL_GAMEPAD_AXIS_COUNT         :: COUNT;
+}
+SDL_GamepadBindingType :: enum u32 {
+    NONE   :: 0;
+    BUTTON :: 1;
+    AXIS   :: 2;
+    HAT    :: 3;
+
+    SDL_GAMEPAD_BINDTYPE_NONE   :: NONE;
+    SDL_GAMEPAD_BINDTYPE_BUTTON :: BUTTON;
+    SDL_GAMEPAD_BINDTYPE_AXIS   :: AXIS;
+    SDL_GAMEPAD_BINDTYPE_HAT    :: HAT;
+}
+SDL_GamepadBinding :: struct {
+    input_type:  SDL_GamepadBindingType;
+    input:       union {
+        button: s32;
+        axis:   struct {
+            axis:     s32;
+            axis_min: s32;
+            axis_max: s32;
+        };
+        hat:    struct {
+            hat:      s32;
+            hat_mask: s32;
+        };
+    };
+    output_type: SDL_GamepadBindingType;
+    output:      union {
+        button: SDL_GamepadButton;
+        axis:   struct {
+            axis:     SDL_GamepadAxis;
+            axis_min: s32;
+            axis_max: s32;
+        };
+    };
+}
+SDL_AddGamepadMapping :: (mapping: *u8) -> s32 #foreign sdl3;
+SDL_AddGamepadMappingsFromIO :: (src: *SDL_IOStream, closeio: bool) -> s32 #foreign sdl3;
+SDL_AddGamepadMappingsFromFile :: (file: *u8) -> s32 #foreign sdl3;
+SDL_ReloadGamepadMappings :: () -> bool #foreign sdl3;
+SDL_GetGamepadMappings :: (count: *s32) -> **u8 #foreign sdl3;
+SDL_GetGamepadMappingForGUID :: (guid: SDL_GUID) -> *u8 #foreign sdl3;
+SDL_GetGamepadMapping :: (gamepad: *SDL_Gamepad) -> *u8 #foreign sdl3;
+SDL_SetGamepadMapping :: (instance_id: SDL_JoystickID, mapping: *u8) -> bool #foreign sdl3;
+SDL_HasGamepad :: () -> bool #foreign sdl3;
+SDL_GetGamepads :: (count: *s32) -> *SDL_JoystickID #foreign sdl3;
+SDL_IsGamepad :: (instance_id: SDL_JoystickID) -> bool #foreign sdl3;
+SDL_GetGamepadNameForID :: (instance_id: SDL_JoystickID) -> *u8 #foreign sdl3;
+SDL_GetGamepadPathForID :: (instance_id: SDL_JoystickID) -> *u8 #foreign sdl3;
+SDL_GetGamepadPlayerIndexForID :: (instance_id: SDL_JoystickID) -> s32 #foreign sdl3;
+SDL_GetGamepadGUIDForID :: (instance_id: SDL_JoystickID) -> SDL_GUID #foreign sdl3;
+SDL_GetGamepadVendorForID :: (instance_id: SDL_JoystickID) -> Uint16 #foreign sdl3;
+SDL_GetGamepadProductForID :: (instance_id: SDL_JoystickID) -> Uint16 #foreign sdl3;
+SDL_GetGamepadProductVersionForID :: (instance_id: SDL_JoystickID) -> Uint16 #foreign sdl3;
+SDL_GetGamepadTypeForID :: (instance_id: SDL_JoystickID) -> SDL_GamepadType #foreign sdl3;
+SDL_GetRealGamepadTypeForID :: (instance_id: SDL_JoystickID) -> SDL_GamepadType #foreign sdl3;
+SDL_GetGamepadMappingForID :: (instance_id: SDL_JoystickID) -> *u8 #foreign sdl3;
+SDL_OpenGamepad :: (instance_id: SDL_JoystickID) -> *SDL_Gamepad #foreign sdl3;
+SDL_GetGamepadFromID :: (instance_id: SDL_JoystickID) -> *SDL_Gamepad #foreign sdl3;
+SDL_GetGamepadFromPlayerIndex :: (player_index: s32) -> *SDL_Gamepad #foreign sdl3;
+SDL_GetGamepadProperties :: (gamepad: *SDL_Gamepad) -> SDL_PropertiesID #foreign sdl3;
+SDL_GetGamepadID :: (gamepad: *SDL_Gamepad) -> SDL_JoystickID #foreign sdl3;
+SDL_GetGamepadName :: (gamepad: *SDL_Gamepad) -> *u8 #foreign sdl3;
+SDL_GetGamepadPath :: (gamepad: *SDL_Gamepad) -> *u8 #foreign sdl3;
+SDL_GetGamepadType :: (gamepad: *SDL_Gamepad) -> SDL_GamepadType #foreign sdl3;
+SDL_GetRealGamepadType :: (gamepad: *SDL_Gamepad) -> SDL_GamepadType #foreign sdl3;
+SDL_GetGamepadPlayerIndex :: (gamepad: *SDL_Gamepad) -> s32 #foreign sdl3;
+SDL_SetGamepadPlayerIndex :: (gamepad: *SDL_Gamepad, player_index: s32) -> bool #foreign sdl3;
+SDL_GetGamepadVendor :: (gamepad: *SDL_Gamepad) -> Uint16 #foreign sdl3;
+SDL_GetGamepadProduct :: (gamepad: *SDL_Gamepad) -> Uint16 #foreign sdl3;
+SDL_GetGamepadProductVersion :: (gamepad: *SDL_Gamepad) -> Uint16 #foreign sdl3;
+SDL_GetGamepadFirmwareVersion :: (gamepad: *SDL_Gamepad) -> Uint16 #foreign sdl3;
+SDL_GetGamepadSerial :: (gamepad: *SDL_Gamepad) -> *u8 #foreign sdl3;
+SDL_GetGamepadSteamHandle :: (gamepad: *SDL_Gamepad) -> Uint64 #foreign sdl3;
+SDL_GetGamepadConnectionState :: (gamepad: *SDL_Gamepad) -> SDL_JoystickConnectionState #foreign sdl3;
+SDL_GetGamepadPowerInfo :: (gamepad: *SDL_Gamepad, percent: *s32) -> SDL_PowerState #foreign sdl3;
+SDL_GamepadConnected :: (gamepad: *SDL_Gamepad) -> bool #foreign sdl3;
+SDL_GetGamepadJoystick :: (gamepad: *SDL_Gamepad) -> *SDL_Joystick #foreign sdl3;
+SDL_SetGamepadEventsEnabled :: (enabled: bool) -> void #foreign sdl3;
+SDL_GamepadEventsEnabled :: () -> bool #foreign sdl3;
+SDL_GetGamepadBindings :: (gamepad: *SDL_Gamepad, count: *s32) -> **SDL_GamepadBinding #foreign sdl3;
+SDL_UpdateGamepads :: () -> void #foreign sdl3;
+SDL_GetGamepadTypeFromString :: (str: *u8) -> SDL_GamepadType #foreign sdl3;
+SDL_GetGamepadStringForType :: (type: SDL_GamepadType) -> *u8 #foreign sdl3;
+SDL_GetGamepadAxisFromString :: (str: *u8) -> SDL_GamepadAxis #foreign sdl3;
+SDL_GetGamepadStringForAxis :: (axis: SDL_GamepadAxis) -> *u8 #foreign sdl3;
+SDL_GamepadHasAxis :: (gamepad: *SDL_Gamepad, axis: SDL_GamepadAxis) -> bool #foreign sdl3;
+SDL_GetGamepadAxis :: (gamepad: *SDL_Gamepad, axis: SDL_GamepadAxis) -> Sint16 #foreign sdl3;
+SDL_GetGamepadButtonFromString :: (str: *u8) -> SDL_GamepadButton #foreign sdl3;
+SDL_GetGamepadStringForButton :: (button: SDL_GamepadButton) -> *u8 #foreign sdl3;
+SDL_GamepadHasButton :: (gamepad: *SDL_Gamepad, button: SDL_GamepadButton) -> bool #foreign sdl3;
+SDL_GetGamepadButton :: (gamepad: *SDL_Gamepad, button: SDL_GamepadButton) -> bool #foreign sdl3;
+SDL_GetGamepadButtonLabelForType :: (type: SDL_GamepadType, button: SDL_GamepadButton) -> SDL_GamepadButtonLabel #foreign sdl3;
+SDL_GetGamepadButtonLabel :: (gamepad: *SDL_Gamepad, button: SDL_GamepadButton) -> SDL_GamepadButtonLabel #foreign sdl3;
+SDL_GetNumGamepadTouchpads :: (gamepad: *SDL_Gamepad) -> s32 #foreign sdl3;
+SDL_GetNumGamepadTouchpadFingers :: (gamepad: *SDL_Gamepad, touchpad: s32) -> s32 #foreign sdl3;
+SDL_GetGamepadTouchpadFinger :: (gamepad: *SDL_Gamepad, touchpad: s32, finger: s32, down: *bool, x: *float, y: *float, pressure: *float) -> bool #foreign sdl3;
+SDL_GamepadHasSensor :: (gamepad: *SDL_Gamepad, type: SDL_SensorType) -> bool #foreign sdl3;
+SDL_SetGamepadSensorEnabled :: (gamepad: *SDL_Gamepad, type: SDL_SensorType, enabled: bool) -> bool #foreign sdl3;
+SDL_GamepadSensorEnabled :: (gamepad: *SDL_Gamepad, type: SDL_SensorType) -> bool #foreign sdl3;
+SDL_GetGamepadSensorDataRate :: (gamepad: *SDL_Gamepad, type: SDL_SensorType) -> float #foreign sdl3;
+SDL_GetGamepadSensorData :: (gamepad: *SDL_Gamepad, type: SDL_SensorType, data: *float, num_values: s32) -> bool #foreign sdl3;
+SDL_RumbleGamepad :: (gamepad: *SDL_Gamepad, low_frequency_rumble: Uint16, high_frequency_rumble: Uint16, duration_ms: Uint32) -> bool #foreign sdl3;
+SDL_RumbleGamepadTriggers :: (gamepad: *SDL_Gamepad, left_rumble: Uint16, right_rumble: Uint16, duration_ms: Uint32) -> bool #foreign sdl3;
+SDL_SetGamepadLED :: (gamepad: *SDL_Gamepad, red: Uint8, green: Uint8, blue: Uint8) -> bool #foreign sdl3;
+SDL_SendGamepadEffect :: (gamepad: *SDL_Gamepad, data: *void, size: s32) -> bool #foreign sdl3;
+SDL_CloseGamepad :: (gamepad: *SDL_Gamepad) -> void #foreign sdl3;
+SDL_GetGamepadAppleSFSymbolsNameForButton :: (gamepad: *SDL_Gamepad, button: SDL_GamepadButton) -> *u8 #foreign sdl3;
+SDL_GetGamepadAppleSFSymbolsNameForAxis :: (gamepad: *SDL_Gamepad, axis: SDL_GamepadAxis) -> *u8 #foreign sdl3;
+SDL_Scancode :: enum u32 {
+    UNKNOWN              :: 0;
+    A                    :: 4;
+    B                    :: 5;
+    C                    :: 6;
+    D                    :: 7;
+    E                    :: 8;
+    F                    :: 9;
+    G                    :: 10;
+    H                    :: 11;
+    I                    :: 12;
+    J                    :: 13;
+    K                    :: 14;
+    L                    :: 15;
+    M                    :: 16;
+    N                    :: 17;
+    O                    :: 18;
+    P                    :: 19;
+    Q                    :: 20;
+    R                    :: 21;
+    S                    :: 22;
+    T                    :: 23;
+    U                    :: 24;
+    V                    :: 25;
+    W                    :: 26;
+    X                    :: 27;
+    Y                    :: 28;
+    Z                    :: 29;
+    _1                   :: 30;
+    _2                   :: 31;
+    _3                   :: 32;
+    _4                   :: 33;
+    _5                   :: 34;
+    _6                   :: 35;
+    _7                   :: 36;
+    _8                   :: 37;
+    _9                   :: 38;
+    _0                   :: 39;
+    RETURN               :: 40;
+    ESCAPE               :: 41;
+    BACKSPACE            :: 42;
+    TAB                  :: 43;
+    SPACE                :: 44;
+    MINUS                :: 45;
+    EQUALS               :: 46;
+    LEFTBRACKET          :: 47;
+    RIGHTBRACKET         :: 48;
+    BACKSLASH            :: 49;
+    NONUSHASH            :: 50;
+    SEMICOLON            :: 51;
+    APOSTROPHE           :: 52;
+    GRAVE                :: 53;
+    COMMA                :: 54;
+    PERIOD               :: 55;
+    SLASH                :: 56;
+    CAPSLOCK             :: 57;
+    F1                   :: 58;
+    F2                   :: 59;
+    F3                   :: 60;
+    F4                   :: 61;
+    F5                   :: 62;
+    F6                   :: 63;
+    F7                   :: 64;
+    F8                   :: 65;
+    F9                   :: 66;
+    F10                  :: 67;
+    F11                  :: 68;
+    F12                  :: 69;
+    PRINTSCREEN          :: 70;
+    SCROLLLOCK           :: 71;
+    PAUSE                :: 72;
+    INSERT               :: 73;
+    HOME                 :: 74;
+    PAGEUP               :: 75;
+    DELETE               :: 76;
+    END                  :: 77;
+    PAGEDOWN             :: 78;
+    RIGHT                :: 79;
+    LEFT                 :: 80;
+    DOWN                 :: 81;
+    UP                   :: 82;
+    NUMLOCKCLEAR         :: 83;
+    KP_DIVIDE            :: 84;
+    KP_MULTIPLY          :: 85;
+    KP_MINUS             :: 86;
+    KP_PLUS              :: 87;
+    KP_ENTER             :: 88;
+    KP_1                 :: 89;
+    KP_2                 :: 90;
+    KP_3                 :: 91;
+    KP_4                 :: 92;
+    KP_5                 :: 93;
+    KP_6                 :: 94;
+    KP_7                 :: 95;
+    KP_8                 :: 96;
+    KP_9                 :: 97;
+    KP_0                 :: 98;
+    KP_PERIOD            :: 99;
+    NONUSBACKSLASH       :: 100;
+    APPLICATION          :: 101;
+    POWER                :: 102;
+    KP_EQUALS            :: 103;
+    F13                  :: 104;
+    F14                  :: 105;
+    F15                  :: 106;
+    F16                  :: 107;
+    F17                  :: 108;
+    F18                  :: 109;
+    F19                  :: 110;
+    F20                  :: 111;
+    F21                  :: 112;
+    F22                  :: 113;
+    F23                  :: 114;
+    F24                  :: 115;
+    EXECUTE              :: 116;
+    HELP                 :: 117;
+    MENU                 :: 118;
+    SELECT               :: 119;
+    STOP                 :: 120;
+    AGAIN                :: 121;
+    UNDO                 :: 122;
+    CUT                  :: 123;
+    COPY                 :: 124;
+    PASTE                :: 125;
+    FIND                 :: 126;
+    MUTE                 :: 127;
+    VOLUMEUP             :: 128;
+    VOLUMEDOWN           :: 129;
+    KP_COMMA             :: 133;
+    KP_EQUALSAS400       :: 134;
+    INTERNATIONAL1       :: 135;
+    INTERNATIONAL2       :: 136;
+    INTERNATIONAL3       :: 137;
+    INTERNATIONAL4       :: 138;
+    INTERNATIONAL5       :: 139;
+    INTERNATIONAL6       :: 140;
+    INTERNATIONAL7       :: 141;
+    INTERNATIONAL8       :: 142;
+    INTERNATIONAL9       :: 143;
+    LANG1                :: 144;
+    LANG2                :: 145;
+    LANG3                :: 146;
+    LANG4                :: 147;
+    LANG5                :: 148;
+    LANG6                :: 149;
+    LANG7                :: 150;
+    LANG8                :: 151;
+    LANG9                :: 152;
+    ALTERASE             :: 153;
+    SYSREQ               :: 154;
+    CANCEL               :: 155;
+    CLEAR                :: 156;
+    PRIOR                :: 157;
+    RETURN2              :: 158;
+    SEPARATOR            :: 159;
+    OUT                  :: 160;
+    OPER                 :: 161;
+    CLEARAGAIN           :: 162;
+    CRSEL                :: 163;
+    EXSEL                :: 164;
+    KP_00                :: 176;
+    KP_000               :: 177;
+    THOUSANDSSEPARATOR   :: 178;
+    DECIMALSEPARATOR     :: 179;
+    CURRENCYUNIT         :: 180;
+    CURRENCYSUBUNIT      :: 181;
+    KP_LEFTPAREN         :: 182;
+    KP_RIGHTPAREN        :: 183;
+    KP_LEFTBRACE         :: 184;
+    KP_RIGHTBRACE        :: 185;
+    KP_TAB               :: 186;
+    KP_BACKSPACE         :: 187;
+    KP_A                 :: 188;
+    KP_B                 :: 189;
+    KP_C                 :: 190;
+    KP_D                 :: 191;
+    KP_E                 :: 192;
+    KP_F                 :: 193;
+    KP_XOR               :: 194;
+    KP_POWER             :: 195;
+    KP_PERCENT           :: 196;
+    KP_LESS              :: 197;
+    KP_GREATER           :: 198;
+    KP_AMPERSAND         :: 199;
+    KP_DBLAMPERSAND      :: 200;
+    KP_VERTICALBAR       :: 201;
+    KP_DBLVERTICALBAR    :: 202;
+    KP_COLON             :: 203;
+    KP_HASH              :: 204;
+    KP_SPACE             :: 205;
+    KP_AT                :: 206;
+    KP_EXCLAM            :: 207;
+    KP_MEMSTORE          :: 208;
+    KP_MEMRECALL         :: 209;
+    KP_MEMCLEAR          :: 210;
+    KP_MEMADD            :: 211;
+    KP_MEMSUBTRACT       :: 212;
+    KP_MEMMULTIPLY       :: 213;
+    KP_MEMDIVIDE         :: 214;
+    KP_PLUSMINUS         :: 215;
+    KP_CLEAR             :: 216;
+    KP_CLEARENTRY        :: 217;
+    KP_BINARY            :: 218;
+    KP_OCTAL             :: 219;
+    KP_DECIMAL           :: 220;
+    KP_HEXADECIMAL       :: 221;
+    LCTRL                :: 224;
+    LSHIFT               :: 225;
+    LALT                 :: 226;
+    LGUI                 :: 227;
+    RCTRL                :: 228;
+    RSHIFT               :: 229;
+    RALT                 :: 230;
+    RGUI                 :: 231;
+    MODE                 :: 257;
+    SLEEP                :: 258;
+    WAKE                 :: 259;
+    CHANNEL_INCREMENT    :: 260;
+    CHANNEL_DECREMENT    :: 261;
+    MEDIA_PLAY           :: 262;
+    MEDIA_PAUSE          :: 263;
+    MEDIA_RECORD         :: 264;
+    MEDIA_FAST_FORWARD   :: 265;
+    MEDIA_REWIND         :: 266;
+    MEDIA_NEXT_TRACK     :: 267;
+    MEDIA_PREVIOUS_TRACK :: 268;
+    MEDIA_STOP           :: 269;
+    MEDIA_EJECT          :: 270;
+    MEDIA_PLAY_PAUSE     :: 271;
+    MEDIA_SELECT         :: 272;
+    AC_NEW               :: 273;
+    AC_OPEN              :: 274;
+    AC_CLOSE             :: 275;
+    AC_EXIT              :: 276;
+    AC_SAVE              :: 277;
+    AC_PRINT             :: 278;
+    AC_PROPERTIES        :: 279;
+    AC_SEARCH            :: 280;
+    AC_HOME              :: 281;
+    AC_BACK              :: 282;
+    AC_FORWARD           :: 283;
+    AC_STOP              :: 284;
+    AC_REFRESH           :: 285;
+    AC_BOOKMARKS         :: 286;
+    SOFTLEFT             :: 287;
+    SOFTRIGHT            :: 288;
+    CALL                 :: 289;
+    ENDCALL              :: 290;
+    RESERVED             :: 400;
+    COUNT                :: 512;
+
+    SDL_SCANCODE_UNKNOWN              :: UNKNOWN;
+    SDL_SCANCODE_A                    :: A;
+    SDL_SCANCODE_B                    :: B;
+    SDL_SCANCODE_C                    :: C;
+    SDL_SCANCODE_D                    :: D;
+    SDL_SCANCODE_E                    :: E;
+    SDL_SCANCODE_F                    :: F;
+    SDL_SCANCODE_G                    :: G;
+    SDL_SCANCODE_H                    :: H;
+    SDL_SCANCODE_I                    :: I;
+    SDL_SCANCODE_J                    :: J;
+    SDL_SCANCODE_K                    :: K;
+    SDL_SCANCODE_L                    :: L;
+    SDL_SCANCODE_M                    :: M;
+    SDL_SCANCODE_N                    :: N;
+    SDL_SCANCODE_O                    :: O;
+    SDL_SCANCODE_P                    :: P;
+    SDL_SCANCODE_Q                    :: Q;
+    SDL_SCANCODE_R                    :: R;
+    SDL_SCANCODE_S                    :: S;
+    SDL_SCANCODE_T                    :: T;
+    SDL_SCANCODE_U                    :: U;
+    SDL_SCANCODE_V                    :: V;
+    SDL_SCANCODE_W                    :: W;
+    SDL_SCANCODE_X                    :: X;
+    SDL_SCANCODE_Y                    :: Y;
+    SDL_SCANCODE_Z                    :: Z;
+    SDL_SCANCODE_1                    :: _1;
+    SDL_SCANCODE_2                    :: _2;
+    SDL_SCANCODE_3                    :: _3;
+    SDL_SCANCODE_4                    :: _4;
+    SDL_SCANCODE_5                    :: _5;
+    SDL_SCANCODE_6                    :: _6;
+    SDL_SCANCODE_7                    :: _7;
+    SDL_SCANCODE_8                    :: _8;
+    SDL_SCANCODE_9                    :: _9;
+    SDL_SCANCODE_0                    :: _0;
+    SDL_SCANCODE_RETURN               :: RETURN;
+    SDL_SCANCODE_ESCAPE               :: ESCAPE;
+    SDL_SCANCODE_BACKSPACE            :: BACKSPACE;
+    SDL_SCANCODE_TAB                  :: TAB;
+    SDL_SCANCODE_SPACE                :: SPACE;
+    SDL_SCANCODE_MINUS                :: MINUS;
+    SDL_SCANCODE_EQUALS               :: EQUALS;
+    SDL_SCANCODE_LEFTBRACKET          :: LEFTBRACKET;
+    SDL_SCANCODE_RIGHTBRACKET         :: RIGHTBRACKET;
+    SDL_SCANCODE_BACKSLASH            :: BACKSLASH;
+    SDL_SCANCODE_NONUSHASH            :: NONUSHASH;
+    SDL_SCANCODE_SEMICOLON            :: SEMICOLON;
+    SDL_SCANCODE_APOSTROPHE           :: APOSTROPHE;
+    SDL_SCANCODE_GRAVE                :: GRAVE;
+    SDL_SCANCODE_COMMA                :: COMMA;
+    SDL_SCANCODE_PERIOD               :: PERIOD;
+    SDL_SCANCODE_SLASH                :: SLASH;
+    SDL_SCANCODE_CAPSLOCK             :: CAPSLOCK;
+    SDL_SCANCODE_F1                   :: F1;
+    SDL_SCANCODE_F2                   :: F2;
+    SDL_SCANCODE_F3                   :: F3;
+    SDL_SCANCODE_F4                   :: F4;
+    SDL_SCANCODE_F5                   :: F5;
+    SDL_SCANCODE_F6                   :: F6;
+    SDL_SCANCODE_F7                   :: F7;
+    SDL_SCANCODE_F8                   :: F8;
+    SDL_SCANCODE_F9                   :: F9;
+    SDL_SCANCODE_F10                  :: F10;
+    SDL_SCANCODE_F11                  :: F11;
+    SDL_SCANCODE_F12                  :: F12;
+    SDL_SCANCODE_PRINTSCREEN          :: PRINTSCREEN;
+    SDL_SCANCODE_SCROLLLOCK           :: SCROLLLOCK;
+    SDL_SCANCODE_PAUSE                :: PAUSE;
+    SDL_SCANCODE_INSERT               :: INSERT;
+    SDL_SCANCODE_HOME                 :: HOME;
+    SDL_SCANCODE_PAGEUP               :: PAGEUP;
+    SDL_SCANCODE_DELETE               :: DELETE;
+    SDL_SCANCODE_END                  :: END;
+    SDL_SCANCODE_PAGEDOWN             :: PAGEDOWN;
+    SDL_SCANCODE_RIGHT                :: RIGHT;
+    SDL_SCANCODE_LEFT                 :: LEFT;
+    SDL_SCANCODE_DOWN                 :: DOWN;
+    SDL_SCANCODE_UP                   :: UP;
+    SDL_SCANCODE_NUMLOCKCLEAR         :: NUMLOCKCLEAR;
+    SDL_SCANCODE_KP_DIVIDE            :: KP_DIVIDE;
+    SDL_SCANCODE_KP_MULTIPLY          :: KP_MULTIPLY;
+    SDL_SCANCODE_KP_MINUS             :: KP_MINUS;
+    SDL_SCANCODE_KP_PLUS              :: KP_PLUS;
+    SDL_SCANCODE_KP_ENTER             :: KP_ENTER;
+    SDL_SCANCODE_KP_1                 :: KP_1;
+    SDL_SCANCODE_KP_2                 :: KP_2;
+    SDL_SCANCODE_KP_3                 :: KP_3;
+    SDL_SCANCODE_KP_4                 :: KP_4;
+    SDL_SCANCODE_KP_5                 :: KP_5;
+    SDL_SCANCODE_KP_6                 :: KP_6;
+    SDL_SCANCODE_KP_7                 :: KP_7;
+    SDL_SCANCODE_KP_8                 :: KP_8;
+    SDL_SCANCODE_KP_9                 :: KP_9;
+    SDL_SCANCODE_KP_0                 :: KP_0;
+    SDL_SCANCODE_KP_PERIOD            :: KP_PERIOD;
+    SDL_SCANCODE_NONUSBACKSLASH       :: NONUSBACKSLASH;
+    SDL_SCANCODE_APPLICATION          :: APPLICATION;
+    SDL_SCANCODE_POWER                :: POWER;
+    SDL_SCANCODE_KP_EQUALS            :: KP_EQUALS;
+    SDL_SCANCODE_F13                  :: F13;
+    SDL_SCANCODE_F14                  :: F14;
+    SDL_SCANCODE_F15                  :: F15;
+    SDL_SCANCODE_F16                  :: F16;
+    SDL_SCANCODE_F17                  :: F17;
+    SDL_SCANCODE_F18                  :: F18;
+    SDL_SCANCODE_F19                  :: F19;
+    SDL_SCANCODE_F20                  :: F20;
+    SDL_SCANCODE_F21                  :: F21;
+    SDL_SCANCODE_F22                  :: F22;
+    SDL_SCANCODE_F23                  :: F23;
+    SDL_SCANCODE_F24                  :: F24;
+    SDL_SCANCODE_EXECUTE              :: EXECUTE;
+    SDL_SCANCODE_HELP                 :: HELP;
+    SDL_SCANCODE_MENU                 :: MENU;
+    SDL_SCANCODE_SELECT               :: SELECT;
+    SDL_SCANCODE_STOP                 :: STOP;
+    SDL_SCANCODE_AGAIN                :: AGAIN;
+    SDL_SCANCODE_UNDO                 :: UNDO;
+    SDL_SCANCODE_CUT                  :: CUT;
+    SDL_SCANCODE_COPY                 :: COPY;
+    SDL_SCANCODE_PASTE                :: PASTE;
+    SDL_SCANCODE_FIND                 :: FIND;
+    SDL_SCANCODE_MUTE                 :: MUTE;
+    SDL_SCANCODE_VOLUMEUP             :: VOLUMEUP;
+    SDL_SCANCODE_VOLUMEDOWN           :: VOLUMEDOWN;
+    SDL_SCANCODE_KP_COMMA             :: KP_COMMA;
+    SDL_SCANCODE_KP_EQUALSAS400       :: KP_EQUALSAS400;
+    SDL_SCANCODE_INTERNATIONAL1       :: INTERNATIONAL1;
+    SDL_SCANCODE_INTERNATIONAL2       :: INTERNATIONAL2;
+    SDL_SCANCODE_INTERNATIONAL3       :: INTERNATIONAL3;
+    SDL_SCANCODE_INTERNATIONAL4       :: INTERNATIONAL4;
+    SDL_SCANCODE_INTERNATIONAL5       :: INTERNATIONAL5;
+    SDL_SCANCODE_INTERNATIONAL6       :: INTERNATIONAL6;
+    SDL_SCANCODE_INTERNATIONAL7       :: INTERNATIONAL7;
+    SDL_SCANCODE_INTERNATIONAL8       :: INTERNATIONAL8;
+    SDL_SCANCODE_INTERNATIONAL9       :: INTERNATIONAL9;
+    SDL_SCANCODE_LANG1                :: LANG1;
+    SDL_SCANCODE_LANG2                :: LANG2;
+    SDL_SCANCODE_LANG3                :: LANG3;
+    SDL_SCANCODE_LANG4                :: LANG4;
+    SDL_SCANCODE_LANG5                :: LANG5;
+    SDL_SCANCODE_LANG6                :: LANG6;
+    SDL_SCANCODE_LANG7                :: LANG7;
+    SDL_SCANCODE_LANG8                :: LANG8;
+    SDL_SCANCODE_LANG9                :: LANG9;
+    SDL_SCANCODE_ALTERASE             :: ALTERASE;
+    SDL_SCANCODE_SYSREQ               :: SYSREQ;
+    SDL_SCANCODE_CANCEL               :: CANCEL;
+    SDL_SCANCODE_CLEAR                :: CLEAR;
+    SDL_SCANCODE_PRIOR                :: PRIOR;
+    SDL_SCANCODE_RETURN2              :: RETURN2;
+    SDL_SCANCODE_SEPARATOR            :: SEPARATOR;
+    SDL_SCANCODE_OUT                  :: OUT;
+    SDL_SCANCODE_OPER                 :: OPER;
+    SDL_SCANCODE_CLEARAGAIN           :: CLEARAGAIN;
+    SDL_SCANCODE_CRSEL                :: CRSEL;
+    SDL_SCANCODE_EXSEL                :: EXSEL;
+    SDL_SCANCODE_KP_00                :: KP_00;
+    SDL_SCANCODE_KP_000               :: KP_000;
+    SDL_SCANCODE_THOUSANDSSEPARATOR   :: THOUSANDSSEPARATOR;
+    SDL_SCANCODE_DECIMALSEPARATOR     :: DECIMALSEPARATOR;
+    SDL_SCANCODE_CURRENCYUNIT         :: CURRENCYUNIT;
+    SDL_SCANCODE_CURRENCYSUBUNIT      :: CURRENCYSUBUNIT;
+    SDL_SCANCODE_KP_LEFTPAREN         :: KP_LEFTPAREN;
+    SDL_SCANCODE_KP_RIGHTPAREN        :: KP_RIGHTPAREN;
+    SDL_SCANCODE_KP_LEFTBRACE         :: KP_LEFTBRACE;
+    SDL_SCANCODE_KP_RIGHTBRACE        :: KP_RIGHTBRACE;
+    SDL_SCANCODE_KP_TAB               :: KP_TAB;
+    SDL_SCANCODE_KP_BACKSPACE         :: KP_BACKSPACE;
+    SDL_SCANCODE_KP_A                 :: KP_A;
+    SDL_SCANCODE_KP_B                 :: KP_B;
+    SDL_SCANCODE_KP_C                 :: KP_C;
+    SDL_SCANCODE_KP_D                 :: KP_D;
+    SDL_SCANCODE_KP_E                 :: KP_E;
+    SDL_SCANCODE_KP_F                 :: KP_F;
+    SDL_SCANCODE_KP_XOR               :: KP_XOR;
+    SDL_SCANCODE_KP_POWER             :: KP_POWER;
+    SDL_SCANCODE_KP_PERCENT           :: KP_PERCENT;
+    SDL_SCANCODE_KP_LESS              :: KP_LESS;
+    SDL_SCANCODE_KP_GREATER           :: KP_GREATER;
+    SDL_SCANCODE_KP_AMPERSAND         :: KP_AMPERSAND;
+    SDL_SCANCODE_KP_DBLAMPERSAND      :: KP_DBLAMPERSAND;
+    SDL_SCANCODE_KP_VERTICALBAR       :: KP_VERTICALBAR;
+    SDL_SCANCODE_KP_DBLVERTICALBAR    :: KP_DBLVERTICALBAR;
+    SDL_SCANCODE_KP_COLON             :: KP_COLON;
+    SDL_SCANCODE_KP_HASH              :: KP_HASH;
+    SDL_SCANCODE_KP_SPACE             :: KP_SPACE;
+    SDL_SCANCODE_KP_AT                :: KP_AT;
+    SDL_SCANCODE_KP_EXCLAM            :: KP_EXCLAM;
+    SDL_SCANCODE_KP_MEMSTORE          :: KP_MEMSTORE;
+    SDL_SCANCODE_KP_MEMRECALL         :: KP_MEMRECALL;
+    SDL_SCANCODE_KP_MEMCLEAR          :: KP_MEMCLEAR;
+    SDL_SCANCODE_KP_MEMADD            :: KP_MEMADD;
+    SDL_SCANCODE_KP_MEMSUBTRACT       :: KP_MEMSUBTRACT;
+    SDL_SCANCODE_KP_MEMMULTIPLY       :: KP_MEMMULTIPLY;
+    SDL_SCANCODE_KP_MEMDIVIDE         :: KP_MEMDIVIDE;
+    SDL_SCANCODE_KP_PLUSMINUS         :: KP_PLUSMINUS;
+    SDL_SCANCODE_KP_CLEAR             :: KP_CLEAR;
+    SDL_SCANCODE_KP_CLEARENTRY        :: KP_CLEARENTRY;
+    SDL_SCANCODE_KP_BINARY            :: KP_BINARY;
+    SDL_SCANCODE_KP_OCTAL             :: KP_OCTAL;
+    SDL_SCANCODE_KP_DECIMAL           :: KP_DECIMAL;
+    SDL_SCANCODE_KP_HEXADECIMAL       :: KP_HEXADECIMAL;
+    SDL_SCANCODE_LCTRL                :: LCTRL;
+    SDL_SCANCODE_LSHIFT               :: LSHIFT;
+    SDL_SCANCODE_LALT                 :: LALT;
+    SDL_SCANCODE_LGUI                 :: LGUI;
+    SDL_SCANCODE_RCTRL                :: RCTRL;
+    SDL_SCANCODE_RSHIFT               :: RSHIFT;
+    SDL_SCANCODE_RALT                 :: RALT;
+    SDL_SCANCODE_RGUI                 :: RGUI;
+    SDL_SCANCODE_MODE                 :: MODE;
+    SDL_SCANCODE_SLEEP                :: SLEEP;
+    SDL_SCANCODE_WAKE                 :: WAKE;
+    SDL_SCANCODE_CHANNEL_INCREMENT    :: CHANNEL_INCREMENT;
+    SDL_SCANCODE_CHANNEL_DECREMENT    :: CHANNEL_DECREMENT;
+    SDL_SCANCODE_MEDIA_PLAY           :: MEDIA_PLAY;
+    SDL_SCANCODE_MEDIA_PAUSE          :: MEDIA_PAUSE;
+    SDL_SCANCODE_MEDIA_RECORD         :: MEDIA_RECORD;
+    SDL_SCANCODE_MEDIA_FAST_FORWARD   :: MEDIA_FAST_FORWARD;
+    SDL_SCANCODE_MEDIA_REWIND         :: MEDIA_REWIND;
+    SDL_SCANCODE_MEDIA_NEXT_TRACK     :: MEDIA_NEXT_TRACK;
+    SDL_SCANCODE_MEDIA_PREVIOUS_TRACK :: MEDIA_PREVIOUS_TRACK;
+    SDL_SCANCODE_MEDIA_STOP           :: MEDIA_STOP;
+    SDL_SCANCODE_MEDIA_EJECT          :: MEDIA_EJECT;
+    SDL_SCANCODE_MEDIA_PLAY_PAUSE     :: MEDIA_PLAY_PAUSE;
+    SDL_SCANCODE_MEDIA_SELECT         :: MEDIA_SELECT;
+    SDL_SCANCODE_AC_NEW               :: AC_NEW;
+    SDL_SCANCODE_AC_OPEN              :: AC_OPEN;
+    SDL_SCANCODE_AC_CLOSE             :: AC_CLOSE;
+    SDL_SCANCODE_AC_EXIT              :: AC_EXIT;
+    SDL_SCANCODE_AC_SAVE              :: AC_SAVE;
+    SDL_SCANCODE_AC_PRINT             :: AC_PRINT;
+    SDL_SCANCODE_AC_PROPERTIES        :: AC_PROPERTIES;
+    SDL_SCANCODE_AC_SEARCH            :: AC_SEARCH;
+    SDL_SCANCODE_AC_HOME              :: AC_HOME;
+    SDL_SCANCODE_AC_BACK              :: AC_BACK;
+    SDL_SCANCODE_AC_FORWARD           :: AC_FORWARD;
+    SDL_SCANCODE_AC_STOP              :: AC_STOP;
+    SDL_SCANCODE_AC_REFRESH           :: AC_REFRESH;
+    SDL_SCANCODE_AC_BOOKMARKS         :: AC_BOOKMARKS;
+    SDL_SCANCODE_SOFTLEFT             :: SOFTLEFT;
+    SDL_SCANCODE_SOFTRIGHT            :: SOFTRIGHT;
+    SDL_SCANCODE_CALL                 :: CALL;
+    SDL_SCANCODE_ENDCALL              :: ENDCALL;
+    SDL_SCANCODE_RESERVED             :: RESERVED;
+    SDL_SCANCODE_COUNT                :: COUNT;
+}
+SDL_Keycode :: Uint32;
+SDL_Keymod :: Uint16;
+SDL_KeyboardID :: Uint32;
+SDL_HasKeyboard :: () -> bool #foreign sdl3;
+SDL_GetKeyboards :: (count: *s32) -> *SDL_KeyboardID #foreign sdl3;
+SDL_GetKeyboardNameForID :: (instance_id: SDL_KeyboardID) -> *u8 #foreign sdl3;
+SDL_GetKeyboardFocus :: () -> *SDL_Window #foreign sdl3;
+SDL_GetKeyboardState :: (numkeys: *s32) -> *bool #foreign sdl3;
+SDL_ResetKeyboard :: () -> void #foreign sdl3;
+SDL_GetModState :: () -> SDL_Keymod #foreign sdl3;
+SDL_SetModState :: (modstate: SDL_Keymod) -> void #foreign sdl3;
+SDL_GetKeyFromScancode :: (scancode: SDL_Scancode, modstate: SDL_Keymod, key_event: bool) -> SDL_Keycode #foreign sdl3;
+SDL_GetScancodeFromKey :: (key: SDL_Keycode, modstate: *SDL_Keymod) -> SDL_Scancode #foreign sdl3;
+SDL_SetScancodeName :: (scancode: SDL_Scancode, name: *u8) -> bool #foreign sdl3;
+SDL_GetScancodeName :: (scancode: SDL_Scancode) -> *u8 #foreign sdl3;
+SDL_GetScancodeFromName :: (name: *u8) -> SDL_Scancode #foreign sdl3;
+SDL_GetKeyName :: (key: SDL_Keycode) -> *u8 #foreign sdl3;
+SDL_GetKeyFromName :: (name: *u8) -> SDL_Keycode #foreign sdl3;
+SDL_StartTextInput :: (window: *SDL_Window) -> bool #foreign sdl3;
+SDL_TextInputType :: enum u32 {
+    TEXT                    :: 0;
+    TEXT_NAME               :: 1;
+    TEXT_EMAIL              :: 2;
+    TEXT_USERNAME           :: 3;
+    TEXT_PASSWORD_HIDDEN    :: 4;
+    TEXT_PASSWORD_VISIBLE   :: 5;
+    NUMBER                  :: 6;
+    NUMBER_PASSWORD_HIDDEN  :: 7;
+    NUMBER_PASSWORD_VISIBLE :: 8;
+
+    SDL_TEXTINPUT_TYPE_TEXT                    :: TEXT;
+    SDL_TEXTINPUT_TYPE_TEXT_NAME               :: TEXT_NAME;
+    SDL_TEXTINPUT_TYPE_TEXT_EMAIL              :: TEXT_EMAIL;
+    SDL_TEXTINPUT_TYPE_TEXT_USERNAME           :: TEXT_USERNAME;
+    SDL_TEXTINPUT_TYPE_TEXT_PASSWORD_HIDDEN    :: TEXT_PASSWORD_HIDDEN;
+    SDL_TEXTINPUT_TYPE_TEXT_PASSWORD_VISIBLE   :: TEXT_PASSWORD_VISIBLE;
+    SDL_TEXTINPUT_TYPE_NUMBER                  :: NUMBER;
+    SDL_TEXTINPUT_TYPE_NUMBER_PASSWORD_HIDDEN  :: NUMBER_PASSWORD_HIDDEN;
+    SDL_TEXTINPUT_TYPE_NUMBER_PASSWORD_VISIBLE :: NUMBER_PASSWORD_VISIBLE;
+}
+SDL_Capitalization :: enum u32 {
+    NONE      :: 0;
+    SENTENCES :: 1;
+    WORDS     :: 2;
+    LETTERS   :: 3;
+
+    SDL_CAPITALIZE_NONE      :: NONE;
+    SDL_CAPITALIZE_SENTENCES :: SENTENCES;
+    SDL_CAPITALIZE_WORDS     :: WORDS;
+    SDL_CAPITALIZE_LETTERS   :: LETTERS;
+}
+SDL_StartTextInputWithProperties :: (window: *SDL_Window, props: SDL_PropertiesID) -> bool #foreign sdl3;
+SDL_TextInputActive :: (window: *SDL_Window) -> bool #foreign sdl3;
+SDL_StopTextInput :: (window: *SDL_Window) -> bool #foreign sdl3;
+SDL_ClearComposition :: (window: *SDL_Window) -> bool #foreign sdl3;
+SDL_SetTextInputArea :: (window: *SDL_Window, rect: *SDL_Rect, cursor: s32) -> bool #foreign sdl3;
+SDL_GetTextInputArea :: (window: *SDL_Window, rect: *SDL_Rect, cursor: *s32) -> bool #foreign sdl3;
+SDL_HasScreenKeyboardSupport :: () -> bool #foreign sdl3;
+SDL_ScreenKeyboardShown :: (window: *SDL_Window) -> bool #foreign sdl3;
+SDL_MouseID :: Uint32;
+SDL_Cursor :: struct {}
+SDL_SystemCursor :: enum u32 {
+    DEFAULT     :: 0;
+    TEXT        :: 1;
+    WAIT        :: 2;
+    CROSSHAIR   :: 3;
+    PROGRESS    :: 4;
+    NWSE_RESIZE :: 5;
+    NESW_RESIZE :: 6;
+    EW_RESIZE   :: 7;
+    NS_RESIZE   :: 8;
+    MOVE        :: 9;
+    NOT_ALLOWED :: 10;
+    POINTER     :: 11;
+    NW_RESIZE   :: 12;
+    N_RESIZE    :: 13;
+    NE_RESIZE   :: 14;
+    E_RESIZE    :: 15;
+    SE_RESIZE   :: 16;
+    S_RESIZE    :: 17;
+    SW_RESIZE   :: 18;
+    W_RESIZE    :: 19;
+    COUNT       :: 20;
+
+    SDL_SYSTEM_CURSOR_DEFAULT     :: DEFAULT;
+    SDL_SYSTEM_CURSOR_TEXT        :: TEXT;
+    SDL_SYSTEM_CURSOR_WAIT        :: WAIT;
+    SDL_SYSTEM_CURSOR_CROSSHAIR   :: CROSSHAIR;
+    SDL_SYSTEM_CURSOR_PROGRESS    :: PROGRESS;
+    SDL_SYSTEM_CURSOR_NWSE_RESIZE :: NWSE_RESIZE;
+    SDL_SYSTEM_CURSOR_NESW_RESIZE :: NESW_RESIZE;
+    SDL_SYSTEM_CURSOR_EW_RESIZE   :: EW_RESIZE;
+    SDL_SYSTEM_CURSOR_NS_RESIZE   :: NS_RESIZE;
+    SDL_SYSTEM_CURSOR_MOVE        :: MOVE;
+    SDL_SYSTEM_CURSOR_NOT_ALLOWED :: NOT_ALLOWED;
+    SDL_SYSTEM_CURSOR_POINTER     :: POINTER;
+    SDL_SYSTEM_CURSOR_NW_RESIZE   :: NW_RESIZE;
+    SDL_SYSTEM_CURSOR_N_RESIZE    :: N_RESIZE;
+    SDL_SYSTEM_CURSOR_NE_RESIZE   :: NE_RESIZE;
+    SDL_SYSTEM_CURSOR_E_RESIZE    :: E_RESIZE;
+    SDL_SYSTEM_CURSOR_SE_RESIZE   :: SE_RESIZE;
+    SDL_SYSTEM_CURSOR_S_RESIZE    :: S_RESIZE;
+    SDL_SYSTEM_CURSOR_SW_RESIZE   :: SW_RESIZE;
+    SDL_SYSTEM_CURSOR_W_RESIZE    :: W_RESIZE;
+    SDL_SYSTEM_CURSOR_COUNT       :: COUNT;
+}
+SDL_MouseWheelDirection :: enum u32 {
+    NORMAL  :: 0;
+    FLIPPED :: 1;
+
+    SDL_MOUSEWHEEL_NORMAL  :: NORMAL;
+    SDL_MOUSEWHEEL_FLIPPED :: FLIPPED;
+}
+SDL_MouseButtonFlags :: Uint32;
+SDL_HasMouse :: () -> bool #foreign sdl3;
+SDL_GetMice :: (count: *s32) -> *SDL_MouseID #foreign sdl3;
+SDL_GetMouseNameForID :: (instance_id: SDL_MouseID) -> *u8 #foreign sdl3;
+SDL_GetMouseFocus :: () -> *SDL_Window #foreign sdl3;
+SDL_GetMouseState :: (x: *float, y: *float) -> SDL_MouseButtonFlags #foreign sdl3;
+SDL_GetGlobalMouseState :: (x: *float, y: *float) -> SDL_MouseButtonFlags #foreign sdl3;
+SDL_GetRelativeMouseState :: (x: *float, y: *float) -> SDL_MouseButtonFlags #foreign sdl3;
+SDL_WarpMouseInWindow :: (window: *SDL_Window, x: float, y: float) -> void #foreign sdl3;
+SDL_WarpMouseGlobal :: (x: float, y: float) -> bool #foreign sdl3;
+SDL_SetWindowRelativeMouseMode :: (window: *SDL_Window, enabled: bool) -> bool #foreign sdl3;
+SDL_GetWindowRelativeMouseMode :: (window: *SDL_Window) -> bool #foreign sdl3;
+SDL_CaptureMouse :: (enabled: bool) -> bool #foreign sdl3;
+SDL_CreateCursor :: (data: *Uint8, mask: *Uint8, w: s32, h: s32, hot_x: s32, hot_y: s32) -> *SDL_Cursor #foreign sdl3;
+SDL_CreateColorCursor :: (surface: *SDL_Surface, hot_x: s32, hot_y: s32) -> *SDL_Cursor #foreign sdl3;
+SDL_CreateSystemCursor :: (id: SDL_SystemCursor) -> *SDL_Cursor #foreign sdl3;
+SDL_SetCursor :: (cursor: *SDL_Cursor) -> bool #foreign sdl3;
+SDL_GetCursor :: () -> *SDL_Cursor #foreign sdl3;
+SDL_GetDefaultCursor :: () -> *SDL_Cursor #foreign sdl3;
+SDL_DestroyCursor :: (cursor: *SDL_Cursor) -> void #foreign sdl3;
+SDL_ShowCursor :: () -> bool #foreign sdl3;
+SDL_HideCursor :: () -> bool #foreign sdl3;
+SDL_CursorVisible :: () -> bool #foreign sdl3;
+SDL_PenID :: Uint32;
+SDL_PenInputFlags :: Uint32;
+SDL_PenAxis :: enum u32 {
+    PRESSURE            :: 0;
+    XTILT               :: 1;
+    YTILT               :: 2;
+    DISTANCE            :: 3;
+    ROTATION            :: 4;
+    SLIDER              :: 5;
+    TANGENTIAL_PRESSURE :: 6;
+    COUNT               :: 7;
+
+    SDL_PEN_AXIS_PRESSURE            :: PRESSURE;
+    SDL_PEN_AXIS_XTILT               :: XTILT;
+    SDL_PEN_AXIS_YTILT               :: YTILT;
+    SDL_PEN_AXIS_DISTANCE            :: DISTANCE;
+    SDL_PEN_AXIS_ROTATION            :: ROTATION;
+    SDL_PEN_AXIS_SLIDER              :: SLIDER;
+    SDL_PEN_AXIS_TANGENTIAL_PRESSURE :: TANGENTIAL_PRESSURE;
+    SDL_PEN_AXIS_COUNT               :: COUNT;
+}
+SDL_TouchID :: Uint64;
+SDL_FingerID :: Uint64;
+SDL_TouchDeviceType :: enum s32 {
+    INVALID           :: -1;
+    DIRECT            :: 0;
+    INDIRECT_ABSOLUTE :: 1;
+    INDIRECT_RELATIVE :: 2;
+
+    SDL_TOUCH_DEVICE_INVALID           :: INVALID;
+    SDL_TOUCH_DEVICE_DIRECT            :: DIRECT;
+    SDL_TOUCH_DEVICE_INDIRECT_ABSOLUTE :: INDIRECT_ABSOLUTE;
+    SDL_TOUCH_DEVICE_INDIRECT_RELATIVE :: INDIRECT_RELATIVE;
+}
+SDL_Finger :: struct {
+    id:       SDL_FingerID;
+    x:        float;
+    y:        float;
+    pressure: float;
+}
+SDL_GetTouchDevices :: (count: *s32) -> *SDL_TouchID #foreign sdl3;
+SDL_GetTouchDeviceName :: (touchID: SDL_TouchID) -> *u8 #foreign sdl3;
+SDL_GetTouchDeviceType :: (touchID: SDL_TouchID) -> SDL_TouchDeviceType #foreign sdl3;
+SDL_GetTouchFingers :: (touchID: SDL_TouchID, count: *s32) -> **SDL_Finger #foreign sdl3;
+SDL_EventType :: enum u32 {
     FIRST                         :: 0;
     QUIT                          :: 256;
     TERMINATING                   :: 257;
@@ -1025,7 +3870,7 @@ SDL_UserEvent :: struct {
     data2:     *void;
 }
 SDL_Event :: union {
-    type:            Uint32;
+    type:            SDL_EventType;
     common:          SDL_CommonEvent;
     display:         SDL_DisplayEvent;
     window:          SDL_WindowEvent;
@@ -1065,7 +3910,7 @@ SDL_Event :: union {
     padding:         [128] Uint8;
 }
 SDL_PumpEvents :: () -> void #foreign sdl3;
-SDL_EventAction :: enum s32 {
+SDL_EventAction :: enum u32 {
     ADDEVENT  :: 0;
     PEEKEVENT :: 1;
     GETEVENT  :: 2;
@@ -1095,7 +3940,7 @@ SDL_RegisterEvents :: (numevents: s32) -> Uint32 #foreign sdl3;
 SDL_GetWindowFromEvent :: (event: *SDL_Event) -> *SDL_Window #foreign sdl3;
 SDL_GetBasePath :: () -> *u8 #foreign sdl3;
 SDL_GetPrefPath :: (org: *u8, app: *u8) -> *u8 #foreign sdl3;
-SDL_Folder :: enum s32 {
+SDL_Folder :: enum u32 {
     HOME        :: 0;
     DESKTOP     :: 1;
     DOCUMENTS   :: 2;
@@ -1123,7 +3968,7 @@ SDL_Folder :: enum s32 {
     SDL_FOLDER_COUNT       :: COUNT;
 }
 SDL_GetUserFolder :: (folder: SDL_Folder) -> *u8 #foreign sdl3;
-SDL_PathType :: enum s32 {
+SDL_PathType :: enum u32 {
     NONE      :: 0;
     FILE      :: 1;
     DIRECTORY :: 2;
@@ -1143,7 +3988,7 @@ SDL_PathInfo :: struct {
 }
 SDL_GlobFlags :: Uint32;
 SDL_CreateDirectory :: (path: *u8) -> bool #foreign sdl3;
-SDL_EnumerationResult :: enum s32 {
+SDL_EnumerationResult :: enum u32 {
     CONTINUE :: 0;
     SUCCESS  :: 1;
     FAILURE  :: 2;
@@ -1172,7 +4017,7 @@ SDL_GPURenderPass :: struct {}
 SDL_GPUComputePass :: struct {}
 SDL_GPUCopyPass :: struct {}
 SDL_GPUFence :: struct {}
-SDL_GPUPrimitiveType :: enum s32 {
+SDL_GPUPrimitiveType :: enum u32 {
     TRIANGLELIST  :: 0;
     TRIANGLESTRIP :: 1;
     LINELIST      :: 2;
@@ -1185,7 +4030,7 @@ SDL_GPUPrimitiveType :: enum s32 {
     SDL_GPU_PRIMITIVETYPE_LINESTRIP     :: LINESTRIP;
     SDL_GPU_PRIMITIVETYPE_POINTLIST     :: POINTLIST;
 }
-SDL_GPULoadOp :: enum s32 {
+SDL_GPULoadOp :: enum u32 {
     LOAD      :: 0;
     CLEAR     :: 1;
     DONT_CARE :: 2;
@@ -1194,7 +4039,7 @@ SDL_GPULoadOp :: enum s32 {
     SDL_GPU_LOADOP_CLEAR     :: CLEAR;
     SDL_GPU_LOADOP_DONT_CARE :: DONT_CARE;
 }
-SDL_GPUStoreOp :: enum s32 {
+SDL_GPUStoreOp :: enum u32 {
     STORE             :: 0;
     DONT_CARE         :: 1;
     RESOLVE           :: 2;
@@ -1205,14 +4050,14 @@ SDL_GPUStoreOp :: enum s32 {
     SDL_GPU_STOREOP_RESOLVE           :: RESOLVE;
     SDL_GPU_STOREOP_RESOLVE_AND_STORE :: RESOLVE_AND_STORE;
 }
-SDL_GPUIndexElementSize :: enum s32 {
+SDL_GPUIndexElementSize :: enum u32 {
     _16BIT :: 0;
     _32BIT :: 1;
 
     SDL_GPU_INDEXELEMENTSIZE_16BIT :: _16BIT;
     SDL_GPU_INDEXELEMENTSIZE_32BIT :: _32BIT;
 }
-SDL_GPUTextureFormat :: enum s32 {
+SDL_GPUTextureFormat :: enum u32 {
     INVALID               :: 0;
     A8_UNORM              :: 1;
     R8_UNORM              :: 2;
@@ -1426,7 +4271,7 @@ SDL_GPUTextureFormat :: enum s32 {
     SDL_GPU_TEXTUREFORMAT_ASTC_12x12_FLOAT      :: ASTC_12x12_FLOAT;
 }
 SDL_GPUTextureUsageFlags :: Uint32;
-SDL_GPUTextureType :: enum s32 {
+SDL_GPUTextureType :: enum u32 {
     _2D        :: 0;
     _2D_ARRAY  :: 1;
     _3D        :: 2;
@@ -1439,7 +4284,7 @@ SDL_GPUTextureType :: enum s32 {
     SDL_GPU_TEXTURETYPE_CUBE       :: CUBE;
     SDL_GPU_TEXTURETYPE_CUBE_ARRAY :: CUBE_ARRAY;
 }
-SDL_GPUSampleCount :: enum s32 {
+SDL_GPUSampleCount :: enum u32 {
     _1 :: 0;
     _2 :: 1;
     _4 :: 2;
@@ -1450,7 +4295,7 @@ SDL_GPUSampleCount :: enum s32 {
     SDL_GPU_SAMPLECOUNT_4 :: _4;
     SDL_GPU_SAMPLECOUNT_8 :: _8;
 }
-SDL_GPUCubeMapFace :: enum s32 {
+SDL_GPUCubeMapFace :: enum u32 {
     POSITIVEX :: 0;
     NEGATIVEX :: 1;
     POSITIVEY :: 2;
@@ -1466,14 +4311,14 @@ SDL_GPUCubeMapFace :: enum s32 {
     SDL_GPU_CUBEMAPFACE_NEGATIVEZ :: NEGATIVEZ;
 }
 SDL_GPUBufferUsageFlags :: Uint32;
-SDL_GPUTransferBufferUsage :: enum s32 {
+SDL_GPUTransferBufferUsage :: enum u32 {
     UPLOAD   :: 0;
     DOWNLOAD :: 1;
 
     SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD   :: UPLOAD;
     SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD :: DOWNLOAD;
 }
-SDL_GPUShaderStage :: enum s32 {
+SDL_GPUShaderStage :: enum u32 {
     VERTEX   :: 0;
     FRAGMENT :: 1;
 
@@ -1481,7 +4326,7 @@ SDL_GPUShaderStage :: enum s32 {
     SDL_GPU_SHADERSTAGE_FRAGMENT :: FRAGMENT;
 }
 SDL_GPUShaderFormat :: Uint32;
-SDL_GPUVertexElementFormat :: enum s32 {
+SDL_GPUVertexElementFormat :: enum u32 {
     INVALID      :: 0;
     INT          :: 1;
     INT2         :: 2;
@@ -1546,21 +4391,21 @@ SDL_GPUVertexElementFormat :: enum s32 {
     SDL_GPU_VERTEXELEMENTFORMAT_HALF2        :: HALF2;
     SDL_GPU_VERTEXELEMENTFORMAT_HALF4        :: HALF4;
 }
-SDL_GPUVertexInputRate :: enum s32 {
+SDL_GPUVertexInputRate :: enum u32 {
     VERTEX   :: 0;
     INSTANCE :: 1;
 
     SDL_GPU_VERTEXINPUTRATE_VERTEX   :: VERTEX;
     SDL_GPU_VERTEXINPUTRATE_INSTANCE :: INSTANCE;
 }
-SDL_GPUFillMode :: enum s32 {
+SDL_GPUFillMode :: enum u32 {
     FILL :: 0;
     LINE :: 1;
 
     SDL_GPU_FILLMODE_FILL :: FILL;
     SDL_GPU_FILLMODE_LINE :: LINE;
 }
-SDL_GPUCullMode :: enum s32 {
+SDL_GPUCullMode :: enum u32 {
     NONE  :: 0;
     FRONT :: 1;
     BACK  :: 2;
@@ -1569,14 +4414,14 @@ SDL_GPUCullMode :: enum s32 {
     SDL_GPU_CULLMODE_FRONT :: FRONT;
     SDL_GPU_CULLMODE_BACK  :: BACK;
 }
-SDL_GPUFrontFace :: enum s32 {
+SDL_GPUFrontFace :: enum u32 {
     COUNTER_CLOCKWISE :: 0;
     CLOCKWISE         :: 1;
 
     SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE :: COUNTER_CLOCKWISE;
     SDL_GPU_FRONTFACE_CLOCKWISE         :: CLOCKWISE;
 }
-SDL_GPUCompareOp :: enum s32 {
+SDL_GPUCompareOp :: enum u32 {
     INVALID          :: 0;
     NEVER            :: 1;
     LESS             :: 2;
@@ -1597,7 +4442,7 @@ SDL_GPUCompareOp :: enum s32 {
     SDL_GPU_COMPAREOP_GREATER_OR_EQUAL :: GREATER_OR_EQUAL;
     SDL_GPU_COMPAREOP_ALWAYS           :: ALWAYS;
 }
-SDL_GPUStencilOp :: enum s32 {
+SDL_GPUStencilOp :: enum u32 {
     INVALID             :: 0;
     KEEP                :: 1;
     ZERO                :: 2;
@@ -1618,7 +4463,7 @@ SDL_GPUStencilOp :: enum s32 {
     SDL_GPU_STENCILOP_INCREMENT_AND_WRAP  :: INCREMENT_AND_WRAP;
     SDL_GPU_STENCILOP_DECREMENT_AND_WRAP  :: DECREMENT_AND_WRAP;
 }
-SDL_GPUBlendOp :: enum s32 {
+SDL_GPUBlendOp :: enum u32 {
     INVALID          :: 0;
     ADD              :: 1;
     SUBTRACT         :: 2;
@@ -1633,7 +4478,7 @@ SDL_GPUBlendOp :: enum s32 {
     SDL_GPU_BLENDOP_MIN              :: MIN;
     SDL_GPU_BLENDOP_MAX              :: MAX;
 }
-SDL_GPUBlendFactor :: enum s32 {
+SDL_GPUBlendFactor :: enum u32 {
     INVALID                  :: 0;
     ZERO                     :: 1;
     ONE                      :: 2;
@@ -1665,21 +4510,21 @@ SDL_GPUBlendFactor :: enum s32 {
     SDL_GPU_BLENDFACTOR_SRC_ALPHA_SATURATE       :: SRC_ALPHA_SATURATE;
 }
 SDL_GPUColorComponentFlags :: Uint8;
-SDL_GPUFilter :: enum s32 {
+SDL_GPUFilter :: enum u32 {
     NEAREST :: 0;
     LINEAR  :: 1;
 
     SDL_GPU_FILTER_NEAREST :: NEAREST;
     SDL_GPU_FILTER_LINEAR  :: LINEAR;
 }
-SDL_GPUSamplerMipmapMode :: enum s32 {
+SDL_GPUSamplerMipmapMode :: enum u32 {
     NEAREST :: 0;
     LINEAR  :: 1;
 
     SDL_GPU_SAMPLERMIPMAPMODE_NEAREST :: NEAREST;
     SDL_GPU_SAMPLERMIPMAPMODE_LINEAR  :: LINEAR;
 }
-SDL_GPUSamplerAddressMode :: enum s32 {
+SDL_GPUSamplerAddressMode :: enum u32 {
     REPEAT          :: 0;
     MIRRORED_REPEAT :: 1;
     CLAMP_TO_EDGE   :: 2;
@@ -1688,7 +4533,7 @@ SDL_GPUSamplerAddressMode :: enum s32 {
     SDL_GPU_SAMPLERADDRESSMODE_MIRRORED_REPEAT :: MIRRORED_REPEAT;
     SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE   :: CLAMP_TO_EDGE;
 }
-SDL_GPUPresentMode :: enum s32 {
+SDL_GPUPresentMode :: enum u32 {
     VSYNC     :: 0;
     IMMEDIATE :: 1;
     MAILBOX   :: 2;
@@ -1697,7 +4542,7 @@ SDL_GPUPresentMode :: enum s32 {
     SDL_GPU_PRESENTMODE_IMMEDIATE :: IMMEDIATE;
     SDL_GPU_PRESENTMODE_MAILBOX   :: MAILBOX;
 }
-SDL_GPUSwapchainComposition :: enum s32 {
+SDL_GPUSwapchainComposition :: enum u32 {
     SDR                 :: 0;
     SDR_LINEAR          :: 1;
     HDR_EXTENDED_LINEAR :: 2;
@@ -2095,7 +4940,7 @@ SDL_GPUTextureSupportsFormat :: (device: *SDL_GPUDevice, format: SDL_GPUTextureF
 SDL_GPUTextureSupportsSampleCount :: (device: *SDL_GPUDevice, format: SDL_GPUTextureFormat, sample_count: SDL_GPUSampleCount) -> bool #foreign sdl3;
 SDL_CalculateGPUTextureFormatSize :: (format: SDL_GPUTextureFormat, width: Uint32, height: Uint32, depth_or_layer_count: Uint32) -> Uint32 #foreign sdl3;
 SDL_hid_device :: struct {}
-SDL_hid_bus_type :: enum s32 {
+SDL_hid_bus_type :: enum u32 {
     UNKNOWN   :: 0;
     USB       :: 1;
     BLUETOOTH :: 2;
@@ -2112,10 +4957,10 @@ SDL_hid_device_info :: struct {
     path:                *u8;
     vendor_id:           u16;
     product_id:          u16;
-    serial_number:       *u16;
+    serial_number:       *s32;
     release_number:      u16;
-    manufacturer_string: *u16;
-    product_string:      *u16;
+    manufacturer_string: *s32;
+    product_string:      *s32;
     usage_page:          u16;
     usage:               u16;
     interface_number:    s32;
@@ -2130,7 +4975,7 @@ SDL_hid_exit :: () -> s32 #foreign sdl3;
 SDL_hid_device_change_count :: () -> Uint32 #foreign sdl3;
 SDL_hid_enumerate :: (vendor_id: u16, product_id: u16) -> *SDL_hid_device_info #foreign sdl3;
 SDL_hid_free_enumeration :: (devs: *SDL_hid_device_info) -> void #foreign sdl3;
-SDL_hid_open :: (vendor_id: u16, product_id: u16, serial_number: *u16) -> *SDL_hid_device #foreign sdl3;
+SDL_hid_open :: (vendor_id: u16, product_id: u16, serial_number: *s32) -> *SDL_hid_device #foreign sdl3;
 SDL_hid_open_path :: (path: *u8) -> *SDL_hid_device #foreign sdl3;
 SDL_hid_write :: (dev: *SDL_hid_device, data: *u8, length: u64) -> s32 #foreign sdl3;
 SDL_hid_read_timeout :: (dev: *SDL_hid_device, data: *u8, length: u64, milliseconds: s32) -> s32 #foreign sdl3;
@@ -2140,15 +4985,15 @@ SDL_hid_send_feature_report :: (dev: *SDL_hid_device, data: *u8, length: u64) ->
 SDL_hid_get_feature_report :: (dev: *SDL_hid_device, data: *u8, length: u64) -> s32 #foreign sdl3;
 SDL_hid_get_input_report :: (dev: *SDL_hid_device, data: *u8, length: u64) -> s32 #foreign sdl3;
 SDL_hid_close :: (dev: *SDL_hid_device) -> s32 #foreign sdl3;
-SDL_hid_get_manufacturer_string :: (dev: *SDL_hid_device, _string: *u16, maxlen: u64) -> s32 #foreign sdl3;
-SDL_hid_get_product_string :: (dev: *SDL_hid_device, _string: *u16, maxlen: u64) -> s32 #foreign sdl3;
-SDL_hid_get_serial_number_string :: (dev: *SDL_hid_device, _string: *u16, maxlen: u64) -> s32 #foreign sdl3;
-SDL_hid_get_indexed_string :: (dev: *SDL_hid_device, string_index: s32, _string: *u16, maxlen: u64) -> s32 #foreign sdl3;
+SDL_hid_get_manufacturer_string :: (dev: *SDL_hid_device, _string: *s32, maxlen: u64) -> s32 #foreign sdl3;
+SDL_hid_get_product_string :: (dev: *SDL_hid_device, _string: *s32, maxlen: u64) -> s32 #foreign sdl3;
+SDL_hid_get_serial_number_string :: (dev: *SDL_hid_device, _string: *s32, maxlen: u64) -> s32 #foreign sdl3;
+SDL_hid_get_indexed_string :: (dev: *SDL_hid_device, string_index: s32, _string: *s32, maxlen: u64) -> s32 #foreign sdl3;
 SDL_hid_get_device_info :: (dev: *SDL_hid_device) -> *SDL_hid_device_info #foreign sdl3;
 SDL_hid_get_report_descriptor :: (dev: *SDL_hid_device, buf: *u8, buf_size: u64) -> s32 #foreign sdl3;
 SDL_hid_ble_scan :: (active: bool) -> void #foreign sdl3;
 SDL_InitFlags :: Uint32;
-SDL_AppResult :: enum s32 {
+SDL_AppResult :: enum u32 {
     CONTINUE :: 0;
     SUCCESS  :: 1;
     FAILURE  :: 2;
@@ -2178,7 +5023,7 @@ SDL_Locale :: struct {
     country:  *u8;
 }
 SDL_GetPreferredLocales :: (count: *s32) -> **SDL_Locale #foreign sdl3;
-SDL_LogCategory :: enum s32 {
+SDL_LogCategory :: enum u32 {
     APPLICATION :: 0;
     ERROR       :: 1;
     ASSERT      :: 2;
@@ -2221,7 +5066,7 @@ SDL_LogCategory :: enum s32 {
     SDL_LOG_CATEGORY_RESERVED10  :: RESERVED10;
     SDL_LOG_CATEGORY_CUSTOM      :: CUSTOM;
 }
-SDL_LogPriority :: enum s32 {
+SDL_LogPriority :: enum u32 {
     INVALID  :: 0;
     TRACE    :: 1;
     VERBOSE  :: 2;
@@ -2336,8 +5181,6 @@ SDL_main_func :: #type (argc: s32, argv: **u8) -> s32 #c_call;
 SDL_SetMainReady :: () -> void #foreign sdl3;
 SDL_RunApp :: (argc: s32, argv: **u8, mainFunction: SDL_main_func, reserved: *void) -> s32 #foreign sdl3;
 SDL_EnterAppMainCallbacks :: (argc: s32, argv: **u8, appinit: SDL_AppInit_func, appiter: SDL_AppIterate_func, appevent: SDL_AppEvent_func, appquit: SDL_AppQuit_func) -> s32 #foreign sdl3;
-SDL_RegisterApp :: (name: *u8, style: Uint32, hInst: *void) -> bool #foreign sdl3;
-SDL_UnregisterApp :: () -> void #foreign sdl3;
 SDL_MessageBoxFlags :: Uint32;
 SDL_MessageBoxButtonFlags :: Uint32;
 SDL_MessageBoxButtonData :: struct {
@@ -2350,7 +5193,7 @@ SDL_MessageBoxColor :: struct {
     g: Uint8;
     b: Uint8;
 }
-SDL_MessageBoxColorType :: enum s32 {
+SDL_MessageBoxColorType :: enum u32 {
     BACKGROUND        :: 0;
     TEXT              :: 1;
     BUTTON_BORDER     :: 2;
@@ -2387,7 +5230,7 @@ SDL_OpenURL :: (url: *u8) -> bool #foreign sdl3;
 SDL_GetPlatform :: () -> *u8 #foreign sdl3;
 SDL_Process :: struct {}
 SDL_CreateProcess :: (args: **u8, pipe_stdio: bool) -> *SDL_Process #foreign sdl3;
-SDL_ProcessIO :: enum s32 {
+SDL_ProcessIO :: enum u32 {
     INHERITED :: 0;
     NULL      :: 1;
     APP       :: 2;
@@ -2411,7 +5254,7 @@ SDL_Vertex :: struct {
     color:     SDL_FColor;
     tex_coord: SDL_FPoint;
 }
-SDL_TextureAccess :: enum s32 {
+SDL_TextureAccess :: enum u32 {
     STATIC    :: 0;
     STREAMING :: 1;
     TARGET    :: 2;
@@ -2420,7 +5263,7 @@ SDL_TextureAccess :: enum s32 {
     SDL_TEXTUREACCESS_STREAMING :: STREAMING;
     SDL_TEXTUREACCESS_TARGET    :: TARGET;
 }
-SDL_RendererLogicalPresentation :: enum s32 {
+SDL_RendererLogicalPresentation :: enum u32 {
     DISABLED      :: 0;
     STRETCH       :: 1;
     LETTERBOX     :: 2;
@@ -2559,19 +5402,15 @@ SDL_CopyStorageFile :: (storage: *SDL_Storage, oldpath: *u8, newpath: *u8) -> bo
 SDL_GetStoragePathInfo :: (storage: *SDL_Storage, path: *u8, info: *SDL_PathInfo) -> bool #foreign sdl3;
 SDL_GetStorageSpaceRemaining :: (storage: *SDL_Storage) -> Uint64 #foreign sdl3;
 SDL_GlobStorageDirectory :: (storage: *SDL_Storage, path: *u8, pattern: *u8, flags: SDL_GlobFlags, count: *s32) -> **u8 #foreign sdl3;
-tagMSG :: struct {}
-MSG :: tagMSG;
-SDL_WindowsMessageHook :: #type (userdata: *void, msg: *MSG) -> bool #c_call;
-SDL_SetWindowsMessageHook :: (callback: SDL_WindowsMessageHook, userdata: *void) -> void #foreign sdl3;
-SDL_GetDirect3D9AdapterIndex :: (displayID: SDL_DisplayID) -> s32 #foreign sdl3;
-SDL_GetDXGIOutputInfo :: (displayID: SDL_DisplayID, adapterIndex: *s32, outputIndex: *s32) -> bool #foreign sdl3;
 _XEvent :: union {}
 XEvent :: _XEvent;
 SDL_X11EventHook :: #type (userdata: *void, xevent: *XEvent) -> bool #c_call;
 SDL_SetX11EventHook :: (callback: SDL_X11EventHook, userdata: *void) -> void #foreign sdl3;
+SDL_SetLinuxThreadPriority :: (threadID: Sint64, priority: s32) -> bool #foreign sdl3;
+SDL_SetLinuxThreadPriorityAndPolicy :: (threadID: Sint64, sdlPriority: s32, schedPolicy: s32) -> bool #foreign sdl3;
 SDL_IsTablet :: () -> bool #foreign sdl3;
 SDL_IsTV :: () -> bool #foreign sdl3;
-SDL_Sandbox :: enum s32 {
+SDL_Sandbox :: enum u32 {
     NONE              :: 0;
     UNKNOWN_CONTAINER :: 1;
     FLATPAK           :: 2;
@@ -2602,7 +5441,7 @@ SDL_DateTime :: struct {
     day_of_week: s32;
     utc_offset:  s32;
 }
-SDL_DateFormat :: enum s32 {
+SDL_DateFormat :: enum u32 {
     YYYYMMDD :: 0;
     DDMMYYYY :: 1;
     MMDDYYYY :: 2;
@@ -2611,7 +5450,7 @@ SDL_DateFormat :: enum s32 {
     SDL_DATE_FORMAT_DDMMYYYY :: DDMMYYYY;
     SDL_DATE_FORMAT_MMDDYYYY :: MMDDYYYY;
 }
-SDL_TimeFormat :: enum s32 {
+SDL_TimeFormat :: enum u32 {
     _24HR :: 0;
     _12HR :: 1;
 
@@ -2642,31 +5481,16 @@ SDL_AddTimerNS :: (interval: Uint64, callback: SDL_NSTimerCallback, userdata: *v
 SDL_RemoveTimer :: (id: SDL_TimerID) -> bool #foreign sdl3;
 SDL_GetVersion :: () -> s32 #foreign sdl3;
 SDL_GetRevision :: () -> *u8 #foreign sdl3;
-VkInstance_T :: struct {}
-VkInstance :: *VkInstance_T;
-VkPhysicalDevice_T :: struct {}
-VkPhysicalDevice :: *VkPhysicalDevice_T;
-VkSurfaceKHR_T :: struct {}
-VkSurfaceKHR :: *VkSurfaceKHR_T;
-VkAllocationCallbacks :: struct {}
-SDL_Vulkan_LoadLibrary :: (path: *u8) -> bool #foreign sdl3;
-SDL_Vulkan_GetVkGetInstanceProcAddr :: () -> SDL_FunctionPointer #foreign sdl3;
-SDL_Vulkan_UnloadLibrary :: () -> void #foreign sdl3;
-SDL_Vulkan_GetInstanceExtensions :: (count: *Uint32) -> **u8 #foreign sdl3;
-SDL_Vulkan_CreateSurface :: (window: *SDL_Window, instance: VkInstance, allocator: *VkAllocationCallbacks, surface: *VkSurfaceKHR) -> bool #foreign sdl3;
-SDL_Vulkan_DestroySurface :: (instance: VkInstance, surface: VkSurfaceKHR, allocator: *VkAllocationCallbacks) -> void #foreign sdl3;
-SDL_Vulkan_GetPresentationSupport :: (instance: VkInstance, physicalDevice: VkPhysicalDevice, queueFamilyIndex: Uint32) -> bool #foreign sdl3;
 
 #scope_file
 
 #import "Basic"; // For push_context
 
-#scope_file
 
 #if OS == .WINDOWS {
     sdl3 :: #library "lib/x64/sdl3";
 } else #if OS == .LINUX {
-    sdl3 :: #library "sdl3";
+    sdl3 :: #library "lib/linux/libSDL3";
 } else {
     #assert(false);
 }

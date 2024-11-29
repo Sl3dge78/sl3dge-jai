@@ -47,7 +47,7 @@ texture_from_file :: (path: string, final_layout: VkImageLayout = .SHADER_READ_O
     return texture_from_data(img, xx w, xx h, channels, u8, path_filename(path), final_layout);
 }
 
-texture_from_data :: (ptr: *void, w: u32, h: u32, channels: int, $data_type: Type, name: string, final_layout: VkImageLayout) -> Texture {
+texture_from_data :: (ptr: *void, w: u32, h: u32, channels: int, $data_type: Type, name: string, final_layout: VkImageLayout = .SHADER_READ_ONLY_OPTIMAL) -> Texture {
     format : VkFormat = ---;
     #if data_type == u8 {
         if channels == {

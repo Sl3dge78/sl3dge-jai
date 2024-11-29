@@ -88,18 +88,14 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
             label = "Main Surface"
         };
 
-        sdl_info: SDL_SysWMinfo;
-        SDL_VERSION(*sdl_info.version);
-        if !SDL_GetWindowWMInfo(window, *sdl_info) {
-            log("%", to_string(SDL_GetError()));
-            assert(false);
-        }
 
         #if OS == .LINUX {
+            handle := SDL_GetPointerProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_X11_WINDOW_NUMBER, null);
+            display := SDL_GetPointerProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_X11_DISPLAY_POINTER, null);
             surface_desc_x11 := wgpu.SurfaceDescriptorFromXlibWindow.{
                 chain = .{ sType = .SurfaceDescriptorFromXlibWindow },
-                display = sdl_info.info.x11.display,
-                window = xx sdl_info.info.x11.window,
+                display = display,
+                window = xx window, 
             };
             desc.nextInChain = xx *surface_desc_x11;
         } else #if OS == .MACOS {
@@ -111,10 +107,12 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
             };
             desc.nextInChain = xx *surface_desc_from_metal_layer;
         } else #if OS == .WINDOWS {
+            hinstance := SDL_GetPointerProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_WIN32_INSTANCE_POINTER, null);
+            hwnd := SDL_GetPointerProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_WIN32_HWND_POINTER, null);
             surface_desc := wgpu.SurfaceDescriptorFromWindowsHWND.{
                 chain = .{ sType = .SurfaceDescriptorFromWindowsHWND },
-                hinstance = xx sdl_info.info.win.hinstance,
-                hwnd = xx sdl_info.info.win.window,
+                hinstance = xx hinstance,
+                hwnd = xx hwnd,
             };
             desc.nextInChain = xx *surface_desc;
         } else {

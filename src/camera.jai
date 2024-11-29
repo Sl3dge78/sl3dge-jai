@@ -23,13 +23,13 @@ fly_cam :: (using camera: *Camera, delta_time: float) {
     acceleration: Vector3;
     speed := 10.0;
 
-    if key_down(SDL_SCANCODE_W) then acceleration += flat;
-    if key_down(SDL_SCANCODE_S) then acceleration -= flat;
-    if key_down(SDL_SCANCODE_D) then acceleration += right;
-    if key_down(SDL_SCANCODE_A) then acceleration -= right;
-    if key_down(SDL_SCANCODE_Q) then acceleration -= .{0, 1, 0};
-    if key_down(SDL_SCANCODE_E) then acceleration += .{0, 1, 0};
-    if key_down(SDL_SCANCODE_LSHIFT) then speed = 200.0;
+    if key_down(.SDL_SCANCODE_W) then acceleration += flat;
+    if key_down(.SDL_SCANCODE_S) then acceleration -= flat;
+    if key_down(.SDL_SCANCODE_D) then acceleration += right;
+    if key_down(.SDL_SCANCODE_A) then acceleration -= right;
+    if key_down(.SDL_SCANCODE_Q) then acceleration -= .{0, 1, 0};
+    if key_down(.SDL_SCANCODE_E) then acceleration += .{0, 1, 0};
+    if key_down(.SDL_SCANCODE_LSHIFT) then speed = 200.0;
 
     position += acceleration * delta_time * speed;
 }

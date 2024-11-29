@@ -8,7 +8,6 @@ amount of work to get things going well.
 
 */
 
-#module_parameters(USE_VULKAN_1_1 := true);  // #import this with USE_VULKAN_1_1 == false if your driver doesn't have those routines.
 
 VK_NULL_HANDLE                    :: null;
 

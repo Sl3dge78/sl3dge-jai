@@ -4,7 +4,11 @@ Font :: struct {
     texture: Texture;
     line_height : float;
     width : float;
-    bind_group : wgpu.BindGroup;
+    #if BACKEND == "WGPU" {
+        bind_group : wgpu.BindGroup;
+    } else #if BACKEND == "VULKAN" {
+        bind_group : VkDescriptorSet;
+    }
 }
 
 font_from_file :: (path: string, size: float) -> Font, bool {

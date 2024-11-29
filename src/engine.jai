@@ -15,13 +15,13 @@ engine_create :: () {
     set_working_directory(path);
 
     console_create();
-    SDL_Init(SDL_INIT_EVERYTHING);
+    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD );
 
     w := 1280;
     h := 720;
     flags := SDL_WINDOW_RESIZABLE;
     flags |= SDL_WINDOW_VULKAN;
-    global_engine.window = SDL_CreateWindow("Demo", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, xx w, xx h, flags);
+    global_engine.window = SDL_CreateWindow("Demo", xx w, xx h, xx flags);
     global_engine.renderer = renderer_create(global_engine.window);
     global_engine.default_font = font_from_data(default_font_data, 8, "default_font");
 
@@ -44,12 +44,14 @@ engine_update :: (delta_time: float) {
     update_tweens(delta_time);
 }
 
-engine_draw :: (frame_data: *Frame_Data, cmd: wgpu.CommandEncoder) {
-    imm := immediate_begin_in_place(global_renderer.width, global_renderer.height, frame_data.render_to_view, cmd);
-    defer immediate_end_in_place(*imm);
-    console_draw(*imm, *global_engine.default_font);
-    if global_engine.draw_perf_overlay {
-        draw_text(*imm, tprint("Frametime: %ms", global_engine.frame_time), 0, 8, *global_engine.default_font);
+#if BACKEND == "WGPU" {
+    engine_draw :: (frame_data: *Frame_Data, cmd: wgpu.CommandEncoder) {
+        imm := immediate_begin_in_place(global_renderer.width, global_renderer.height, frame_data.render_to_view, cmd);
+        defer immediate_end_in_place(*imm);
+        console_draw(*imm, *global_engine.default_font);
+        if global_engine.draw_perf_overlay {
+            draw_text(*imm, tprint("Frametime: %ms", global_engine.frame_time), 0, 8, *global_engine.default_font);
+        }
     }
 }
 

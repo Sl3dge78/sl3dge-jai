@@ -1,3 +1,6 @@
+#module_parameters(BACKEND := "WGPU");
+#assert(is_constant(BACKEND));
+
 #import "Basic";
 #import "String";
 #import "System";
@@ -9,13 +12,13 @@
 #import,dir "modules/jaison";
 
 File_Watcher :: #import "File_Watcher";
-#import,dir "modules/SDL3";
+#import,dir "modules/SDL3"(true);
 #import "stb_image";
 #import,dir "modules/stb_truetype";
 
-#if 1 {
+#if BACKEND == "WGPU" {
     #load "src/rendering/backends/webgpu.jai";
-} else {
+} else #if BACKEND == "VULKAN" {
     #load "src/rendering/backends/vulkan.jai";
 }
 

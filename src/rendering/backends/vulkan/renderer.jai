@@ -99,7 +99,7 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
 
     renderer.debug_messenger = create_debug_messenger(renderer.instance);
 
-    SDL_Vulkan_CreateSurface(window, renderer.instance, *renderer.surface);
+    SDL_Vulkan_CreateSurface(window, renderer.instance, null, xx *renderer.surface);
     
     renderer.physical_device = pick_physical_device(renderer.instance);
     // @TODO: Check limits & features
@@ -292,15 +292,13 @@ create_instance :: (window: *SDL_Window) -> VkInstance {
     layers.allocator = temp;
     array_add(*layers, temp_c_string("VK_LAYER_KHRONOS_validation"));
 
-    extensions: [..]*u8;
-    extensions.allocator = temp;
-    
+    sdl_extensions: []*u8;
     nb : u32;
-    SDL_Vulkan_GetInstanceExtensions(window, *nb, null);
-    array_reserve(*extensions, nb);
-    SDL_Vulkan_GetInstanceExtensions(window, *nb, extensions.data);
-    extensions.count += nb;
+    sdl_extensions.data = SDL_Vulkan_GetInstanceExtensions(*nb);
+    sdl_extensions.count = xx nb;
 
+    extensions : [..]*u8;
+    array_add(*extensions, ..sdl_extensions);
     array_add(*extensions, VK_EXT_DEBUG_UTILS_EXTENSION_NAME.data);
     // array_add(*extensions, VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME.data);
 
@@ -349,7 +347,7 @@ create_debug_messenger :: (instance: VkInstance) -> VkDebugUtilsMessengerEXT {
     };
 
     debug_messenger: VkDebugUtilsMessengerEXT = ---;
-    Vk_Check(vkCreateDebugUtilsMessengerEXT(instance, *create_info, null, *debug_messenger));
+    Vk_Check(vkCreateDebugUtilsMessengerEXT(xx instance, *create_info, null, *debug_messenger));
     log("Debug messenger created.");
     return debug_messenger;
 }

@@ -103,9 +103,6 @@ load_function_pointers :: (instance: VkInstance) {
     vkSetDebugUtilsObjectNameEXT = xx load("vkSetDebugUtilsObjectNameEXT");
 }
 
-SDL_Vulkan_GetInstanceExtensions :: (window: *SDL_Window, pCount: *u32, pNames: **u8) -> bool #foreign SDL2;
-SDL_Vulkan_CreateSurface :: (window: *SDL_Window, instance: VkInstance, surface: *VkSurfaceKHR) -> bool #foreign SDL2;
-
 debug_callback :: (severity: VkDebugUtilsMessageSeverityFlagsEXT, type: VkDebugUtilsMessageTypeFlagsEXT, callback_data: *VkDebugUtilsMessengerCallbackDataEXT,  data: *void) -> VkBool32 #c_call {
     ctx := (cast(*Context)data).*;
     push_context ctx {

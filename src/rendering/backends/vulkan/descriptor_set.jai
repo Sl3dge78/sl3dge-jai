@@ -76,3 +76,7 @@ create_texture_descriptor_set :: (texture: Texture, layout: VkDescriptorSetLayou
 
     return create_texture_descriptor_set(global_renderer.sampler, texture.view, layout);
 }
+
+destroy :: (ds: VkDescriptorSet) {
+
+}
