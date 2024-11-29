@@ -9,7 +9,7 @@
 #import,dir "modules/jaison";
 
 File_Watcher :: #import "File_Watcher";
-#import "SDL";
+#import,dir "modules/SDL3";
 #import "stb_image";
 #import,dir "modules/stb_truetype";
 

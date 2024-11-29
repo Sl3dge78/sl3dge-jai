@@ -97,9 +97,9 @@ console_print :: (msg: string, args: .. Any) {
         }
     }
     builder : String_Builder;
-    builder.allocator = context.default_allocator;
+    // builder.allocator = context.default_allocator;
     print_to_builder(*builder, msg, ..args);
-    lines[last_line] = builder_to_string(*builder);
+    lines[last_line] = builder_to_string(*builder,, context.default_allocator);
 
     last_line += 1;
 }
