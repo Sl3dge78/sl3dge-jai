@@ -47,19 +47,27 @@ texture_from_file :: (path: string, final_layout: VkImageLayout = .SHADER_READ_O
     return texture_from_data(img, xx w, xx h, channels, u8, path_filename(path), final_layout);
 }
 
-texture_from_data :: (ptr: *void, w: u32, h: u32, channels: int, $data_type: Type, name: string, final_layout: VkImageLayout = .SHADER_READ_ONLY_OPTIMAL) -> Texture {
+texture_from_data :: (ptr: *void, w: u32, h: u32, src_channels: int, $data_type: Type, name: string, final_layout: VkImageLayout = .SHADER_READ_ONLY_OPTIMAL) -> Texture {
     format : VkFormat = ---;
+    dst_channels: int;
     #if data_type == u8 {
-        if channels == {
-            case 1; format = .R8_UNORM;
-            case 4; format = .R8G8B8A8_SRGB;
-            case; assert(false, "Unhandled channel count of %!", channels);
+        if src_channels == {
+            case 1; {
+                format = .R8_UNORM;
+                dst_channels = 1;
+            }
+            case 3; #through;
+            case 4; {
+                dst_channels = 4;
+                format = .R8G8B8A8_SRGB;
+            }
+            case; assert(false, "Unhandled channel count of %!", src_channels);
         }
     } else #assert false;
 
     texture := texture_create(w, h, format, .TRANSFER_DST_BIT | .SAMPLED_BIT, name = name);
 
-    image_size: VkDeviceSize = xx(texture.w * texture.h * channels);
+    image_size: VkDeviceSize = xx(texture.w * texture.h * dst_channels);
     staging_buffer := buffer_create(image_size, .TRANSFER_SRC_BIT,  "texture_from_data::staging_buffer");
     defer destroy(*staging_buffer);
     buffer_write_data(staging_buffer, ptr, image_size);

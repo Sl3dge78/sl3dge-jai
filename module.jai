@@ -12,7 +12,7 @@
 #import,dir "modules/jaison";
 
 File_Watcher :: #import "File_Watcher";
-#import,dir "modules/SDL3"(true);
+#load "modules/SDL3/module.jai";
 #import "stb_image";
 #import,dir "modules/stb_truetype";
 

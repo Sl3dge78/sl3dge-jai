@@ -107,7 +107,7 @@ generate_bindings :: () -> bool {
             "include/SDL3/SDL_touch.h",
             "include/SDL3/SDL_version.h",
             "include/SDL3/SDL_video.h",
-            "include/SDL3/SDL_vulkan.h"
+            // "include/SDL3/SDL_vulkan.h"
             );
         array_add(*system_include_paths, "include", GENERATOR_DEFAULT_SYSTEM_INCLUDE_PATH);
         array_add(*extra_clang_arguments, "-DNO_SDL_VULKAN_TYPEDEFS");
@@ -141,7 +141,6 @@ generate_bindings :: () -> bool {
 #import "Hash_Table";
 
 HEADER :: #string END
-#module_parameters(VULKAN_TYPE_DEFS := false); 
 // Set to true if you want SDL3 to define the vk types
 
 SDL_BUTTON :: (x:int) -> int { return (1 << ((x)-1)); }
@@ -171,22 +170,10 @@ SDL_WINDOW_METAL ::                 0x0000000020000000;
 SDL_WINDOW_TRANSPARENT ::           0x0000000040000000;
 SDL_WINDOW_NOT_FOCUSABLE ::         0x0000000080000000;
 
-SDL_WINDOWPOS_UNDEFINED_MASK :s32: 0x1FFF0000;
 SDL_WINDOWPOS_UNDEFINED_DISPLAY :: (x: s32) -> s32 { return (SDL_WINDOWPOS_UNDEFINED_MASK|x); }
 SDL_WINDOWPOS_UNDEFINED :s32: 0x1FFF0000; // SDL_WINDOWPOS_UNDEFINED_DISPLAY(0);
-SDL_WINDOWPOS_CENTERED_MASK :s32: 0x2FFF0000;
 SDL_WINDOWPOS_CENTERED_DISPLAY :: (x: s32) -> s32 { return (SDL_WINDOWPOS_CENTERED_MASK|x); }
 SDL_WINDOWPOS_CENTERED :s32: 0x2FFF0000; // SDL_WINDOWPOS_CENTERED_DISPLAY(0);
-
-#if VULKAN_TYPE_DEFS {
-    VkInstance_T :: struct {}
-    VkInstance :: *VkInstance_T;
-    VkPhysicalDevice_T :: struct {}
-    VkPhysicalDevice :: *VkPhysicalDevice_T;
-    VkSurfaceKHR_T :: struct {}
-    VkSurfaceKHR :: *VkSurfaceKHR_T;
-    VkAllocationCallbacks :: struct {}
-}
 
 END
 

@@ -4,8 +4,7 @@
 // jai generate.jai
 //
 
-#module_parameters(VULKAN := false); 
-// Set to true if you want SDL3 to define the vk types
+#scope_export
 
 SDL_BUTTON :: (x:int) -> int { return (1 << ((x)-1)); }
 SDL_WINDOW_FULLSCREEN ::            0x0000000000000001;
@@ -34,29 +33,10 @@ SDL_WINDOW_METAL ::                 0x0000000020000000;
 SDL_WINDOW_TRANSPARENT ::           0x0000000040000000;
 SDL_WINDOW_NOT_FOCUSABLE ::         0x0000000080000000;
 
-SDL_WINDOWPOS_UNDEFINED_MASK :s32: 0x1FFF0000;
 SDL_WINDOWPOS_UNDEFINED_DISPLAY :: (x: s32) -> s32 { return (SDL_WINDOWPOS_UNDEFINED_MASK|x); }
 SDL_WINDOWPOS_UNDEFINED :s32: 0x1FFF0000; // SDL_WINDOWPOS_UNDEFINED_DISPLAY(0);
-SDL_WINDOWPOS_CENTERED_MASK :s32: 0x2FFF0000;
 SDL_WINDOWPOS_CENTERED_DISPLAY :: (x: s32) -> s32 { return (SDL_WINDOWPOS_CENTERED_MASK|x); }
 SDL_WINDOWPOS_CENTERED :s32: 0x2FFF0000; // SDL_WINDOWPOS_CENTERED_DISPLAY(0);
-
-#if VULKAN {
-    VkInstance_T :: void;
-    VkInstance :: *VkInstance_T;
-    VkPhysicalDevice_T :: void;
-    VkPhysicalDevice :: *VkPhysicalDevice_T;
-    VkSurfaceKHR_T :: void;
-    VkSurfaceKHR :: *VkSurfaceKHR_T;
-    VkAllocationCallbacks :: void;
-    SDL_Vulkan_LoadLibrary :: (path: *u8) -> bool #foreign sdl3;
-    SDL_Vulkan_GetVkGetInstanceProcAddr :: () -> SDL_FunctionPointer #foreign sdl3;
-    SDL_Vulkan_UnloadLibrary :: () -> void #foreign sdl3;
-    SDL_Vulkan_GetInstanceExtensions :: (count: *Uint32) -> **u8 #foreign sdl3;
-    SDL_Vulkan_CreateSurface :: (window: *SDL_Window, instance: VkInstance, allocator: *VkAllocationCallbacks, surface: *VkSurfaceKHR) -> bool #foreign sdl3;
-    SDL_Vulkan_DestroySurface :: (instance: VkInstance, surface: VkSurfaceKHR, allocator: *VkAllocationCallbacks) -> void #foreign sdl3;
-    SDL_Vulkan_GetPresentationSupport :: (instance: VkInstance, physicalDevice: VkPhysicalDevice, queueFamilyIndex: Uint32) -> bool #foreign sdl3;
-}
 
 SDL_PLATFORM_LINUX :: 1;
 SDL_PLATFORM_UNIX :: 1;
@@ -5482,10 +5462,7 @@ SDL_RemoveTimer :: (id: SDL_TimerID) -> bool #foreign sdl3;
 SDL_GetVersion :: () -> s32 #foreign sdl3;
 SDL_GetRevision :: () -> *u8 #foreign sdl3;
 
-#scope_file
-
 #import "Basic"; // For push_context
-
 
 #if OS == .WINDOWS {
     sdl3 :: #library "lib/x64/sdl3";

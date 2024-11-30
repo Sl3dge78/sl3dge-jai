@@ -38,7 +38,11 @@ font_from_data :: (font_data: string, size: float, resource_name: string) -> Fon
 
     self.texture = texture_from_data(bitmap.data, 512, 512, 1, u8, resource_name);
 
-    self.bind_group = create_bind_group_from_texture(*self.texture);
+    #if BACKEND == "WGPU" {
+        self.bind_group = create_bind_group_from_texture(*self.texture);
+    } else #if BACKEND == "VULKAN" {
+        self.bind_group = create_texture_descriptor_set(*self.texture);
+    }
 
     // Get additional font info
     info : stbtt_fontinfo = ---;

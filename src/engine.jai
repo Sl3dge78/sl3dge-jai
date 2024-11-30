@@ -53,6 +53,16 @@ engine_update :: (delta_time: float) {
             draw_text(*imm, tprint("Frametime: %ms", global_engine.frame_time), 0, 8, *global_engine.default_font);
         }
     }
+} else #if BACKEND == "VULKAN" {
+    engine_draw :: (framebuffer: *Render_Texture, command_buffer: VkCommandBuffer) {
+        // @TODO
+        imm := immediate_begin_in_place(framebuffer, command_buffer);
+        defer immediate_end_in_place(*imm);
+        console_draw(*imm, *global_engine.default_font);
+        if global_engine.draw_perf_overlay {
+            draw_text(*imm, tprint("Frametime: %ms", global_engine.frame_time), 0, 8, *global_engine.default_font);
+        }
+    }
 }
 
 window_dims :: () -> Vector2i {

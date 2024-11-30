@@ -1,4 +1,13 @@
 
+SDL_Vulkan_LoadLibrary :: (path: *u8) -> bool #foreign sdl3;
+SDL_Vulkan_GetVkGetInstanceProcAddr :: () -> SDL_FunctionPointer #foreign sdl3;
+SDL_Vulkan_UnloadLibrary :: () -> void #foreign sdl3;
+SDL_Vulkan_GetInstanceExtensions :: (count: *Uint32) -> **u8 #foreign sdl3;
+SDL_Vulkan_CreateSurface :: (window: *SDL_Window, instance: VkInstance, allocator: *VkAllocationCallbacks, surface: *VkSurfaceKHR) -> bool #foreign sdl3;
+SDL_Vulkan_DestroySurface :: (instance: VkInstance, surface: VkSurfaceKHR, allocator: *VkAllocationCallbacks) -> void #foreign sdl3;
+SDL_Vulkan_GetPresentationSupport :: (instance: VkInstance, physicalDevice: VkPhysicalDevice, queueFamilyIndex: Uint32) -> bool #foreign sdl3;
+
+
 Renderer :: struct {
     window: *SDL_Window;
 
