@@ -61,8 +61,10 @@ font_from_data :: (font_data: string, size: float, resource_name: string) -> Fon
 }
 
 destroy :: (font: *Font) {
-    destroy(*(font.texture));
-    destroy(font.bind_group);
+    destroy(font.texture);
+    #if BACKEND == "WGPU" || BACKEND == "VULKAN" {
+        destroy(font.bind_group);
+    }
 }
 
 size_text :: (text: string, font: *Font) -> float {

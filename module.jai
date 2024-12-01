@@ -16,25 +16,12 @@ File_Watcher :: #import "File_Watcher";
 #import "stb_image";
 #import,dir "modules/stb_truetype";
 
-#if BACKEND == "WGPU" {
-    #load "src/rendering/backends/webgpu.jai";
-} else #if BACKEND == "VULKAN" {
-    #load "src/rendering/backends/vulkan.jai";
-}
-
 #load "src/engine.jai";
 #load "src/input.jai";
 
 #load "src/camera.jai";
 #load "src/console.jai";
 #load "src/resources.jai";
-
-#load "src/rendering/text.jai";
-#load "src/rendering/immediate.jai";
-#load "src/rendering/mesh.jai";
-#load "src/rendering/skinned_mesh.jai";
-// #load "src/scene.jai";
-#load "src/animation.jai";
 
 #import,dir "modules/gltf_parser";
 
@@ -45,3 +32,21 @@ File_Watcher :: #import "File_Watcher";
 #load "src/math/ray.jai";
 #load "src/tween.jai";
 #load "src/save.jai";
+
+#if BACKEND == "WGPU" {
+    #load "src/rendering/backends/webgpu.jai";
+} else #if BACKEND == "VULKAN" {
+    #load "src/rendering/backends/vulkan.jai";
+} else #if BACKEND == "SDL_GPU" {
+    #load "src/rendering/backends/sdl_gpu/renderer.jai";
+    #load "src/rendering/backends/sdl_gpu/immediate.jai";
+    #load "src/rendering/backends/sdl_gpu/shaders.jai";
+}
+
+#load "src/rendering/rendering.jai";
+#load "src/rendering/text.jai";
+// #load "src/rendering/immediate.jai";
+// #load "src/rendering/mesh.jai";
+// #load "src/rendering/skinned_mesh.jai";
+// #load "src/scene.jai";
+// #load "src/animation.jai";

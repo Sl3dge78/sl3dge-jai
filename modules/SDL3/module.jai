@@ -6,6 +6,22 @@
 
 #scope_export
 
+SDL_Check :: (result: bool) #expand {
+    if(!result) {
+        SDL_LogError(.SDL_LOG_CATEGORY_ERROR, to_string(SDL_GetError()));
+        assert(false);
+    }
+}
+
+SDL_NullCheck :: (value: *$T) -> *T #expand {
+    if(!value) {
+        SDL_LogError(.SDL_LOG_CATEGORY_ERROR, to_string(SDL_GetError()));
+        assert(false);
+    }
+    return value;
+}
+
+
 SDL_BUTTON :: (x:int) -> int { return (1 << ((x)-1)); }
 SDL_WINDOW_FULLSCREEN ::            0x0000000000000001;
 SDL_WINDOW_OPENGL ::                0x0000000000000002;
@@ -5068,8 +5084,8 @@ SDL_LogPriority :: enum u32 {
     SDL_LOG_PRIORITY_COUNT    :: COUNT;
 }
 SDL_SetLogPriorities :: (priority: SDL_LogPriority) -> void #foreign sdl3;
-SDL_SetLogPriority :: (category: s32, priority: SDL_LogPriority) -> void #foreign sdl3;
-SDL_GetLogPriority :: (category: s32) -> SDL_LogPriority #foreign sdl3;
+SDL_SetLogPriority :: (category: SDL_LogCategory, priority: SDL_LogPriority) -> void #foreign sdl3;
+SDL_GetLogPriority :: (category: SDL_LogCategory) -> SDL_LogPriority #foreign sdl3;
 SDL_ResetLogPriorities :: () -> void #foreign sdl3;
 SDL_SetLogPriorityPrefix :: (priority: SDL_LogPriority, prefix: *u8) -> bool #foreign sdl3;
 SDL_Log_CFormat :: (fmt: *u8, __args: ..Any) -> void #foreign sdl3 "SDL_Log";
@@ -5081,8 +5097,8 @@ SDL_Log :: (fmt: string, __args: ..Any) {
     formatted_text := builder_to_string(*formatted_text_builder);
     SDL_Log_CFormat("%s", formatted_text.data);
 } @PrintLike
-SDL_LogTrace_CFormat :: (category: s32, fmt: *u8, __args: ..Any) -> void #foreign sdl3 "SDL_LogTrace";
-SDL_LogTrace :: (category: s32, fmt: string, __args: ..Any) {
+SDL_LogTrace_CFormat :: (category: SDL_LogCategory, fmt: *u8, __args: ..Any) -> void #foreign sdl3 "SDL_LogTrace";
+SDL_LogTrace :: (category: SDL_LogCategory, fmt: string, __args: ..Any) {
     push_allocator(temp);
     formatted_text_builder: String_Builder;
     print_to_builder(*formatted_text_builder, fmt, ..__args);
@@ -5090,8 +5106,8 @@ SDL_LogTrace :: (category: s32, fmt: string, __args: ..Any) {
     formatted_text := builder_to_string(*formatted_text_builder);
     SDL_LogTrace_CFormat(category, "%s", formatted_text.data);
 } @PrintLike
-SDL_LogVerbose_CFormat :: (category: s32, fmt: *u8, __args: ..Any) -> void #foreign sdl3 "SDL_LogVerbose";
-SDL_LogVerbose :: (category: s32, fmt: string, __args: ..Any) {
+SDL_LogVerbose_CFormat :: (category: SDL_LogCategory, fmt: *u8, __args: ..Any) -> void #foreign sdl3 "SDL_LogVerbose";
+SDL_LogVerbose :: (category: SDL_LogCategory, fmt: string, __args: ..Any) {
     push_allocator(temp);
     formatted_text_builder: String_Builder;
     print_to_builder(*formatted_text_builder, fmt, ..__args);
@@ -5099,8 +5115,8 @@ SDL_LogVerbose :: (category: s32, fmt: string, __args: ..Any) {
     formatted_text := builder_to_string(*formatted_text_builder);
     SDL_LogVerbose_CFormat(category, "%s", formatted_text.data);
 } @PrintLike
-SDL_LogDebug_CFormat :: (category: s32, fmt: *u8, __args: ..Any) -> void #foreign sdl3 "SDL_LogDebug";
-SDL_LogDebug :: (category: s32, fmt: string, __args: ..Any) {
+SDL_LogDebug_CFormat :: (category: SDL_LogCategory, fmt: *u8, __args: ..Any) -> void #foreign sdl3 "SDL_LogDebug";
+SDL_LogDebug :: (category: SDL_LogCategory, fmt: string, __args: ..Any) {
     push_allocator(temp);
     formatted_text_builder: String_Builder;
     print_to_builder(*formatted_text_builder, fmt, ..__args);
@@ -5108,8 +5124,8 @@ SDL_LogDebug :: (category: s32, fmt: string, __args: ..Any) {
     formatted_text := builder_to_string(*formatted_text_builder);
     SDL_LogDebug_CFormat(category, "%s", formatted_text.data);
 } @PrintLike
-SDL_LogInfo_CFormat :: (category: s32, fmt: *u8, __args: ..Any) -> void #foreign sdl3 "SDL_LogInfo";
-SDL_LogInfo :: (category: s32, fmt: string, __args: ..Any) {
+SDL_LogInfo_CFormat :: (category: SDL_LogCategory, fmt: *u8, __args: ..Any) -> void #foreign sdl3 "SDL_LogInfo";
+SDL_LogInfo :: (category: SDL_LogCategory, fmt: string, __args: ..Any) {
     push_allocator(temp);
     formatted_text_builder: String_Builder;
     print_to_builder(*formatted_text_builder, fmt, ..__args);
@@ -5117,8 +5133,8 @@ SDL_LogInfo :: (category: s32, fmt: string, __args: ..Any) {
     formatted_text := builder_to_string(*formatted_text_builder);
     SDL_LogInfo_CFormat(category, "%s", formatted_text.data);
 } @PrintLike
-SDL_LogWarn_CFormat :: (category: s32, fmt: *u8, __args: ..Any) -> void #foreign sdl3 "SDL_LogWarn";
-SDL_LogWarn :: (category: s32, fmt: string, __args: ..Any) {
+SDL_LogWarn_CFormat :: (category: SDL_LogCategory, fmt: *u8, __args: ..Any) -> void #foreign sdl3 "SDL_LogWarn";
+SDL_LogWarn :: (category: SDL_LogCategory, fmt: string, __args: ..Any) {
     push_allocator(temp);
     formatted_text_builder: String_Builder;
     print_to_builder(*formatted_text_builder, fmt, ..__args);
@@ -5126,8 +5142,8 @@ SDL_LogWarn :: (category: s32, fmt: string, __args: ..Any) {
     formatted_text := builder_to_string(*formatted_text_builder);
     SDL_LogWarn_CFormat(category, "%s", formatted_text.data);
 } @PrintLike
-SDL_LogError_CFormat :: (category: s32, fmt: *u8, __args: ..Any) -> void #foreign sdl3 "SDL_LogError";
-SDL_LogError :: (category: s32, fmt: string, __args: ..Any) {
+SDL_LogError_CFormat :: (category: SDL_LogCategory, fmt: *u8, __args: ..Any) -> void #foreign sdl3 "SDL_LogError";
+SDL_LogError :: (category: SDL_LogCategory, fmt: string, __args: ..Any) {
     push_allocator(temp);
     formatted_text_builder: String_Builder;
     print_to_builder(*formatted_text_builder, fmt, ..__args);
@@ -5135,8 +5151,8 @@ SDL_LogError :: (category: s32, fmt: string, __args: ..Any) {
     formatted_text := builder_to_string(*formatted_text_builder);
     SDL_LogError_CFormat(category, "%s", formatted_text.data);
 } @PrintLike
-SDL_LogCritical_CFormat :: (category: s32, fmt: *u8, __args: ..Any) -> void #foreign sdl3 "SDL_LogCritical";
-SDL_LogCritical :: (category: s32, fmt: string, __args: ..Any) {
+SDL_LogCritical_CFormat :: (category: SDL_LogCategory, fmt: *u8, __args: ..Any) -> void #foreign sdl3 "SDL_LogCritical";
+SDL_LogCritical :: (category: SDL_LogCategory, fmt: string, __args: ..Any) {
     push_allocator(temp);
     formatted_text_builder: String_Builder;
     print_to_builder(*formatted_text_builder, fmt, ..__args);
@@ -5144,8 +5160,8 @@ SDL_LogCritical :: (category: s32, fmt: string, __args: ..Any) {
     formatted_text := builder_to_string(*formatted_text_builder);
     SDL_LogCritical_CFormat(category, "%s", formatted_text.data);
 } @PrintLike
-SDL_LogMessage_CFormat :: (category: s32, priority: SDL_LogPriority, fmt: *u8, __args: ..Any) -> void #foreign sdl3 "SDL_LogMessage";
-SDL_LogMessage :: (category: s32, priority: SDL_LogPriority, fmt: string, __args: ..Any) {
+SDL_LogMessage_CFormat :: (category: SDL_LogCategory, priority: SDL_LogPriority, fmt: *u8, __args: ..Any) -> void #foreign sdl3 "SDL_LogMessage";
+SDL_LogMessage :: (category: SDL_LogCategory, priority: SDL_LogPriority, fmt: string, __args: ..Any) {
     push_allocator(temp);
     formatted_text_builder: String_Builder;
     print_to_builder(*formatted_text_builder, fmt, ..__args);
@@ -5153,7 +5169,7 @@ SDL_LogMessage :: (category: s32, priority: SDL_LogPriority, fmt: string, __args
     formatted_text := builder_to_string(*formatted_text_builder);
     SDL_LogMessage_CFormat(category, priority, "%s", formatted_text.data);
 } @PrintLike
-SDL_LogOutputFunction :: #type (userdata: *void, category: s32, priority: SDL_LogPriority, message: *u8) -> void #c_call;
+SDL_LogOutputFunction :: #type (userdata: *void, category: SDL_LogCategory, priority: SDL_LogPriority, message: *u8) -> void #c_call;
 SDL_GetDefaultLogOutputFunction :: () -> SDL_LogOutputFunction #foreign sdl3;
 SDL_GetLogOutputFunction :: (callback: *SDL_LogOutputFunction, userdata: **void) -> void #foreign sdl3;
 SDL_SetLogOutputFunction :: (callback: SDL_LogOutputFunction, userdata: *void) -> void #foreign sdl3;

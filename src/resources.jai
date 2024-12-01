@@ -43,7 +43,7 @@ Resources :: struct {
 
         builders : [3]String_Builder;
 
-        set_working_directory("../bin");
+        set_working_directory("bin");
         defer set_working_directory("../");
 
         // Prepare the get_res_ptr function
@@ -233,12 +233,12 @@ get_shader_type :: (path: string) -> string {
 
 // .png files
 load_image :: (info: *Resource_Info) -> bool {
-    (cast(*Texture)info.pointer).* = texture_from_file(info.path);
+    info.pointer = texture_from_file(info.path);
     return true;
 }
 
 unload_image :: (info: *Resource_Info) {
-    destroy(cast(*Texture) info.pointer);
+    destroy(cast(Texture) info.pointer);
 }
 
 get_image_type :: (path: string) -> string {

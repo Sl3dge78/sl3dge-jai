@@ -141,7 +141,21 @@ generate_bindings :: () -> bool {
 #import "Hash_Table";
 
 HEADER :: #string END
-// Set to true if you want SDL3 to define the vk types
+
+SDL_Check :: (result: bool) #expand {
+    if(!result) {
+        SDL_LogError(.SDL_LOG_CATEGORY_ERROR, to_string(SDL_GetError()));
+        assert(false);
+    }
+}
+
+SDL_NullCheck :: (value: *$T) -> *T #expand {
+    if(!value) {
+        SDL_LogError(.SDL_LOG_CATEGORY_ERROR, to_string(SDL_GetError()));
+        assert(false);
+    }
+    return value;
+}
 
 SDL_BUTTON :: (x:int) -> int { return (1 << ((x)-1)); }
 SDL_WINDOW_FULLSCREEN ::            0x0000000000000001;
