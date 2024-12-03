@@ -2,6 +2,13 @@
 Renderer :: struct {
     device: *SDL_GPUDevice;
     ui_pipeline: *SDL_GPUGraphicsPipeline;
+
+    sampler : *SDL_GPUSampler;
+    empty_texture: *SDL_GPUTexture;
+
+    immediate_buffer_pool: Buffer_Pool = .{
+        kind = .VERTEX,
+    };
 }
 
 global_renderer : Renderer;
@@ -14,8 +21,28 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
     device = SDL_NullCheck(SDL_CreateGPUDevice(xx shader_formats, true, null));
     SDL_Check(SDL_ClaimWindowForGPUDevice(device, window));
 
+    present_mode : SDL_GPUPresentMode = .VSYNC;
+    if SDL_WindowSupportsGPUPresentMode(device, window, .MAILBOX) {
+        present_mode = .MAILBOX;
+    }
+    SDL_Log("Present mode: %", present_mode);
+    SDL_Check(SDL_SetGPUSwapchainParameters(device, window, .SDR, present_mode));
+
     {   // UI Pipeline
-        targets : []SDL_GPUColorTargetDescription;
+        targets := SDL_GPUColorTargetDescription.[.{
+            format = SDL_GetGPUSwapchainTextureFormat(device, window),
+            blend_state = .{
+                src_color_blendfactor = .SRC_ALPHA,
+                dst_color_blendfactor = .ONE_MINUS_SRC_ALPHA,
+                color_blend_op = .ADD,
+                src_alpha_blendfactor = .SRC_ALPHA,
+                dst_alpha_blendfactor = .ONE_MINUS_SRC_ALPHA,
+                alpha_blend_op = .ADD,
+                // color_write_mask = .R | .G | .B | .A,
+                enable_blend = true,
+                enable_color_write_mask = false,
+            },
+        }];
         desc : []SDL_GPUVertexBufferDescription = .[.{
             slot = 0,
             pitch = size_of(UI_Vertex),
@@ -58,15 +85,15 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
                 front_stencil_state = .{},
                 compare_mask = 0,
                 write_mask = 0,
-                enable_depth_test = true,
-                enable_depth_write = true,
+                enable_depth_test = false,
+                enable_depth_write = false,
                 enable_stencil_test = false,
             },
             target_info = .{
                 color_target_descriptions = targets.data,
                 num_color_targets = xx targets.count,
                 depth_stencil_format = .D24_UNORM,
-                has_depth_stencil_target = true,
+                has_depth_stencil_target = false,
             },
 
             props = 0,
@@ -74,14 +101,36 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
         ui_pipeline = SDL_NullCheck(SDL_CreateGPUGraphicsPipeline(device, *ci));
     }
 
+    sampler_ci := SDL_GPUSamplerCreateInfo.{
+        min_filter = .LINEAR,
+        mag_filter = .LINEAR,
+        mipmap_mode = .LINEAR,
+        address_mode_u = .REPEAT,
+        address_mode_v = .REPEAT,
+        address_mode_w = .REPEAT,
+        mip_lod_bias = 0,
+        // max_anisotropy = 16,
+        compare_op = .ALWAYS,
+        min_lod = 0,
+        max_lod = 0,
+        enable_anisotropy = false,
+        enable_compare = false,
+    };
+    sampler = SDL_NullCheck(SDL_CreateGPUSampler(device, *sampler_ci));
+
+    data := u8.[255, 255, 255, 255];
+    empty_texture = texture_from_data(data.data, 1, 1, 4, u8, "empty_texture");
+
     return renderer;
 }
 
 destroy :: (using self: *Renderer) {
+    destroy(empty_texture);
+    buffer_pool_reset(*immediate_buffer_pool);
+    SDL_ReleaseGPUSampler(device, sampler);
     SDL_ReleaseGPUGraphicsPipeline(device, ui_pipeline);
     SDL_DestroyGPUDevice(device);
 }
-
 
 Texture :: *SDL_GPUTexture;  
 
@@ -202,4 +251,47 @@ create_shader :: (device: *SDL_GPUDevice, path: string, stage: SDL_GPUShaderStag
         num_uniform_buffers = num_uniform_buffers,
     };
     return SDL_NullCheck(SDL_CreateGPUShader(device, *create_info));
+}
+
+Frame_Data :: struct {
+    cmd: *SDL_GPUCommandBuffer;
+    target: *SDL_GPUTexture;
+    width: u32;
+    height: u32;
+}
+
+begin_frame :: () -> bool, Frame_Data {
+    fd : Frame_Data;
+    fd.cmd = SDL_NullCheck(SDL_AcquireGPUCommandBuffer(global_renderer.device));
+    SDL_Check(SDL_AcquireGPUSwapchainTexture(fd.cmd, global_engine.window, *fd.target, *fd.width, *fd.height));
+    if fd.target == null {
+        SDL_Check(SDL_CancelGPUCommandBuffer(fd.cmd));
+        return false, .{};
+    }
+    return true, fd;
+}
+
+end_frame :: (frame_data: Frame_Data) {
+    SDL_Check(SDL_SubmitGPUCommandBuffer(frame_data.cmd));
+}
+
+Buffer :: struct {
+    #as handle: *SDL_GPUBuffer;
+    size: u32;
+}
+
+buffer_create :: (size: u32, flags: SDL_GPUBufferUsageFlags) -> Buffer {
+    ci := SDL_GPUBufferCreateInfo.{
+        usage = flags,
+        size = xx size,
+        props = 0,
+    };
+    return .{
+        SDL_NullCheck(SDL_CreateGPUBuffer(global_renderer.device, *ci)),
+        size,
+    };
+}
+
+destroy :: (buf: Buffer) {
+    SDL_ReleaseGPUBuffer(global_renderer.device, buf.handle);
 }

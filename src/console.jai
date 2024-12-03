@@ -58,7 +58,7 @@ console_draw :: (immediate: *Immediate, font: *Font) {
         immediate_default_texture(immediate);
         draw_2d_rect(immediate, .{0, 0}, .{ xx win.x, xx console_y_position }, .{0, 0, 0, 0.75});
 
-        immediate_bind_texture(immediate, font.bind_group);
+        immediate_bind_font(immediate, font);
         // y : float = xx (console_y_position - last_line * font.line_height + 8);
         y : float = xx console_y_position;
         i := last_line - 1;

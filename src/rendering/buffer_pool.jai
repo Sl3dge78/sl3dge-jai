@@ -1,19 +1,24 @@
-Buffer_Location :: struct {
-    buffer: *Buffer;
-    offset: u64;
-    size: u64;
+
+#if BACKEND == "SDL_GPU" {
+#scope_export
+    Buffer_Location :: struct {
+        using #as binding: SDL_GPUBufferBinding; 
+        // buffer: *SDL_GPUBuffer;
+        // offset: u32;
+        size: u64;
+    }
 }
 
 Buffer_Pool :: struct {
     MIN_BUFFER_SIZE :: 32 * 1024 * 1024;
 
-    buffers: [..] Buffer;
-    current_buffer: u64;
-    current_position_in_buffer: u64;
-    kind: wgpu.BufferUsageFlags; 
+    buffers: [..]Buffer;
+    current_buffer: u32;
+    current_position_in_buffer: u32;
+    kind: SDL_GPUBufferUsageFlags;
 }
 
-buffer_pool_maybe_grow :: (using buffer_pool: *Buffer_Pool, size: u64) {
+buffer_pool_maybe_grow :: (using buffer_pool: *Buffer_Pool, size: u32) {
     if buffers.count == 0 {
         array_add(*buffers, buffer_create(max(size, MIN_BUFFER_SIZE), kind));
         return;
@@ -30,12 +35,12 @@ buffer_pool_maybe_grow :: (using buffer_pool: *Buffer_Pool, size: u64) {
 
 buffer_pool_get :: (using buffer_pool: *Buffer_Pool, size: u64) -> Buffer_Location {
     loc : Buffer_Location;
-    aligned := get_aligned_size(size, global_renderer.uniform_buffer_alignement);
+    aligned := xx get_aligned_size(size, 1);
     buffer_pool_maybe_grow(buffer_pool, xx aligned);
     loc.buffer = *buffers[current_buffer];
     loc.offset = current_position_in_buffer;
     loc.size = size;
-    current_position_in_buffer += aligned;
+    current_position_in_buffer += xx aligned;
     return loc;
 }
 

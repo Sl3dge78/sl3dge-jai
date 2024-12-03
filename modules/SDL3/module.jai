@@ -14,7 +14,7 @@ SDL_Check :: (result: bool) #expand {
 }
 
 SDL_NullCheck :: (value: *$T) -> *T #expand {
-    if(!value) {
+    if(value == null) {
         SDL_LogError(.SDL_LOG_CATEGORY_ERROR, to_string(SDL_GetError()));
         assert(false);
     }
@@ -522,12 +522,6 @@ SDL_GPU_TEXTUREUSAGE_GRAPHICS_STORAGE_READ :: 1 << 3;
 SDL_GPU_TEXTUREUSAGE_COMPUTE_STORAGE_READ :: 1 << 4;
 SDL_GPU_TEXTUREUSAGE_COMPUTE_STORAGE_WRITE :: 1 << 5;
 SDL_GPU_TEXTUREUSAGE_COMPUTE_STORAGE_SIMULTANEOUS_READ_WRITE :: 1 << 6;
-SDL_GPU_BUFFERUSAGE_VERTEX :: 1 << 0;
-SDL_GPU_BUFFERUSAGE_INDEX :: 1 << 1;
-SDL_GPU_BUFFERUSAGE_INDIRECT :: 1 << 2;
-SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ :: 1 << 3;
-SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ :: 1 << 4;
-SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE :: 1 << 5;
 SDL_GPU_SHADERFORMAT_INVALID :: 0;
 SDL_GPU_SHADERFORMAT_PRIVATE :: 1 << 0;
 SDL_GPU_SHADERFORMAT_SPIRV :: 1 << 1;
@@ -535,10 +529,6 @@ SDL_GPU_SHADERFORMAT_DXBC :: 1 << 2;
 SDL_GPU_SHADERFORMAT_DXIL :: 1 << 3;
 SDL_GPU_SHADERFORMAT_MSL :: 1 << 4;
 SDL_GPU_SHADERFORMAT_METALLIB :: 1 << 5;
-SDL_GPU_COLORCOMPONENT_R :: 1 << 0;
-SDL_GPU_COLORCOMPONENT_G :: 1 << 1;
-SDL_GPU_COLORCOMPONENT_B :: 1 << 2;
-SDL_GPU_COLORCOMPONENT_A :: 1 << 3;
 SDL_PROP_GPU_CREATETEXTURE_D3D12_CLEAR_R_FLOAT :: "SDL.gpu.createtexture.d3d12.clear.r";
 SDL_PROP_GPU_CREATETEXTURE_D3D12_CLEAR_G_FLOAT :: "SDL.gpu.createtexture.d3d12.clear.g";
 SDL_PROP_GPU_CREATETEXTURE_D3D12_CLEAR_B_FLOAT :: "SDL.gpu.createtexture.d3d12.clear.b";
@@ -4306,7 +4296,21 @@ SDL_GPUCubeMapFace :: enum u32 {
     SDL_GPU_CUBEMAPFACE_POSITIVEZ :: POSITIVEZ;
     SDL_GPU_CUBEMAPFACE_NEGATIVEZ :: NEGATIVEZ;
 }
-SDL_GPUBufferUsageFlags :: Uint32;
+SDL_GPUBufferUsageFlags :: enum_flags Uint32 {
+    SDL_GPU_BUFFERUSAGE_VERTEX :: 1 << 0;
+    SDL_GPU_BUFFERUSAGE_INDEX :: 1 << 1;
+    SDL_GPU_BUFFERUSAGE_INDIRECT :: 1 << 2;
+    SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ :: 1 << 3;
+    SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ :: 1 << 4;
+    SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE :: 1 << 5;
+
+    VERTEX :: SDL_GPU_BUFFERUSAGE_VERTEX;
+    INDEX :: SDL_GPU_BUFFERUSAGE_INDEX;
+    INDIRECT :: SDL_GPU_BUFFERUSAGE_INDIRECT;
+    GRAPHICS_STORAGE_READ :: SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ;
+    COMPUTE_STORAGE_READ :: SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ;
+    COMPUTE_STORAGE_WRITE :: SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE;
+}
 SDL_GPUTransferBufferUsage :: enum u32 {
     UPLOAD   :: 0;
     DOWNLOAD :: 1;
@@ -4505,7 +4509,17 @@ SDL_GPUBlendFactor :: enum u32 {
     SDL_GPU_BLENDFACTOR_ONE_MINUS_CONSTANT_COLOR :: ONE_MINUS_CONSTANT_COLOR;
     SDL_GPU_BLENDFACTOR_SRC_ALPHA_SATURATE       :: SRC_ALPHA_SATURATE;
 }
-SDL_GPUColorComponentFlags :: Uint8;
+SDL_GPUColorComponentFlags :: enum_flags Uint8 {
+    SDL_GPU_COLORCOMPONENT_R :: 1 << 0;
+    SDL_GPU_COLORCOMPONENT_G :: 1 << 1;
+    SDL_GPU_COLORCOMPONENT_B :: 1 << 2;
+    SDL_GPU_COLORCOMPONENT_A :: 1 << 3;
+
+    R :: SDL_GPU_COLORCOMPONENT_R;
+    G :: SDL_GPU_COLORCOMPONENT_G;
+    B :: SDL_GPU_COLORCOMPONENT_B;
+    A :: SDL_GPU_COLORCOMPONENT_A;
+}
 SDL_GPUFilter :: enum u32 {
     NEAREST :: 0;
     LINEAR  :: 1;
@@ -5398,12 +5412,6 @@ SDL_CopyStorageFile :: (storage: *SDL_Storage, oldpath: *u8, newpath: *u8) -> bo
 SDL_GetStoragePathInfo :: (storage: *SDL_Storage, path: *u8, info: *SDL_PathInfo) -> bool #foreign sdl3;
 SDL_GetStorageSpaceRemaining :: (storage: *SDL_Storage) -> Uint64 #foreign sdl3;
 SDL_GlobStorageDirectory :: (storage: *SDL_Storage, path: *u8, pattern: *u8, flags: SDL_GlobFlags, count: *s32) -> **u8 #foreign sdl3;
-_XEvent :: union {}
-XEvent :: _XEvent;
-SDL_X11EventHook :: #type (userdata: *void, xevent: *XEvent) -> bool #c_call;
-SDL_SetX11EventHook :: (callback: SDL_X11EventHook, userdata: *void) -> void #foreign sdl3;
-SDL_SetLinuxThreadPriority :: (threadID: Sint64, priority: s32) -> bool #foreign sdl3;
-SDL_SetLinuxThreadPriorityAndPolicy :: (threadID: Sint64, sdlPriority: s32, schedPolicy: s32) -> bool #foreign sdl3;
 SDL_IsTablet :: () -> bool #foreign sdl3;
 SDL_IsTV :: () -> bool #foreign sdl3;
 SDL_Sandbox :: enum u32 {
@@ -5481,9 +5489,15 @@ SDL_GetRevision :: () -> *u8 #foreign sdl3;
 #import "Basic"; // For push_context
 
 #if OS == .WINDOWS {
-    sdl3 :: #library "lib/x64/sdl3";
+    sdl3 :: #library "lib/windows/sdl3";
 } else #if OS == .LINUX {
     sdl3 :: #library "lib/linux/libSDL3";
+    _XEvent :: union {}
+    XEvent :: _XEvent;
+    SDL_X11EventHook :: #type (userdata: *void, xevent: *XEvent) -> bool #c_call;
+    SDL_SetX11EventHook :: (callback: SDL_X11EventHook, userdata: *void) -> void #foreign sdl3;
+    SDL_SetLinuxThreadPriority :: (threadID: Sint64, priority: s32) -> bool #foreign sdl3;
+    SDL_SetLinuxThreadPriorityAndPolicy :: (threadID: Sint64, sdlPriority: s32, schedPolicy: s32) -> bool #foreign sdl3;
 } else {
     #assert(false);
 }

@@ -41,12 +41,14 @@ File_Watcher :: #import "File_Watcher";
     #load "src/rendering/backends/sdl_gpu/renderer.jai";
     #load "src/rendering/backends/sdl_gpu/immediate.jai";
     #load "src/rendering/backends/sdl_gpu/shaders.jai";
+    #load "src/rendering/backends/sdl_gpu/buffer.jai";
 }
 
 #load "src/rendering/rendering.jai";
 #load "src/rendering/text.jai";
-// #load "src/rendering/immediate.jai";
-// #load "src/rendering/mesh.jai";
+#load "src/rendering/buffer_pool.jai";
+#load "src/rendering/immediate.jai";
+#load "src/rendering/mesh.jai";
 // #load "src/rendering/skinned_mesh.jai";
 // #load "src/scene.jai";
 // #load "src/animation.jai";

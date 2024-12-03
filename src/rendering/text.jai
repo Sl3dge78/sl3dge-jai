@@ -72,8 +72,8 @@ size_text :: (text: string, font: *Font) -> float {
     return text.count * font.width;
 }
 
-bind_font :: (immediate: *Immediate, font: *Font) {
-    immediate_bind_texture(immediate, font.bind_group);
+immediate_bind_font :: (immediate: *Immediate, font: *Font) {
+    immediate_bind_texture(immediate, font.texture);
 }
 
 draw_char :: inline (immediate: *Immediate, it: u8, font: *Font, line_start: float, x: *float, y: *float, color: Vector4) {
@@ -105,7 +105,7 @@ draw_char_raw :: inline (immediate: *Immediate, it: u8, font: *Font, x: *float, 
 
 draw_text :: (immediate: *Immediate, text: string, x: float, y: float, font: *Font, color: Vector4 = .{1, 1, 1, 1}, $bind:= true) -> x: float, y: float{
     #if bind {
-        bind_font(immediate, font);
+        immediate_bind_font(immediate, font);
     }
     i := 0;
     start_x := x;
@@ -127,7 +127,7 @@ draw_text_right_aligned :: (immediate: *Immediate, text: string, x: float, y: fl
 
 draw_wrapped_text :: (immediate: *Immediate, text: string, x: float, w: float, y: float, font: *Font, color: Vector4 = .{1, 1, 1, 1}, $bind := true) -> x: float, y: float{
     #if bind {
-        bind_font(immediate, font);
+        immediate_bind_font(immediate, font);
     }
     i := 0;
     start_x := x;
