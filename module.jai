@@ -42,6 +42,7 @@ File_Watcher :: #import "File_Watcher";
     #load "src/rendering/backends/sdl_gpu/immediate.jai";
     #load "src/rendering/backends/sdl_gpu/shaders.jai";
     #load "src/rendering/backends/sdl_gpu/buffer.jai";
+    #load "src/rendering/backends/sdl_gpu/pipeline_builder.jai";
 }
 
 #load "src/rendering/rendering.jai";

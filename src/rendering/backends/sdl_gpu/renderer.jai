@@ -1,14 +1,21 @@
 
 Renderer :: struct {
     device: *SDL_GPUDevice;
+
+    depth_stencil_format: SDL_GPUTextureFormat;
+    depth_stencil_texture: *SDL_GPUTexture;
+    depth_stencil_target: SDL_GPUDepthStencilTargetInfo;
+    projection: Matrix4;
+
     ui_pipeline: *SDL_GPUGraphicsPipeline;
+    static_mesh_pipeline: *SDL_GPUGraphicsPipeline;
 
     sampler : *SDL_GPUSampler;
     empty_texture: *SDL_GPUTexture;
 
-    immediate_buffer_pool: Buffer_Pool = .{
-        kind = .VERTEX,
-    };
+    immediate_buffer_pool: Buffer_Pool = .{ kind = .VERTEX };
+    vertex_buffer_pool:    Buffer_Pool = .{ kind = .VERTEX | .INDEX };
+
 }
 
 global_renderer : Renderer;
@@ -25,80 +32,68 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
     if SDL_WindowSupportsGPUPresentMode(device, window, .MAILBOX) {
         present_mode = .MAILBOX;
     }
-    SDL_Log("Present mode: %", present_mode);
-    SDL_Check(SDL_SetGPUSwapchainParameters(device, window, .SDR, present_mode));
+    SDL_Log("Swapchain Present mode: %", present_mode);
+    composition : SDL_GPUSwapchainComposition = .SDR;
+    if SDL_WindowSupportsGPUSwapchainComposition(device, window, .HDR10_ST2048) {
+        composition = .HDR10_ST2048;
+    } else if SDL_WindowSupportsGPUSwapchainComposition(device, window, .HDR_EXTENDED_LINEAR) {
+        composition = .HDR_EXTENDED_LINEAR;
+    } else if SDL_WindowSupportsGPUSwapchainComposition(device, window, .SDR_LINEAR) {
+        composition = .SDR_LINEAR;
+    }
+    SDL_Log("Swapchain Composition: %", composition);
+    SDL_Check(SDL_SetGPUSwapchainParameters(device, window, composition, present_mode));
 
-    {   // UI Pipeline
-        targets := SDL_GPUColorTargetDescription.[.{
-            format = SDL_GetGPUSwapchainTextureFormat(device, window),
-            blend_state = .{
-                src_color_blendfactor = .SRC_ALPHA,
-                dst_color_blendfactor = .ONE_MINUS_SRC_ALPHA,
-                color_blend_op = .ADD,
-                src_alpha_blendfactor = .SRC_ALPHA,
-                dst_alpha_blendfactor = .ONE_MINUS_SRC_ALPHA,
-                alpha_blend_op = .ADD,
-                // color_write_mask = .R | .G | .B | .A,
-                enable_blend = true,
-                enable_color_write_mask = false,
-            },
-        }];
-        desc : []SDL_GPUVertexBufferDescription = .[.{
-            slot = 0,
-            pitch = size_of(UI_Vertex),
-            input_rate = .VERTEX
-        }];
-        attr := get_vertex_type_attr(UI_Vertex, 0); 
-        vtx := create_shader(device, "shaders/ui.vert.spv", .VERTEX, num_uniform_buffers = 1);
-        defer SDL_ReleaseGPUShader(device, vtx);
-        frag := create_shader(device, "shaders/ui.frag.spv", .FRAGMENT, num_samplers = 1);
-        defer SDL_ReleaseGPUShader(device, frag);
+    depth_stencil_format = get_depth_stencil_format(device);
 
-        ci := SDL_GPUGraphicsPipelineCreateInfo.{
-            vertex_shader = vtx,
-            fragment_shader = frag,
-            vertex_input_state = .{
-                vertex_buffer_descriptions = desc.data,
-                num_vertex_buffers = xx desc.count,
-                vertex_attributes = attr.data,
-                num_vertex_attributes = xx attr.count,
-            },
-            primitive_type = .TRIANGLELIST,
-            rasterizer_state = .{
-                fill_mode = .FILL,
-                cull_mode = .NONE,
-                front_face = .COUNTER_CLOCKWISE,
-                depth_bias_constant_factor = 0,
-                depth_bias_clamp = 0,
-                depth_bias_slope_factor = 0,
-                enable_depth_bias = false,
-                enable_depth_clip = false,
-            },
-            multisample_state = .{
-                sample_count = ._1,
-                sample_mask = 0xFFFFFFFF,
-                enable_mask = false,
-            },
-            depth_stencil_state = .{
-                compare_op = .LESS,
-                back_stencil_state = .{},
-                front_stencil_state = .{},
-                compare_mask = 0,
-                write_mask = 0,
-                enable_depth_test = false,
-                enable_depth_write = false,
-                enable_stencil_test = false,
-            },
-            target_info = .{
-                color_target_descriptions = targets.data,
-                num_color_targets = xx targets.count,
-                depth_stencil_format = .D24_UNORM,
-                has_depth_stencil_target = false,
-            },
+    w: s32 = ---;
+    h: s32 = ---;
+    SDL_GetWindowSizeInPixels(window, *w, *h);
 
-            props = 0,
+    {   // Depth stencil target
+        // @TODO recreate on window resize
+        ci := SDL_GPUTextureCreateInfo.{
+            type = ._2D,
+            format = depth_stencil_format,
+            usage = .DEPTH_STENCIL_TARGET,
+            width = xx w,
+            height = xx h,
+            layer_count_or_depth = 1,
+            num_levels = 1,
+            sample_count = ._1,
         };
-        ui_pipeline = SDL_NullCheck(SDL_CreateGPUGraphicsPipeline(device, *ci));
+        depth_stencil_texture = SDL_CreateGPUTexture(device, *ci);
+        depth_stencil_target = .{
+            texture = depth_stencil_texture,
+            clear_depth = 0,
+            load_op = .CLEAR,
+            store_op = .DONT_CARE,
+            stencil_load_op = .DONT_CARE,
+            stencil_store_op = .DONT_CARE,
+            cycle = true,
+            clear_stencil = 0,
+        };
+
+    }
+
+    swapchain_format := SDL_GetGPUSwapchainTextureFormat(device, window);
+    {   // UI Pipeline
+        builder: Pipeline_Builder;
+        add_shader(*builder, device, "shaders/ui.vert.spv", .VERTEX, num_uniform_buffers = 1);
+        add_shader(*builder, device, "shaders/ui.frag.spv", .FRAGMENT, num_samplers = 1);
+        add_vertex_type(*builder, UI_Vertex);
+        add_color_target(*builder, swapchain_format);
+        ui_pipeline = build_pipeline(*builder, device);
+    }
+
+    {   // Color Pipeline
+        builder: Pipeline_Builder;
+        add_shader(*builder, device, "shaders/static.vert.spv", .VERTEX, num_uniform_buffers = 2);
+        add_shader(*builder, device,"shaders/color.frag.spv", .FRAGMENT, num_uniform_buffers = 2, num_samplers = 2);
+        add_vertex_type(*builder, Standard_Vertex);
+        add_color_target(*builder, swapchain_format, blend = false);
+        add_depth_stencil_target(*builder, depth_stencil_format);
+        static_mesh_pipeline = build_pipeline(*builder, device);
     }
 
     sampler_ci := SDL_GPUSamplerCreateInfo.{
@@ -121,14 +116,19 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
     data := u8.[255, 255, 255, 255];
     empty_texture = texture_from_data(data.data, 1, 1, 4, u8, "empty_texture");
 
+    projection = make_projection_matrix(radians(45), cast(float)w/cast(float)h, 0.1, 1000);
+
     return renderer;
 }
 
 destroy :: (using self: *Renderer) {
     destroy(empty_texture);
     buffer_pool_reset(*immediate_buffer_pool);
+    buffer_pool_reset(*vertex_buffer_pool);
     SDL_ReleaseGPUSampler(device, sampler);
+    SDL_ReleaseGPUGraphicsPipeline(device, static_mesh_pipeline);
     SDL_ReleaseGPUGraphicsPipeline(device, ui_pipeline);
+    destroy(depth_stencil_texture);
     SDL_DestroyGPUDevice(device);
 }
 
@@ -154,7 +154,7 @@ texture_from_data :: (buffer: *u8, w: u32, h: u32, channels: u32, $type: Type, n
     texture_ci := SDL_GPUTextureCreateInfo.{
         type = ._2D,
         format = format,
-        usage = SDL_GPU_TEXTUREUSAGE_SAMPLER,
+        usage = .SAMPLER,
         width = w,
         height = h,
         layer_count_or_depth = 1,
@@ -190,67 +190,6 @@ texture_from_data :: (buffer: *u8, w: u32, h: u32, channels: u32, $type: Type, n
 destroy :: (self: Texture) {
     assert(self != null);
     SDL_ReleaseGPUTexture(global_renderer.device, self);
-}
-
-get_vertex_type_attr :: ($type: Type, slot: u32) -> []SDL_GPUVertexAttribute {
-    result : [..]SDL_GPUVertexAttribute;
-    result.allocator = temp;
-    info := type_info(type);
-    
-    for info.members {
-        format: SDL_GPUVertexElementFormat;
-
-        if it.type.type == {
-            case .FLOAT; {
-                assert(it.type.runtime_size <= 4, "Only float32 is supported in Vertex Attribute Data.");
-                format = .FLOAT;
-            }
-            case .STRUCT; {
-                struct_type_info := cast(*Type_Info_Struct) it.type;
-
-                if struct_type_info.name == {
-                    case "Vector4"; format = .FLOAT4;
-                    case "Vector3"; format = .FLOAT3;
-                    case "Vector2"; format = .FLOAT2;
-                    case; assert(false, "Unsupported struct type. Only Vector2, Vector3, Vector4 are supported");
-                }
-            }
-            case .ARRAY; {
-                array_type_info := cast(*Type_Info_Array) it.type;
-                if array_type_info.element_type.type == .INTEGER && array_type_info.element_type.runtime_size == 1 && array_type_info.array_count == 4 {
-                    format = .BYTE4;
-                } else {
-                    assert(false, "Unhandled array type: % in vertex input.", array_type_info.element_type);
-                }
-            }
-            case; {
-                assert(false, "Unhandled type % in vertex input", it.type.type);
-            }
-        }
-        array_add(*result, .{
-            location = xx result.count,
-            buffer_slot = slot,
-            format = format,
-            offset = xx it.offset_in_bytes
-        });
-    }
-    return result;
-}
-
-create_shader :: (device: *SDL_GPUDevice, path: string, stage: SDL_GPUShaderStage, num_samplers : u32 = 0, num_storage_textures : u32 = 0, num_storage_buffers : u32 = 0, num_uniform_buffers : u32 = 0) -> *SDL_GPUShader {
-    file := read_entire_file(path,, temp);
-    create_info := SDL_GPUShaderCreateInfo.{
-        code_size = xx file.count,
-        code = file.data,
-        entrypoint = "main",
-        format = SDL_GPU_SHADERFORMAT_SPIRV,
-        stage = stage,
-        num_samplers = num_samplers,
-        num_storage_textures = num_storage_textures,
-        num_storage_buffers = num_storage_buffers,
-        num_uniform_buffers = num_uniform_buffers,
-    };
-    return SDL_NullCheck(SDL_CreateGPUShader(device, *create_info));
 }
 
 Frame_Data :: struct {
@@ -294,4 +233,32 @@ buffer_create :: (size: u32, flags: SDL_GPUBufferUsageFlags) -> Buffer {
 
 destroy :: (buf: Buffer) {
     SDL_ReleaseGPUBuffer(global_renderer.device, buf.handle);
+}
+
+create_color_target :: (texture: *SDL_GPUTexture, load_op : SDL_GPULoadOp = .LOAD, clear_color : SDL_FColor = .{0,0,0,1}, store_op : SDL_GPUStoreOp = .STORE) -> SDL_GPUColorTargetInfo {
+    return SDL_GPUColorTargetInfo.{
+        texture = texture,
+        mip_level = 0,
+        layer_or_depth_plane = 0,
+        clear_color = clear_color,
+        load_op = load_op,
+        store_op = store_op,
+        // resolve_texture = null,
+        // resolve_mip_level = 1,
+        // resolve_layer = 1,
+        cycle = false,
+        // cycle_resolve_texture = false,
+    };
+
+}
+
+get_depth_stencil_format :: (device: *SDL_GPUDevice) -> SDL_GPUTextureFormat {
+    if(SDL_GPUTextureSupportsFormat(device, .D24_UNORM_S8_UINT, ._2D, .DEPTH_STENCIL_TARGET)) {
+        return .D24_UNORM_S8_UINT;
+    } else if(SDL_GPUTextureSupportsFormat(device, .D32_FLOAT_S8_UINT, ._2D, .DEPTH_STENCIL_TARGET)) {
+        return .D32_FLOAT_S8_UINT;
+    } else {
+        SDL_LogError(0, "Unsupported depth formats!");
+        return .INVALID;
+    }
 }

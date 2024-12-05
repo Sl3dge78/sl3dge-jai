@@ -47,7 +47,7 @@ buffer_pool_get :: (using buffer_pool: *Buffer_Pool, size: u64) -> Buffer_Locati
 buffer_pool_load_data :: (using buffer_pool: *Buffer_Pool, data: []$T) -> Buffer_Location {
     size : u64 = xx (data.count * size_of(T));
     loc := buffer_pool_get(buffer_pool, size);
-    buffer_write_data(loc.buffer, data.data, size, loc.offset);
+    buffer_write_data(loc.buffer, data.data, xx size, loc.offset);
     return loc;
 }
 

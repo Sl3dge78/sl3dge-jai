@@ -37,6 +37,14 @@ draw :: inline (using self: Mesh, rp_enc: wgpu.RenderPassEncoder) {
             vkCmdDrawIndexed(cmd, it.index_count, nb, 0, 0, 0);
         }
     }
+} else #if BACKEND == "SDL_GPU" {
+    draw :: inline(using self: Mesh, render_pass: *SDL_GPURenderPass) {
+        for submeshes {
+            SDL_BindGPUIndexBuffer(render_pass, *it.indices, ._32BIT);
+            SDL_BindGPUVertexBuffers(render_pass, 0, *it.vertices, 1);
+            SDL_DrawGPUIndexedPrimitives(render_pass, it.index_count, 1, 0, 0, 0);
+        }
+    }
 }
 
 load_mesh_from_vertices :: (vertices: []Standard_Vertex, indices: []u32) -> Mesh {

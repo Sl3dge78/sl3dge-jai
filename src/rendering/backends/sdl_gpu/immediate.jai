@@ -7,19 +7,8 @@ Immediate :: struct {
 
 immediate_begin :: (frame_data: Frame_Data) -> Immediate {
     self: Immediate;
-    color_target := SDL_GPUColorTargetInfo.{
-        texture = frame_data.target,
-        mip_level = 0,
-        layer_or_depth_plane = 0,
-        clear_color = .{0, 0, 0, 0},
-        load_op = .CLEAR,
-        store_op = .STORE,
-        // resolve_texture = null,
-        // resolve_mip_level = 1,
-        // resolve_layer = 1,
-        cycle = false,
-        // cycle_resolve_texture = false,
-    };
+    self.vertices.allocator = temp;
+    color_target := create_color_target(frame_data.target); 
     self.render_pass = SDL_NullCheck(SDL_BeginGPURenderPass(frame_data.cmd, *color_target, 1, null));
     SDL_BindGPUGraphicsPipeline(self.render_pass, global_renderer.ui_pipeline);
     pc := UI_Push_Constants.{.{2.0 / cast(float)frame_data.width, -2.0 / cast(float)frame_data.height}, .{-1, 1}};
