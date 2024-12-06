@@ -18,12 +18,81 @@ Pipeline_Builder :: struct {
     targets : [..]SDL_GPUColorTargetDescription;
 }
 
+Shader_Metadata :: struct {
+    samplers : u32;
+    storageTextures: u32;
+    storageBuffers: u32;
+    uniformBuffers: u32;
+}
+
+// Using metadata file, so we don't need to ship dependencies
+// @TODO integrate this in the executable somehow?
+add_shader :: (using b: *Pipeline_Builder, device: *SDL_GPUDevice, path: string)  {
+    stage_str := path_extension(path_strip_extension(path));
+
+    stage: SDL_GPUShaderStage = ---;
+    if stage_str == "vert" then stage = .VERTEX;
+    else if stage_str == "frag" then stage = .FRAGMENT;
+    else assert(false, "Unexpected shader extension: %", stage_str);
+
+    file := read_entire_file(path,, temp);
+    metadata_path := tprint("%.json", path_strip_extension(path));
+    success, metadata := json_parse_file(metadata_path, Shader_Metadata,, temp);
+    assert(success);
+    create_info := SDL_GPUShaderCreateInfo.{
+        code_size = xx file.count,
+        code = file.data,
+        entrypoint = "main",
+        format = SDL_GPU_SHADERFORMAT_SPIRV,
+        stage = stage,
+        num_samplers = metadata.samplers,
+        num_storage_textures = metadata.storageTextures,
+        num_storage_buffers = metadata.storageBuffers,
+        num_uniform_buffers = metadata.uniformBuffers,
+    };
+    shader := SDL_NullCheck(SDL_CreateGPUShader(device, *create_info));
+    if stage == .VERTEX {
+        vertex_shader = shader;
+    } else if stage == .FRAGMENT {
+        fragment_shader = shader;
+    } else {
+        assert(false, "Unknown shader type");
+    }
+}
+
+/* Using shadercross
 add_shader :: (using b: *Pipeline_Builder, device: *SDL_GPUDevice, path: string, stage: SDL_GPUShaderStage) {
     file := read_entire_file(path,, temp);
     info : SDL_ShaderCross_GraphicsShaderInfo = ---;
     SDL_Check(SDL_ShaderCross_ReflectGraphicsSPIRV(file.data, xx file.count, *info));
     shader := SDL_NullCheck(SDL_ShaderCross_CompileGraphicsShaderFromSPIRV(device, file.data, xx file.count, "main", stage, *info));
 
+    if stage == .VERTEX {
+        vertex_shader = shader;
+    } else if stage == .FRAGMENT {
+        fragment_shader = shader;
+    } else {
+        assert(false, "Unknown shader type");
+    }
+}
+*/
+
+// Manual 
+add_shader_manual :: (using b: *Pipeline_Builder, device: *SDL_GPUDevice, path: string, stage: SDL_GPUShaderStage, num_samplers : u32, num_storage_textures : u32, num_storage_buffers : u32, num_uniform_buffers : u32)  {
+    file := read_entire_file(path,, temp);
+    log("%", path);
+    create_info := SDL_GPUShaderCreateInfo.{
+        code_size = xx file.count,
+        code = file.data,
+        entrypoint = "main",
+        format = SDL_GPU_SHADERFORMAT_SPIRV,
+        stage = stage,
+        num_samplers = num_samplers,
+        num_storage_textures = num_storage_textures,
+        num_storage_buffers = num_storage_buffers,
+        num_uniform_buffers = num_uniform_buffers,
+    };
+    shader := SDL_NullCheck(SDL_CreateGPUShader(device, *create_info));
     if stage == .VERTEX {
         vertex_shader = shader;
     } else if stage == .FRAGMENT {

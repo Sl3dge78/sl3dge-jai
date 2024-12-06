@@ -23,7 +23,6 @@ global_renderer : Renderer;
 
 renderer_create :: (window: *SDL_Window) -> *Renderer {
     using renderer := *global_renderer;
-    SDL_ShaderCross_Init();
 
     shader_formats := SDL_GPU_SHADERFORMAT_SPIRV;
     assert(SDL_GPUSupportsShaderFormats(xx shader_formats, null), "Shader aren't supported on this device!");
@@ -82,8 +81,8 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
 
     {   // UI Pipeline
         builder: Pipeline_Builder;
-        add_shader(*builder, device, "shaders/ui.vert.spv", .VERTEX);
-        add_shader(*builder, device, "shaders/ui.frag.spv", .FRAGMENT);
+        add_shader(*builder, device, "shaders/ui.vert.spv");
+        add_shader(*builder, device, "shaders/ui.frag.spv");
         add_vertex_type(*builder, UI_Vertex);
         add_color_target(*builder, swapchain_format);
         ui_pipeline = build_pipeline(*builder, device);
@@ -125,7 +124,6 @@ destroy :: (using self: *Renderer) {
     SDL_ReleaseGPUGraphicsPipeline(device, ui_pipeline);
     destroy(depth_stencil_texture);
     SDL_DestroyGPUDevice(device);
-    SDL_ShaderCross_Quit();
 }
 
 Texture :: *SDL_GPUTexture;  
@@ -274,8 +272,8 @@ create_material :: (vertex_shader_path: string, fragment_shader_path: string, $v
     result : Material = ---;
     {   // Shadowmap   
         builder: Pipeline_Builder;
-        add_shader(*builder, global_renderer.device, vertex_shader_path, .VERTEX);
-        add_shader(*builder, global_renderer.device, "shaders/noop.frag.spv", .FRAGMENT);
+        add_shader(*builder, global_renderer.device, vertex_shader_path);
+        add_shader(*builder, global_renderer.device, "shaders/noop.frag.spv");
         add_vertex_type(*builder, vertex_type);
         set_depth_bias(*builder, 1.25, 0, 1.75);
         add_depth_stencil_target(*builder, global_renderer.depth_stencil_format);
@@ -284,8 +282,8 @@ create_material :: (vertex_shader_path: string, fragment_shader_path: string, $v
 
     {   // Color   
         builder: Pipeline_Builder;
-        add_shader(*builder, global_renderer.device, vertex_shader_path, .VERTEX);
-        add_shader(*builder, global_renderer.device, fragment_shader_path, .FRAGMENT);
+        add_shader(*builder, global_renderer.device, vertex_shader_path);
+        add_shader(*builder, global_renderer.device, fragment_shader_path);
         add_vertex_type(*builder, vertex_type);
         add_color_target(*builder, global_renderer.swapchain_format, false);
         add_depth_stencil_target(*builder, global_renderer.depth_stencil_format);

@@ -5496,7 +5496,6 @@ SDL_GetVersion :: () -> s32 #foreign sdl3;
 SDL_GetRevision :: () -> *u8 #foreign sdl3;
 
 #import "Basic"; // For push_context
-#load "SDL_shadercross.jai";
 
 #if OS == .WINDOWS {
     sdl3 :: #library "lib/windows/sdl3";
