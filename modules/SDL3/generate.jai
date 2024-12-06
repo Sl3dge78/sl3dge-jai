@@ -1,11 +1,56 @@
 #run {
     set_build_options_dc(.{do_output=false});
-    if !generate_bindings() {
+    // if !generate_sdl_bindings() {
+    //     compiler_set_workspace_status(.FAILED);
+    // }
+    if !generate_shader_cross_bindings() {
         compiler_set_workspace_status(.FAILED);
     }
 }
 
-generate_bindings :: () -> bool {
+generate_shader_cross_bindings :: () -> bool {
+    output_filename: string;
+    opts: Generate_Bindings_Options;
+    {
+        using opts;
+
+        #if OS == .WINDOWS {
+            array_add(*libnames, "SDL3_shadercross-static");
+            array_add(*libpaths, "lib/windows");
+        } else #if OS == .LINUX {
+            array_add(*libnames, "libSDL3_shadercross-static");
+            array_add(*libpaths, "lib/linux");
+        } else #if OS == .MACOS {
+            assert(false);
+        } else {
+            assert(false);
+        }
+        output_filename  = "SDL_shadercross.jai";
+
+        array_add(*source_files, 
+            "include/SDL3/SDL_shadercross.h",
+            );
+        array_add(*system_include_paths, "include", GENERATOR_DEFAULT_SYSTEM_INCLUDE_PATH);
+        array_add(*extra_clang_arguments, "-DNO_SDL_VULKAN_TYPEDEFS");
+
+        generate_library_declarations = false;
+        will_print_bindings = () {
+            // Change the library name to be the same on all platforms
+            // so that we don't have to generate identical bindings for every platform just because the library name is different.
+            context.generator.libraries[0].name = "sdl3_shadercross";
+        };
+
+        footer = SHADER_CROSS_FOOTER;
+        log_stripped_declarations = true;
+        generate_compile_time_struct_checks = false;
+        try_to_preserve_comments = false;
+        mimic_spacing_flags = 0;
+    }
+
+    return generate_bindings(opts, output_filename);
+}
+
+generate_sdl_bindings :: () -> bool {
     output_filename: string;
     opts: Generate_Bindings_Options;
     {
@@ -197,6 +242,16 @@ FOOTER :: #string END
     sdl3 :: #library "lib/x64/sdl3";
 } else #if OS == .LINUX {
     sdl3 :: #library "lib/linux/libSDL3";
+} else {
+    #assert(false);
+}
+END
+
+SHADER_CROSS_FOOTER :: #string END
+#if OS == .WINDOWS {
+    sdl3_shadercross:: #library,no_dll "lib/windows/SDL3_shadercross";
+} else #if OS == .LINUX {
+    sdl3_shadercross:: #library,no_dll "lib/linux/libSDL3";
 } else {
     #assert(false);
 }

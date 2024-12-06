@@ -5,24 +5,25 @@ Pipeline_Builder :: struct {
     vertex_attributes : [..]SDL_GPUVertexAttribute;
     depth_stencil_state : SDL_GPUDepthStencilState; 
     depth_stencil_format : SDL_GPUTextureFormat = .INVALID; // If invalid, no depth target
+    rasterizer_state : SDL_GPURasterizerState = .{
+        fill_mode = .FILL,
+        cull_mode = .BACK,
+        front_face = .COUNTER_CLOCKWISE,
+        depth_bias_constant_factor = 0,
+        depth_bias_clamp = 0,
+        depth_bias_slope_factor = 0,
+        enable_depth_bias = false,
+        enable_depth_clip = false,
+    };
     targets : [..]SDL_GPUColorTargetDescription;
 }
 
-add_shader :: (using b: *Pipeline_Builder, device: *SDL_GPUDevice, path: string, stage: SDL_GPUShaderStage, num_samplers : u32 = 0, num_storage_textures : u32 = 0, num_storage_buffers : u32 = 0, num_uniform_buffers : u32 = 0) {
-    //@todo : Use SDL_Reflect
+add_shader :: (using b: *Pipeline_Builder, device: *SDL_GPUDevice, path: string, stage: SDL_GPUShaderStage) {
     file := read_entire_file(path,, temp);
-    create_info := SDL_GPUShaderCreateInfo.{
-        code_size = xx file.count,
-        code = file.data,
-        entrypoint = "main",
-        format = SDL_GPU_SHADERFORMAT_SPIRV,
-        stage = stage,
-        num_samplers = num_samplers,
-        num_storage_textures = num_storage_textures,
-        num_storage_buffers = num_storage_buffers,
-        num_uniform_buffers = num_uniform_buffers,
-    };
-    shader := SDL_NullCheck(SDL_CreateGPUShader(device, *create_info));
+    info : SDL_ShaderCross_GraphicsShaderInfo = ---;
+    SDL_Check(SDL_ShaderCross_ReflectGraphicsSPIRV(file.data, xx file.count, *info));
+    shader := SDL_NullCheck(SDL_ShaderCross_CompileGraphicsShaderFromSPIRV(device, file.data, xx file.count, "main", stage, *info));
+
     if stage == .VERTEX {
         vertex_shader = shader;
     } else if stage == .FRAGMENT {
@@ -117,6 +118,13 @@ add_depth_stencil_target :: (using b: *Pipeline_Builder, format: SDL_GPUTextureF
     // depth_stencil_state.write_mask = 0;
 }
 
+set_depth_bias :: (using b: *Pipeline_Builder, constant_factor: float, clamp: float, slope_factor: float) {
+    b.rasterizer_state.enable_depth_bias = true;
+    b.rasterizer_state.depth_bias_constant_factor = constant_factor;
+    b.rasterizer_state.depth_bias_clamp = clamp;
+    b.rasterizer_state.depth_bias_slope_factor = slope_factor;
+}
+
 build_pipeline :: (using b: *Pipeline_Builder, device: *SDL_GPUDevice) -> *SDL_GPUGraphicsPipeline {
     ci := SDL_GPUGraphicsPipelineCreateInfo.{
         vertex_shader = vertex_shader,
@@ -128,16 +136,7 @@ build_pipeline :: (using b: *Pipeline_Builder, device: *SDL_GPUDevice) -> *SDL_G
             num_vertex_attributes = xx vertex_attributes.count,
         },
         primitive_type = .TRIANGLELIST,
-        rasterizer_state = .{
-            fill_mode = .FILL,
-            cull_mode = .BACK,
-            front_face = .COUNTER_CLOCKWISE,
-            depth_bias_constant_factor = 0,
-            depth_bias_clamp = 0,
-            depth_bias_slope_factor = 0,
-            enable_depth_bias = false,
-            enable_depth_clip = false,
-        },
+        rasterizer_state = rasterizer_state,
         multisample_state = .{
             sample_count = ._1,
             sample_mask = 0xFFFFFFFF,
@@ -153,7 +152,10 @@ build_pipeline :: (using b: *Pipeline_Builder, device: *SDL_GPUDevice) -> *SDL_G
 
         props = 0,
     };
-    defer SDL_ReleaseGPUShader(device, vertex_shader);
-    defer SDL_ReleaseGPUShader(device, fragment_shader);
-    return SDL_NullCheck(SDL_CreateGPUGraphicsPipeline(device, *ci));
+    result := SDL_NullCheck(SDL_CreateGPUGraphicsPipeline(device, *ci));
+    SDL_ReleaseGPUShader(device, vertex_shader);
+    if fragment_shader != null { 
+        SDL_ReleaseGPUShader(device, fragment_shader);
+    }
+    return result;
 }

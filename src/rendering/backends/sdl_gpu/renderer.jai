@@ -2,13 +2,14 @@
 Renderer :: struct {
     device: *SDL_GPUDevice;
 
+    swapchain_format : SDL_GPUTextureFormat;
     depth_stencil_format: SDL_GPUTextureFormat;
     depth_stencil_texture: *SDL_GPUTexture;
     depth_stencil_target: SDL_GPUDepthStencilTargetInfo;
     projection: Matrix4;
 
     ui_pipeline: *SDL_GPUGraphicsPipeline;
-    static_mesh_pipeline: *SDL_GPUGraphicsPipeline;
+    static_mesh_material: Material;
 
     sampler : *SDL_GPUSampler;
     empty_texture: *SDL_GPUTexture;
@@ -22,6 +23,7 @@ global_renderer : Renderer;
 
 renderer_create :: (window: *SDL_Window) -> *Renderer {
     using renderer := *global_renderer;
+    SDL_ShaderCross_Init();
 
     shader_formats := SDL_GPU_SHADERFORMAT_SPIRV;
     assert(SDL_GPUSupportsShaderFormats(xx shader_formats, null), "Shader aren't supported on this device!");
@@ -76,25 +78,18 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
 
     }
 
-    swapchain_format := SDL_GetGPUSwapchainTextureFormat(device, window);
+    swapchain_format = SDL_GetGPUSwapchainTextureFormat(device, window);
+
     {   // UI Pipeline
         builder: Pipeline_Builder;
-        add_shader(*builder, device, "shaders/ui.vert.spv", .VERTEX, num_uniform_buffers = 1);
-        add_shader(*builder, device, "shaders/ui.frag.spv", .FRAGMENT, num_samplers = 1);
+        add_shader(*builder, device, "shaders/ui.vert.spv", .VERTEX);
+        add_shader(*builder, device, "shaders/ui.frag.spv", .FRAGMENT);
         add_vertex_type(*builder, UI_Vertex);
         add_color_target(*builder, swapchain_format);
         ui_pipeline = build_pipeline(*builder, device);
     }
 
-    {   // Color Pipeline
-        builder: Pipeline_Builder;
-        add_shader(*builder, device, "shaders/static.vert.spv", .VERTEX, num_uniform_buffers = 2);
-        add_shader(*builder, device,"shaders/color.frag.spv", .FRAGMENT, num_uniform_buffers = 2, num_samplers = 2);
-        add_vertex_type(*builder, Standard_Vertex);
-        add_color_target(*builder, swapchain_format, blend = false);
-        add_depth_stencil_target(*builder, depth_stencil_format);
-        static_mesh_pipeline = build_pipeline(*builder, device);
-    }
+    static_mesh_material = create_material("shaders/static.vert.spv", "shaders/color.frag.spv");
 
     sampler_ci := SDL_GPUSamplerCreateInfo.{
         min_filter = .LINEAR,
@@ -126,10 +121,11 @@ destroy :: (using self: *Renderer) {
     buffer_pool_reset(*immediate_buffer_pool);
     buffer_pool_reset(*vertex_buffer_pool);
     SDL_ReleaseGPUSampler(device, sampler);
-    SDL_ReleaseGPUGraphicsPipeline(device, static_mesh_pipeline);
+    destroy(static_mesh_material);
     SDL_ReleaseGPUGraphicsPipeline(device, ui_pipeline);
     destroy(depth_stencil_texture);
     SDL_DestroyGPUDevice(device);
+    SDL_ShaderCross_Quit();
 }
 
 Texture :: *SDL_GPUTexture;  
@@ -261,4 +257,46 @@ get_depth_stencil_format :: (device: *SDL_GPUDevice) -> SDL_GPUTextureFormat {
         SDL_LogError(0, "Unsupported depth formats!");
         return .INVALID;
     }
+}
+
+Pipeline_Kind :: enum {
+    SHADOWMAP :: 0;
+    COLOR :: 1;
+}
+
+Material :: struct {
+    shadowmap: *SDL_GPUGraphicsPipeline;
+    color: *SDL_GPUGraphicsPipeline;
+    #place shadowmap; pipelines: [2]*SDL_GPUGraphicsPipeline;
+}
+
+create_material :: (vertex_shader_path: string, fragment_shader_path: string, $vertex_type := Standard_Vertex) -> Material {
+    result : Material = ---;
+    {   // Shadowmap   
+        builder: Pipeline_Builder;
+        add_shader(*builder, global_renderer.device, vertex_shader_path, .VERTEX);
+        add_shader(*builder, global_renderer.device, "shaders/noop.frag.spv", .FRAGMENT);
+        add_vertex_type(*builder, vertex_type);
+        set_depth_bias(*builder, 1.25, 0, 1.75);
+        add_depth_stencil_target(*builder, global_renderer.depth_stencil_format);
+        result.pipelines[Pipeline_Kind.SHADOWMAP] = build_pipeline(*builder, global_renderer.device);
+    }
+
+    {   // Color   
+        builder: Pipeline_Builder;
+        add_shader(*builder, global_renderer.device, vertex_shader_path, .VERTEX);
+        add_shader(*builder, global_renderer.device, fragment_shader_path, .FRAGMENT);
+        add_vertex_type(*builder, vertex_type);
+        add_color_target(*builder, global_renderer.swapchain_format, false);
+        add_depth_stencil_target(*builder, global_renderer.depth_stencil_format);
+        result.pipelines[Pipeline_Kind.COLOR] = build_pipeline(*builder, global_renderer.device);
+    }
+
+    return result;
+
+}
+
+destroy :: (material: Material) {
+    SDL_ReleaseGPUGraphicsPipeline(global_renderer.device, material.shadowmap);
+    SDL_ReleaseGPUGraphicsPipeline(global_renderer.device, material.color);
 }
