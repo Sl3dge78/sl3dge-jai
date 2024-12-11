@@ -6,6 +6,10 @@ Renderer :: struct {
     depth_stencil_format: SDL_GPUTextureFormat;
     depth_stencil_texture: *SDL_GPUTexture;
     depth_stencil_target: SDL_GPUDepthStencilTargetInfo;
+
+    shadowmap: *SDL_GPUTexture;
+    shadowmap_target: SDL_GPUDepthStencilTargetInfo;
+
     projection: Matrix4;
 
     ui_pipeline: *SDL_GPUGraphicsPipeline;
@@ -66,7 +70,7 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
         depth_stencil_texture = SDL_CreateGPUTexture(device, *ci);
         depth_stencil_target = .{
             texture = depth_stencil_texture,
-            clear_depth = 0,
+            clear_depth = 1,
             load_op = .CLEAR,
             store_op = .DONT_CARE,
             stencil_load_op = .DONT_CARE,
@@ -74,7 +78,6 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
             cycle = true,
             clear_stencil = 0,
         };
-
     }
 
     swapchain_format = SDL_GetGPUSwapchainTextureFormat(device, window);
@@ -112,11 +115,36 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
 
     projection = make_projection_matrix(radians(45), cast(float)w/cast(float)h, 0.1, 1000);
 
+    {
+        ci := SDL_GPUTextureCreateInfo.{
+            type = ._2D,
+            format = .D32_FLOAT,
+            usage = .DEPTH_STENCIL_TARGET | .SAMPLER,
+            width = 2048,
+            height = 2048,
+            layer_count_or_depth = 1,
+            num_levels = 1,
+            sample_count = ._1,
+        };
+        shadowmap = SDL_CreateGPUTexture(device, *ci);
+        shadowmap_target = .{
+            texture = shadowmap,
+            clear_depth = 1,
+            load_op = .CLEAR,
+            store_op = .STORE,
+            stencil_load_op = .DONT_CARE,
+            stencil_store_op = .DONT_CARE,
+            cycle = false,
+            clear_stencil = 0,
+        };
+    }
+
     return renderer;
 }
 
 destroy :: (using self: *Renderer) {
     destroy(empty_texture);
+    destroy(shadowmap);
     buffer_pool_reset(*immediate_buffer_pool);
     buffer_pool_reset(*vertex_buffer_pool);
     SDL_ReleaseGPUSampler(device, sampler);
@@ -276,7 +304,8 @@ create_material :: (vertex_shader_path: string, fragment_shader_path: string, $v
         add_shader(*builder, global_renderer.device, "shaders/noop.frag.spv");
         add_vertex_type(*builder, vertex_type);
         set_depth_bias(*builder, 1.25, 0, 1.75);
-        add_depth_stencil_target(*builder, global_renderer.depth_stencil_format);
+        add_depth_stencil_target(*builder, .D32_FLOAT);
+        builder.rasterizer_state.cull_mode = .NONE;
         result.pipelines[Pipeline_Kind.SHADOWMAP] = build_pipeline(*builder, global_renderer.device);
     }
 

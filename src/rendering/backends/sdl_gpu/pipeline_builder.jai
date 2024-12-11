@@ -178,7 +178,7 @@ add_depth_stencil_target :: (using b: *Pipeline_Builder, format: SDL_GPUTextureF
 
     depth_stencil_state.enable_depth_test = true;
     depth_stencil_state.enable_depth_write = true;
-    depth_stencil_state.compare_op = .GREATER;
+    depth_stencil_state.compare_op = .LESS;
 
     // depth_stencil_state.enable_stencil_test = false;
     // depth_stencil_state.back_stencil_state = .{};

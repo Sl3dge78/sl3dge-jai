@@ -38,11 +38,11 @@ draw :: inline (using self: Mesh, rp_enc: wgpu.RenderPassEncoder) {
         }
     }
 } else #if BACKEND == "SDL_GPU" {
-    draw :: inline(using self: Mesh, render_pass: *SDL_GPURenderPass) {
+    draw :: inline(using self: Mesh, render_pass: *SDL_GPURenderPass, instances : u32 = 1) {
         for submeshes {
             SDL_BindGPUIndexBuffer(render_pass, *it.indices, ._32BIT);
             SDL_BindGPUVertexBuffers(render_pass, 0, *it.vertices, 1);
-            SDL_DrawGPUIndexedPrimitives(render_pass, it.index_count, 1, 0, 0, 0);
+            SDL_DrawGPUIndexedPrimitives(render_pass, it.index_count, instances, 0, 0, 0);
         }
     }
 }
