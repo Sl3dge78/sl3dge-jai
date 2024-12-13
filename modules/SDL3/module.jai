@@ -4856,18 +4856,18 @@ SDL_GPUTextureSamplerBinding :: struct {
 SDL_GPUStorageBufferReadWriteBinding :: struct {
     buffer:   *SDL_GPUBuffer;
     cycle:    bool;
-    padding1: Uint8;
-    padding2: Uint8;
-    padding3: Uint8;
+    padding1: Uint8 = 0;
+    padding2: Uint8 = 0;
+    padding3: Uint8 = 0;
 }
 SDL_GPUStorageTextureReadWriteBinding :: struct {
     texture:   *SDL_GPUTexture;
     mip_level: Uint32;
     layer:     Uint32;
     cycle:     bool;
-    padding1:  Uint8;
-    padding2:  Uint8;
-    padding3:  Uint8;
+    padding1:  Uint8 = 0;
+    padding2:  Uint8 = 0;
+    padding3:  Uint8 = 0;
 }
 SDL_GPUSupportsShaderFormats :: (format_flags: SDL_GPUShaderFormat, name: *u8) -> bool #foreign sdl3;
 SDL_GPUSupportsProperties :: (props: SDL_PropertiesID) -> bool #foreign sdl3;
@@ -5500,7 +5500,7 @@ SDL_GetRevision :: () -> *u8 #foreign sdl3;
 #if OS == .WINDOWS {
     sdl3 :: #library "lib/windows/sdl3";
 } else #if OS == .LINUX {
-    sdl3 :: #library "lib/linux/libSDL3";
+    sdl3 :: #system_library "libSDL3";
     _XEvent :: union {}
     XEvent :: _XEvent;
     SDL_X11EventHook :: #type (userdata: *void, xevent: *XEvent) -> bool #c_call;

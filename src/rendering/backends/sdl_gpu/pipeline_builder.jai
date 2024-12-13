@@ -25,6 +25,18 @@ Shader_Metadata :: struct {
     uniformBuffers: u32;
 }
 
+Compute_Metadata :: struct { 
+    samplers: u32;
+    readOnlyStorageTextures: u32;
+    readOnlyStorageBuffers: u32;
+    readWriteStorageTextures: u32;
+    readWriteStorageBuffers: u32;
+    uniformBuffers: u32;
+    threadCountX: u32;
+    threadCountY: u32;
+    threadCountZ: u32;
+}
+
 // Using metadata file, so we don't need to ship dependencies
 // @TODO integrate this in the executable somehow?
 add_shader :: (using b: *Pipeline_Builder, device: *SDL_GPUDevice, path: string)  {
@@ -227,4 +239,28 @@ build_pipeline :: (using b: *Pipeline_Builder, device: *SDL_GPUDevice) -> *SDL_G
         SDL_ReleaseGPUShader(device, fragment_shader);
     }
     return result;
+}
+
+build_compute_pipeline :: (path : string) -> *SDL_GPUComputePipeline {
+
+    compute_shader := read_entire_file(path,, temp);
+    metadata_path := tprint("%.json", path_strip_extension(path));
+    success, metadata := json_parse_file(metadata_path, Compute_Metadata,, temp);
+    assert(success);
+    ci := SDL_GPUComputePipelineCreateInfo.{
+        code_size = xx compute_shader.count,
+        code = compute_shader.data,
+        entrypoint = "main",
+        format =  SDL_GPU_SHADERFORMAT_SPIRV,
+        num_samplers = metadata.samplers,
+        num_readonly_storage_textures  = metadata.readOnlyStorageTextures,
+        num_readonly_storage_buffers   = metadata.readOnlyStorageBuffers,
+        num_readwrite_storage_textures = metadata.readWriteStorageTextures,
+        num_readwrite_storage_buffers  = metadata.readWriteStorageBuffers,
+        num_uniform_buffers            = metadata.uniformBuffers,
+        threadcount_x = metadata.threadCountX,
+        threadcount_y = metadata.threadCountY,
+        threadcount_z = metadata.threadCountZ,
+    };
+    return SDL_NullCheck(SDL_CreateGPUComputePipeline(global_renderer.device, *ci));
 }

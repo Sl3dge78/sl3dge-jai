@@ -74,6 +74,11 @@ load_mesh_from_gltf_data :: (gltf_data : GLTF_Data) -> Mesh {
             read_accessor_into_array(vertices.data, xx *offset.normal, size_of(Standard_Vertex), gltf_data, normal_accessor);
         }
 
+        if texcoord_0_accessor != -1 {
+            offset: *Standard_Vertex = null;
+            read_accessor_into_array(vertices.data, xx *offset.uv, size_of(Standard_Vertex), gltf_data, texcoord_0_accessor);
+        }
+
         color: Vector4 = .{1, 1, 1, 1};
 
         if material != -1 {
