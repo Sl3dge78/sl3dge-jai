@@ -1,12 +1,7 @@
 
-#if BACKEND == "SDL_GPU" {
-#scope_export
-    Buffer_Location :: struct {
-        using #as binding: SDL_GPUBufferBinding; 
-        // buffer: *SDL_GPUBuffer;
-        // offset: u32;
-        size: u64;
-    }
+Buffer_Location :: struct {
+    using #as binding: SDL_GPUBufferBinding; 
+    size: u64;
 }
 
 Buffer_Pool :: struct {

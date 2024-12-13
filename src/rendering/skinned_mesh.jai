@@ -40,9 +40,6 @@ Skinned_Mesh_Instance :: struct {
     transform: Matrix4;
 
     current_pose: Skeleton_Pose;
-    #if BACKEND == "WGPU" {
-        joint_uniform: Uniform;
-    }
 }
 
 destroy :: (using self: *Skeleton_Definition) {
@@ -63,17 +60,6 @@ destroy :: (using self : *Skinned_Mesh) {
     array_reset(*skins);
     destroy(*mesh);
     self.* = .{};
-}
-
-#if BACKEND == "WGPU" {
-draw :: inline (using self: Skinned_Mesh, rp_enc: wgpu.RenderPassEncoder) {
-    for submeshes {
-        wgpu.RenderPassEncoderSetVertexBuffer(rp_enc, 0, it.vertices.buffer.handle, it.vertices.offset, it.vertices.size);
-        wgpu.RenderPassEncoderSetVertexBuffer(rp_enc, 0, skins[it_index].buffer.handle, skins[it_index].offset, skins[it_index].size);
-        wgpu.RenderPassEncoderSetIndexBuffer(rp_enc, it.indices.buffer.handle, .Uint32, it.indices.offset, it.indices.size);
-        wgpu.RenderPassEncoderDrawIndexed(rp_enc, it.index_count, 1, 0, 0, 0);
-    }
-}
 }
 
 destroy :: (self: *Skinned_Mesh_Instance) {

@@ -44,35 +44,14 @@ engine_update :: (delta_time: float) {
     update_tweens(delta_time);
 }
 
-#if BACKEND == "WGPU" {
-    engine_draw :: (frame_data: *Frame_Data, cmd: wgpu.CommandEncoder) {
-        imm := immediate_begin_in_place(global_renderer.width, global_renderer.height, frame_data.render_to_view, cmd);
-        defer immediate_end_in_place(*imm);
-        console_draw(*imm, *global_engine.default_font);
-        if global_engine.draw_perf_overlay {
-            draw_text(*imm, tprint("Frametime: %ms (%fps)", global_engine.frame_time, 1 /global_engine.frame_time), 0, 8, *global_engine.default_font);
-        }
+engine_draw :: (frame_data: Frame_Data) {
+    imm := immediate_begin(frame_data);
+    defer immediate_end(*imm);
+    console_draw(*imm, *global_engine.default_font);
+    if global_engine.draw_perf_overlay {
+        draw_text(*imm, tprint("Frametime: %ms (%fps)", FormatFloat.{ value = global_engine.frame_time, trailing_width = 3}, roundf(1 / global_engine.frame_time)), 0, 8, *global_engine.default_font);
     }
-} else #if BACKEND == "VULKAN" {
-    engine_draw :: (framebuffer: *Render_Texture, command_buffer: VkCommandBuffer) {
-        // @TODO
-        imm := immediate_begin_in_place(framebuffer, command_buffer);
-        defer immediate_end_in_place(*imm);
-        console_draw(*imm, *global_engine.default_font);
-        if global_engine.draw_perf_overlay {
-            draw_text(*imm, tprint("Frametime: %ms (%fps)", global_engine.frame_time, 1 /global_engine.frame_time), 0, 8, *global_engine.default_font);
-        }
-    }
-} else #if BACKEND == "SDL_GPU" {
-    engine_draw :: (frame_data: Frame_Data) {
-        imm := immediate_begin(frame_data);
-        defer immediate_end(*imm);
-        console_draw(*imm, *global_engine.default_font);
-        if global_engine.draw_perf_overlay {
-            draw_text(*imm, tprint("Frametime: %ms (%fps)", FormatFloat.{ value = global_engine.frame_time, trailing_width = 3}, roundf(1 / global_engine.frame_time)), 0, 8, *global_engine.default_font);
-        }
 
-    }
 }
 
 window_dims :: () -> Vector2i {

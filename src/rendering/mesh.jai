@@ -13,37 +13,11 @@ destroy :: (using mesh : *Mesh) {
     array_reset(*submeshes);
 }
 
-#if BACKEND == "WGPU" {
-draw :: inline (using self: Mesh, rp_enc: wgpu.RenderPassEncoder) {
+draw :: inline(using self: Mesh, render_pass: *SDL_GPURenderPass, instances : u32 = 1) {
     for submeshes {
-        wgpu.RenderPassEncoderSetVertexBuffer(rp_enc, 0, it.vertices.buffer.handle, it.vertices.offset, it.vertices.size);
-        wgpu.RenderPassEncoderSetIndexBuffer(rp_enc, it.indices.buffer.handle, .Uint32, it.indices.offset, it.indices.size);
-        wgpu.RenderPassEncoderDrawIndexed(rp_enc, it.index_count, 1, 0, 0, 0);
-    }
-}
-} else #if BACKEND == "VULKAN" {
-    draw :: inline (using self: Mesh, cmd: VkCommandBuffer) {
-        for submeshes {
-            vkCmdBindVertexBuffers(cmd, 0, 1, *it.vertices.buffer.handle, *it.vertices.offset);
-            vkCmdBindIndexBuffer(cmd, it.indices.buffer.handle, it.indices.offset, .UINT32);
-            vkCmdDrawIndexed(cmd, it.index_count, 1, 0, 0, 0);
-        }
-    }
-
-    draw_instances :: inline (using self: Mesh, cmd: VkCommandBuffer, nb: u32) {
-        for submeshes {
-            vkCmdBindVertexBuffers(cmd, 0, 1, *it.vertices.buffer.handle, *it.vertices.offset);
-            vkCmdBindIndexBuffer(cmd, it.indices.buffer.handle, it.indices.offset, .UINT32);
-            vkCmdDrawIndexed(cmd, it.index_count, nb, 0, 0, 0);
-        }
-    }
-} else #if BACKEND == "SDL_GPU" {
-    draw :: inline(using self: Mesh, render_pass: *SDL_GPURenderPass, instances : u32 = 1) {
-        for submeshes {
-            SDL_BindGPUIndexBuffer(render_pass, *it.indices, ._32BIT);
-            SDL_BindGPUVertexBuffers(render_pass, 0, *it.vertices, 1);
-            SDL_DrawGPUIndexedPrimitives(render_pass, it.index_count, instances, 0, 0, 0);
-        }
+        SDL_BindGPUIndexBuffer(render_pass, *it.indices, ._32BIT);
+        SDL_BindGPUVertexBuffers(render_pass, 0, *it.vertices, 1);
+        SDL_DrawGPUIndexedPrimitives(render_pass, it.index_count, instances, 0, 0, 0);
     }
 }
 

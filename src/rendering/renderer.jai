@@ -4,10 +4,10 @@ Renderer :: struct {
 
     swapchain_format : SDL_GPUTextureFormat;
     depth_stencil_format: SDL_GPUTextureFormat;
-    depth_stencil_texture: *SDL_GPUTexture;
+    depth_stencil_texture: Texture;
     depth_stencil_target: SDL_GPUDepthStencilTargetInfo;
 
-    shadowmap: *SDL_GPUTexture;
+    shadowmap: Texture;
     shadowmap_target: SDL_GPUDepthStencilTargetInfo;
 
     projection: Matrix4;
@@ -16,12 +16,13 @@ Renderer :: struct {
     static_mesh_material: Material;
 
     sampler : *SDL_GPUSampler;
-    empty_texture: *SDL_GPUTexture;
+    empty_texture: Texture;
 
     immediate_buffer_pool: Buffer_Pool = .{ kind = .VERTEX };
     vertex_buffer_pool:    Buffer_Pool = .{ kind = .VERTEX | .INDEX };
-
 }
+
+Texture :: *SDL_GPUTexture;  
 
 global_renderer : Renderer;
 
@@ -154,7 +155,6 @@ destroy :: (using self: *Renderer) {
     SDL_DestroyGPUDevice(device);
 }
 
-Texture :: *SDL_GPUTexture;  
 
 texture_from_data :: (buffer: *u8, w: u32, h: u32, channels: u32, $type: Type, name: string) -> Texture {
     size := w * h * channels * size_of(type);

@@ -4,11 +4,6 @@ Font :: struct {
     texture: Texture;
     line_height : float;
     width : float;
-    #if BACKEND == "WGPU" {
-        bind_group : wgpu.BindGroup;
-    } else #if BACKEND == "VULKAN" {
-        bind_group : VkDescriptorSet;
-    }
 }
 
 font_from_file :: (path: string, size: float) -> Font, bool {
@@ -38,12 +33,6 @@ font_from_data :: (font_data: string, size: float, resource_name: string) -> Fon
 
     self.texture = texture_from_data(bitmap.data, 512, 512, 1, u8, resource_name);
 
-    #if BACKEND == "WGPU" {
-        self.bind_group = create_bind_group_from_texture(*self.texture);
-    } else #if BACKEND == "VULKAN" {
-        self.bind_group = create_texture_descriptor_set(*self.texture);
-    }
-
     // Get additional font info
     info : stbtt_fontinfo = ---;
     stbtt_InitFont(*info, font_data.data, 0);
@@ -62,9 +51,6 @@ font_from_data :: (font_data: string, size: float, resource_name: string) -> Fon
 
 destroy :: (font: *Font) {
     destroy(font.texture);
-    #if BACKEND == "WGPU" || BACKEND == "VULKAN" {
-        destroy(font.bind_group);
-    }
 }
 
 size_text :: (text: string, font: *Font) -> float {
