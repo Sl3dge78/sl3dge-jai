@@ -243,9 +243,10 @@ build_pipeline :: (using b: *Pipeline_Builder, device: *SDL_GPUDevice) -> *SDL_G
 
 build_compute_pipeline :: (path : string) -> *SDL_GPUComputePipeline {
 
-    compute_shader := read_entire_file(path,, temp);
+    compute_shader, success := read_entire_file(path,, temp);
+    assert(success, tprint("Unable to read %", path));
     metadata_path := tprint("%.json", path_strip_extension(path));
-    success, metadata := json_parse_file(metadata_path, Compute_Metadata,, temp);
+    success=, metadata := json_parse_file(metadata_path, Compute_Metadata,, temp);
     assert(success);
     ci := SDL_GPUComputePipelineCreateInfo.{
         code_size = xx compute_shader.count,
