@@ -257,7 +257,7 @@ gltf_parse_string :: (gltf_buffer: string) -> GLTF_Data {
       primitive.position_accessor   = get_int(attributes, "POSITION", -1);
       primitive.normal_accessor     = get_int(attributes, "NORMAL", -1);
       primitive.tangent_accessor    = get_int(attributes, "TANGENT", -1);
-      primitive.color_accessor      = get_int(attributes, "COLOR", -1);
+      primitive.color_accessor      = get_int(attributes, "COLOR_0", -1);
       primitive.joints_accessor     = get_int(attributes, "JOINTS_0", -1);
       primitive.weights_accessor    = get_int(attributes, "WEIGHTS_0", -1);
       primitive.texcoord_0_accessor = get_int(attributes, "TEXCOORD_0", -1);

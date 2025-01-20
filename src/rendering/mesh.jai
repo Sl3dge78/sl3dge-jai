@@ -42,25 +42,44 @@ load_mesh_from_gltf_data :: (gltf_data : GLTF_Data) -> Mesh {
         
         read_accessor_into_array(vertices.data, 0, size_of(Standard_Vertex), gltf_data, position_accessor);
         
+        offset: *Standard_Vertex = null;
         // Normals
         if normal_accessor != -1 {
-            offset: *Standard_Vertex = null;
             read_accessor_into_array(vertices.data, xx *offset.normal, size_of(Standard_Vertex), gltf_data, normal_accessor);
         }
 
         if texcoord_0_accessor != -1 {
-            offset: *Standard_Vertex = null;
             read_accessor_into_array(vertices.data, xx *offset.uv, size_of(Standard_Vertex), gltf_data, texcoord_0_accessor);
         }
 
-        color: Vector4 = .{1, 1, 1, 1};
-
-        if material != -1 {
+        if color_accessor != -1 {
+            // @Hack
+            col_accessor := gltf_data.accessors[color_accessor];
+            if col_accessor.component_type == .UNSIGNED_SHORT {
+                buffer_view := gltf_data.buffer_views[col_accessor.buffer_view];
+                buffer      := gltf_data.buffers[buffer_view.buffer];
+                component_info := get_component_info(col_accessor);
+                offset := buffer_view.byte_offset + col_accessor.byte_offset;
+                    
+                for data_index: 0..col_accessor.count - 1 {
+                    data := (buffer.data.data + offset + data_index * col_accessor.stride);
+                    src_data := cast(*u16)data;
+                    v : Vector4 = .{ cast(float)src_data[0]/U16_MAX, (cast(float)src_data[1])/U16_MAX, (cast(float)src_data[2])/U16_MAX, (cast(float)src_data[3])/U16_MAX};
+                    vertices[data_index].color = v;
+                }
+            }
+        } else if material != -1 {
+            // @todo: this isnt compliant!
+            color: Vector4 = ---;
             color.component = gltf_data.materials[material].metallic_roughness.base_color_factor;
-        }
-
-        for *vertices {
-            it.color = color;
+            for *vertices {
+                it.color = color;
+            }
+        } else { // just white
+            color: Vector4 = .{1, 1, 1, 1};
+            for *vertices {
+                it.color = color;
+            }
         }
         
         // Indices

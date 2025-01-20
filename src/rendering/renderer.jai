@@ -327,3 +327,11 @@ destroy :: (material: Material) {
     SDL_ReleaseGPUGraphicsPipeline(global_renderer.device, material.shadowmap);
     SDL_ReleaseGPUGraphicsPipeline(global_renderer.device, material.color);
 }
+
+push_transform :: (mat: Matrix4, cmd: *SDL_GPUCommandBuffer) {
+        push_constants := Standard_Push_Constants.{
+            transform = transpose(mat),
+            inverse_transform = transpose(inverse(mat)),
+        };
+        SDL_PushGPUVertexUniformData(cmd, 1, *push_constants, size_of(type_of(push_constants)));
+}
