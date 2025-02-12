@@ -148,3 +148,4 @@ mesh_builder_load_mesh :: (using builder: *Mesh_Builder) -> Mesh {
     assert(indices.count != 0);
     return load_mesh_from_vertices(vertices, indices);
 }
+

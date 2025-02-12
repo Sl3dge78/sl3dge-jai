@@ -1,3 +1,5 @@
+// @VOLATILE, always sync with shaders
+
 UI_Vertex :: struct {
     position: Vector2;
     uv: Vector2;
@@ -26,13 +28,25 @@ Standard_Push_Constants :: struct {
     inverse_transform: Matrix4;
 }
 
+Light_Kind :: enum u64 #specified {
+    DIRECTIONAL :: 0;
+    POINT :: 1;
+}
+
+Light :: struct {
+    kind: Light_Kind #align 16;
+    position: Vector3 #align 16;
+    target: Vector3 #align 16;
+    color: Vector4;
+} 
+
 Global_Matrices :: struct {
     projection: Matrix4;
-    view      : Matrix4;
-    light     : Matrix4;
-    light_vec : [16]Vector4;
+    view: Matrix4;
+    sun: Matrix4;
     light_count: u32;
-}
+    lights: [16]Light;
+} 
 
 Instance_Data :: struct {
     joint_matrices: [128]Matrix4;

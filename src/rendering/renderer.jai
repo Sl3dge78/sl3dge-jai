@@ -329,9 +329,9 @@ destroy :: (material: Material) {
 }
 
 push_transform :: (mat: Matrix4, cmd: *SDL_GPUCommandBuffer) {
-        push_constants := Standard_Push_Constants.{
-            transform = transpose(mat),
-            inverse_transform = transpose(inverse(mat)),
-        };
-        SDL_PushGPUVertexUniformData(cmd, 1, *push_constants, size_of(type_of(push_constants)));
+    push_constants := Standard_Push_Constants.{
+        transform = transpose(mat),
+        inverse_transform = transpose(inverse(mat)),
+    };
+    SDL_PushGPUVertexUniformData(cmd, 1, *push_constants, size_of(type_of(push_constants)));
 }
