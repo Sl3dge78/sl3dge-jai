@@ -35,8 +35,7 @@ Light_Kind :: enum u64 #specified {
 
 Light :: struct {
     kind: Light_Kind #align 16;
-    position: Vector3 #align 16;
-    target: Vector3 #align 16;
+    position_or_direction: Vector3 #align 16; // Position if point, direction if directional
     color: Vector4;
 } 
 
@@ -50,6 +49,13 @@ Global_Matrices :: struct {
 
 Instance_Data :: struct {
     joint_matrices: [128]Matrix4;
+}
+
+PBR_Material :: struct {
+    albedo: Vector3 #align 16;
+    metallic: float;
+    roughness: float;
+    ambient_occlusion: float;
 }
 
 
