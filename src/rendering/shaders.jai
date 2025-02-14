@@ -43,6 +43,7 @@ Global_Matrices :: struct {
     projection: Matrix4;
     view: Matrix4;
     sun: Matrix4;
+    camera_position: Vector3 #align 16;
     light_count: u32;
     lights: [16]Light;
 } 
