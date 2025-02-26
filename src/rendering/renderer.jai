@@ -12,8 +12,8 @@ Renderer :: struct {
 
     projection: Matrix4;
 
-    ui_pipeline: *SDL_GPUGraphicsPipeline;
-    static_mesh_material: Material;
+    // ui_pipeline: *SDL_GPUGraphicsPipeline;
+    // static_mesh_material: Material;
 
     sampler : *SDL_GPUSampler;
     empty_texture: Texture;
@@ -83,17 +83,6 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
 
     swapchain_format = SDL_GetGPUSwapchainTextureFormat(device, window);
 
-    {   // UI Pipeline
-        builder: Pipeline_Builder;
-        add_shader(*builder, device, "shaders/ui.vert.spv");
-        add_shader(*builder, device, "shaders/ui.frag.spv");
-        add_vertex_type(*builder, UI_Vertex);
-        add_color_target(*builder, swapchain_format);
-        ui_pipeline = build_pipeline(*builder, device);
-    }
-
-    static_mesh_material = create_material("shaders/static.vert.spv", "shaders/color.frag.spv");
-
     sampler_ci := SDL_GPUSamplerCreateInfo.{
         min_filter = .LINEAR,
         mag_filter = .LINEAR,
@@ -149,8 +138,6 @@ destroy :: (using self: *Renderer) {
     buffer_pool_reset(*immediate_buffer_pool);
     buffer_pool_reset(*vertex_buffer_pool);
     SDL_ReleaseGPUSampler(device, sampler);
-    destroy(static_mesh_material);
-    SDL_ReleaseGPUGraphicsPipeline(device, ui_pipeline);
     destroy(depth_stencil_texture);
     SDL_DestroyGPUDevice(device);
 }
@@ -320,7 +307,6 @@ create_material :: (vertex_shader_path: string, fragment_shader_path: string, $v
     }
 
     return result;
-
 }
 
 destroy :: (material: Material) {

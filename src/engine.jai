@@ -20,6 +20,7 @@ engine_run :: (init_fn : (*$T), input_fn: (*T, SDL_Event), update_fn: (*T, float
 
     delta_time : float = 0;
     running := true;
+    focused := true;
     while running {
         global_engine.frame_start = SDL_GetPerformanceCounter();
 
@@ -30,14 +31,32 @@ engine_run :: (init_fn : (*$T), input_fn: (*T, SDL_Event), update_fn: (*T, float
                 case .WINDOW_RESIZED; {
                     // Renderer.update_window(window); @TODO Migration
                 }
+                case .WINDOW_FOCUS_LOST; {
+                    SDL_SetWindowRelativeMouseMode(global_engine.window, false);
+                    focused = false;
+                }
+                case .WINDOW_FOCUS_GAINED; {
+                    SDL_GetRelativeMouseState(null, null); // Read to flush what was happening when unfocused
+                    SDL_SetWindowRelativeMouseMode(global_engine.window, true);
+                    focused = true;
+                }
                 case; input_fn(*game_state, event);
             }
         }
         
-        if key_just_pressed(.SDL_SCANCODE_LALT) {
-            SDL_SetWindowRelativeMouseMode(global_engine.window, xx !(cast(bool)SDL_GetWindowRelativeMouseMode(global_engine.window)));
-        }   
+        // if key_just_pressed(.SDL_SCANCODE_LALT) {
+        //     mode := SDL_GetWindowRelativeMouseMode(global_engine.window).(bool);
+        //     if mode {
+        //         x : s32; y : s32;
+        //         SDL_GetWindowSize(global_engine.window, *x, *y);
+        //         SDL_WarpMouseInWindow(global_engine.window, 0.5 * x, 0.5 * y);
+        //     }
+        //     SDL_SetWindowRelativeMouseMode(global_engine.window, !mode);
+        // }   
 
+        if focused { 
+            input_update();
+        }
         engine_update(delta_time);
         update_fn(*game_state, delta_time);
 
@@ -85,7 +104,6 @@ engine_destroy :: () {
 }
 
 engine_update :: (delta_time: float) {
-    input_update();
     console_update(delta_time);
     Resources.update();
     update_tweens(delta_time);

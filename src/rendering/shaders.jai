@@ -46,6 +46,7 @@ Global_Matrices :: struct {
     camera_position: Vector3 #align 16;
     light_count: u32;
     lights: [16]Light;
+    time: float;
 } 
 
 Instance_Data :: struct {
@@ -59,27 +60,52 @@ PBR_Material :: struct {
     ambient_occlusion: float;
 }
 
+#import "Process";
 
-// #run {
-//     #import "Process";
+compile_shader :: (path: string) {
+    real_path := tprint("shaders/%", path);
+    output_file := tprint("res/shaders/%.spv", path);
+    metadata_file := tprint("res/shaders/%.json", path);
+    
+    if false {
+        run_command("glslang", "-gVS", "-V", real_path, "-o", output_file, working_directory = "bin", capture_and_return_output = true, arg_quoting = .QUOTE_IF_NEEDED);
+    } else {
+        result, stdout, stderr := run_command("glslang", "-V", real_path, "-o", output_file, working_directory = "bin", capture_and_return_output = true);
+        if result.exit_code != 0 {
+            print_color("========\n", color = .RED);
+            print_color("%\n%", stdout, stderr, color = .RED);
+            print_color("========\n", color = .RED);
+            return;
+        }
+    }
+    result, stout, stderr := run_command("shadercross", output_file, "-o", metadata_file, working_directory = "bin", capture_and_return_output = true,, logger = (msg: string, data: *void, info: Log_Info) {});
+    if result.exit_code != 0 {
+        // Shadercross not installed, maybe log it
+    }
+    print_color("%\n", path, color = .GREEN);
+}
 
-//     build_shader :: (path: string) -> bool {
-//         name := tprint("%.spv", path);
-//         result, output, err := run_command("glslangValidator", "-V", path, "-o", name, working_directory = "bin/shaders", true);
-//         print("%\n", output);
-//         if result.exit_code != 0 {
-//             print("%\n", err);
-//             assert(false, "%", err);
-//             return false;
-//         }
+export_material :: (name: string, v: string, f: string, info: Pipeline_Info) {
+    compile_shader(v);
+    compile_shader(f);
+    info2 := info;
+    info2.vertex_shader = tprint("res/shaders/%.spv", v);
+    info2.fragment_shader = tprint("res/shaders/%.spv", f);
+    builder: String_Builder;
+    json_write_native(*builder, *info2, type_info(type_of(info2)));
 
-//         return true;
-//     }
+    write_entire_file(tprint("bin/res/%.mat", name), *builder);
+}
 
-//     build_shader("static.vert");
-//     build_shader("skinned.vert");
-//     build_shader("color.frag");
-//     build_shader("ui.vert");
-//     build_shader("ui.frag");
+export_pipeline :: (name: string, v: string, f: string, info: Pipeline_Info) {
+    compile_shader(v);
+    compile_shader(f);
+    info2 := info;
+    info2.vertex_shader = tprint("res/shaders/%.spv", v);
+    info2.fragment_shader = tprint("res/shaders/%.spv", f);
+    builder: String_Builder;
+    json_write_native(*builder, *info2, type_info(type_of(info2)));
+    s := builder_to_string(*builder);
 
-// }
+    write_entire_file(tprint("bin/res/%.pipeline", name), s);
+}

@@ -9,7 +9,7 @@ immediate_begin :: (frame_data: Frame_Data) -> Immediate {
     self.vertices.allocator = temp;
     color_target := create_color_target(frame_data.target); 
     self.render_pass = SDL_NullCheck(SDL_BeginGPURenderPass(frame_data.cmd, *color_target, 1, null));
-    SDL_BindGPUGraphicsPipeline(self.render_pass, global_renderer.ui_pipeline);
+    SDL_BindGPUGraphicsPipeline(self.render_pass, resources.ui);
     pc := UI_Push_Constants.{.{2.0 / cast(float)frame_data.width, -2.0 / cast(float)frame_data.height}, .{-1, 1}};
     SDL_PushGPUVertexUniformData(frame_data.cmd, 0, *pc, size_of(type_of(pc)));
     return self;

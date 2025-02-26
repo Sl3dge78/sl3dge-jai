@@ -28,7 +28,8 @@ Extension_Info :: struct {
 extension_infos := Extension_Info.[
     .{"var", load_var_file, unload_var, get_var_type},
     .{"ttf", load_font_file, unload_font, get_font_type},
-    // .{"glsl", load_shader, get_shader_type},
+    .{"pipeline", load_pipeline, unload_pipeline, get_pipeline_type},
+    .{"mat", load_material, unload_material, get_material_type},
     .{"png", load_image, unload_image, get_image_type},
 ];
 
@@ -36,6 +37,8 @@ resources : Resources;
 
 Resources :: struct {
     watcher : File_Watcher.File_Watcher;
+    on_reload : (r: *Resource_Info, data: *void) = null;
+    data: *void;
 
     // Creates all members with names = to the filenames
     #insert #run -> string {
@@ -145,6 +148,9 @@ Resources :: struct {
         log("[RESOURCES] Reloading %", info.path);
         info.unload(info);
         info.load(info);
+        if resources.on_reload {
+            resources.on_reload(info, resources.data);
+        }
     }
 }
 
@@ -216,21 +222,6 @@ get_font_type :: (path: string) -> string {
     return "Font";
 }
 
-/*
-// .glsl files
-load_shader :: (info: *Resource_Info) -> bool {
-    temp := Shader.load_from_file(info.path, path_filename(info.path));
-    if temp.handle != 0 {
-        (cast(*Shader)info.pointer).* = temp;
-    }
-   return true;
-}
-
-get_shader_type :: (path: string) -> string {
-    return "Shader";
-}
-*/
-
 // .png files
 load_image :: (info: *Resource_Info) -> bool {
     info.pointer = texture_from_file(info.path);
@@ -243,4 +234,55 @@ unload_image :: (info: *Resource_Info) {
 
 get_image_type :: (path: string) -> string {
     return "Texture";
+}
+
+load_pipeline :: (info: *Resource_Info) -> bool {
+    success, json := json_parse_file(info.path, Pipeline_Info,, temp);
+    assert(success);
+
+    builder: Pipeline_Builder;
+    from_info(*builder, json);
+
+    info.pointer.(**SDL_GPUGraphicsPipeline).* = build_pipeline(*builder, global_renderer.device);
+    return true;
+}
+
+unload_pipeline :: (info: *Resource_Info) {
+    SDL_ReleaseGPUGraphicsPipeline(global_renderer.device, info.pointer.(**SDL_GPUGraphicsPipeline).*);
+}
+
+get_pipeline_type :: (path: string) -> string {
+    return "*SDL_GPUGraphicsPipeline";
+}
+
+load_material :: (info: *Resource_Info) -> bool {
+    success, json := json_parse_file(info.path, Pipeline_Info,, temp);
+    assert(success);
+
+    {   // Shadowmap   
+        builder: Pipeline_Builder;
+        shadow_info := json;
+        shadow_info.fragment_shader = "res/shaders/noop.frag.spv";
+        from_info(*builder, shadow_info);
+        builder.targets.count = 0;
+        set_depth_bias(*builder, 1.25, 0, 1.75);
+        add_depth_stencil_target(*builder, .D32_FLOAT);
+        builder.rasterizer_state.cull_mode = .NONE;
+        info.pointer.(*Material).pipelines[Pipeline_Kind.SHADOWMAP] = build_pipeline(*builder, global_renderer.device);
+    }
+    {   // Color
+        builder: Pipeline_Builder;
+        from_info(*builder, json);
+        info.pointer.(*Material).pipelines[Pipeline_Kind.COLOR] = build_pipeline(*builder, global_renderer.device);
+    }
+
+    return true;
+}
+
+unload_material :: (info: *Resource_Info) {
+    destroy(info.pointer.(*Material));
+}
+
+get_material_type :: (path: string) -> string {
+    return "Material";
 }

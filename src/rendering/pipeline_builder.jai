@@ -37,6 +37,17 @@ Compute_Metadata :: struct {
     threadCountZ: u32;
 }
 
+Pipeline_Info :: struct {
+    vertex_shader: string;
+    fragment_shader: string;
+    vertex_type: string;
+    color_target : struct {
+        format: string;
+        blend: bool;
+    };
+    depth_target: bool;
+}
+
 // Using metadata file, so we don't need to ship dependencies
 // @TODO integrate this in the executable somehow?
 add_shader :: (using b: *Pipeline_Builder, device: *SDL_GPUDevice, path: string)  {
@@ -239,6 +250,28 @@ build_pipeline :: (using b: *Pipeline_Builder, device: *SDL_GPUDevice) -> *SDL_G
         SDL_ReleaseGPUShader(device, fragment_shader);
     }
     return result;
+}
+
+from_info :: (builder: *Pipeline_Builder, info: Pipeline_Info) {
+    add_shader(builder, global_renderer.device, info.vertex_shader);
+    add_shader(builder, global_renderer.device, info.fragment_shader);
+    if info.vertex_type == {
+        case "Standard_Vertex"; add_vertex_type(builder, Standard_Vertex);
+        case "UI_Vertex"; add_vertex_type(builder, UI_Vertex);
+        case; assert(false);
+    }
+    format: SDL_GPUTextureFormat;
+    if info.color_target.format == {
+        case "swapchain"; format = global_renderer.swapchain_format;
+        case; {
+            format=, result := enum_name_to_value(SDL_GPUTextureFormat, info.color_target.format);
+            assert(result);
+        }
+    };
+    add_color_target(builder, format, info.color_target.blend);
+    if info.depth_target {
+        add_depth_stencil_target(builder, global_renderer.depth_stencil_format);
+    }
 }
 
 build_compute_pipeline :: (path : string) -> *SDL_GPUComputePipeline {

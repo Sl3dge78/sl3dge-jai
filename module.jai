@@ -7,6 +7,8 @@
 #import "Debug";
 #import "Bit_Operations";
 #import "Hash_Table";
+#import "Reflection";
+#import "Print_Color";
 File_Watcher :: #import "File_Watcher";
 
 // Our modules
