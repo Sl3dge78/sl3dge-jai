@@ -262,7 +262,8 @@ load_material :: (info: *Resource_Info) -> bool {
     {   // Shadowmap   
         builder: Pipeline_Builder;
         shadow_info := json;
-        shadow_info.fragment_shader = "res/shaders/noop.frag.spv";
+        shadow_info.fragment_shader = "shaders/noop.frag";
+        shadow_info.fragment_info = .{0, 0, 0, 0};
         from_info(*builder, shadow_info);
         builder.targets.count = 0;
         set_depth_bias(*builder, 1.25, 0, 1.75);

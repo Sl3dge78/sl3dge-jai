@@ -63,14 +63,13 @@ PBR_Material :: struct {
 #import "Process";
 
 compile_shader :: (path: string) {
-    real_path := tprint("shaders/%", path);
-    output_file := tprint("res/shaders/%.spv", path);
-    metadata_file := tprint("res/shaders/%.json", path);
+    output_file := tprint("res/%.spv", path);
+    metadata_file := tprint("res/%.json", path);
     
     if false {
-        run_command("glslang", "-gVS", "-V", real_path, "-o", output_file, working_directory = "bin", capture_and_return_output = true, arg_quoting = .QUOTE_IF_NEEDED);
+        run_command("glslang", "-gVS", "-V", path, "-o", output_file, working_directory = "bin", capture_and_return_output = true, arg_quoting = .QUOTE_IF_NEEDED);
     } else {
-        result, stdout, stderr := run_command("glslang", "-V", real_path, "-o", output_file, working_directory = "bin", capture_and_return_output = true);
+        result, stdout, stderr := run_command("glslang", "-V", path, "-o", output_file, working_directory = "bin", capture_and_return_output = true);
         if result.exit_code != 0 {
             print_color("========\n", color = .RED);
             print_color("%\n%", stdout, stderr, color = .RED);
@@ -85,26 +84,20 @@ compile_shader :: (path: string) {
     print_color("%\n", path, color = .GREEN);
 }
 
-export_material :: (name: string, v: string, f: string, info: Pipeline_Info) {
-    compile_shader(v);
-    compile_shader(f);
-    info2 := info;
-    info2.vertex_shader = tprint("res/shaders/%.spv", v);
-    info2.fragment_shader = tprint("res/shaders/%.spv", f);
+export_material :: (name: string, info: Pipeline_Info) {
+    compile_shader(info.vertex_shader);
+    compile_shader(info.fragment_shader);
     builder: String_Builder;
-    json_write_native(*builder, *info2, type_info(type_of(info2)));
+    json_write_native(*builder, *info, type_info(type_of(info)));
 
     write_entire_file(tprint("bin/res/%.mat", name), *builder);
 }
 
-export_pipeline :: (name: string, v: string, f: string, info: Pipeline_Info) {
-    compile_shader(v);
-    compile_shader(f);
-    info2 := info;
-    info2.vertex_shader = tprint("res/shaders/%.spv", v);
-    info2.fragment_shader = tprint("res/shaders/%.spv", f);
+export_pipeline :: (name: string, info: Pipeline_Info) {
+    compile_shader(info.vertex_shader);
+    compile_shader(info.fragment_shader);
     builder: String_Builder;
-    json_write_native(*builder, *info2, type_info(type_of(info2)));
+    json_write_native(*builder, *info, type_info(type_of(info)));
     s := builder_to_string(*builder);
 
     write_entire_file(tprint("bin/res/%.pipeline", name), s);

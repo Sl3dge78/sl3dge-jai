@@ -39,7 +39,9 @@ Compute_Metadata :: struct {
 
 Pipeline_Info :: struct {
     vertex_shader: string;
+    vertex_info: Shader_Metadata;
     fragment_shader: string;
+    fragment_info: Shader_Metadata;
     vertex_type: string;
     color_target : struct {
         format: string;
@@ -51,27 +53,30 @@ Pipeline_Info :: struct {
 // Using metadata file, so we don't need to ship dependencies
 // @TODO integrate this in the executable somehow?
 add_shader :: (using b: *Pipeline_Builder, device: *SDL_GPUDevice, path: string)  {
-    stage_str := path_extension(path_strip_extension(path));
-
-    stage: SDL_GPUShaderStage = ---;
-    if stage_str == "vert" then stage = .VERTEX;
-    else if stage_str == "frag" then stage = .FRAGMENT;
-    else assert(false, "Unexpected shader extension: %", stage_str);
-
-    file := read_entire_file(path,, temp);
     metadata_path := tprint("%.json", path_strip_extension(path));
     success, metadata := json_parse_file(metadata_path, Shader_Metadata,, temp);
     assert(success);
+    add_shader(b, device, path, metadata);
+}
+
+add_shader :: (using b: *Pipeline_Builder, device: *SDL_GPUDevice, path: string, info: Shader_Metadata) {
+    stage: SDL_GPUShaderStage = ---;
+
+    stage_str := path_extension(path);
+    if stage_str == "vert" then stage = .VERTEX;
+    else if stage_str == "frag" then stage = .FRAGMENT;
+    else assert(false, "Unexpected shader extension: %", stage_str);
+    file := read_entire_file(tprint("res/%.spv", path),, temp);
     create_info := SDL_GPUShaderCreateInfo.{
         code_size = xx file.count,
         code = file.data,
         entrypoint = "main",
         format = SDL_GPU_SHADERFORMAT_SPIRV,
         stage = stage,
-        num_samplers = metadata.samplers,
-        num_storage_textures = metadata.storageTextures,
-        num_storage_buffers = metadata.storageBuffers,
-        num_uniform_buffers = metadata.uniformBuffers,
+        num_samplers = info.samplers,
+        num_storage_textures = info.storageTextures,
+        num_storage_buffers = info.storageBuffers,
+        num_uniform_buffers = info.uniformBuffers,
     };
     shader := SDL_NullCheck(SDL_CreateGPUShader(device, *create_info));
     if stage == .VERTEX {
@@ -231,7 +236,7 @@ build_pipeline :: (using b: *Pipeline_Builder, device: *SDL_GPUDevice) -> *SDL_G
         rasterizer_state = rasterizer_state,
         multisample_state = .{
             sample_count = ._1,
-            sample_mask = 0xFFFFFFFF,
+            sample_mask = 0x0,
             enable_mask = false,
         },
         depth_stencil_state = depth_stencil_state, 
@@ -253,8 +258,8 @@ build_pipeline :: (using b: *Pipeline_Builder, device: *SDL_GPUDevice) -> *SDL_G
 }
 
 from_info :: (builder: *Pipeline_Builder, info: Pipeline_Info) {
-    add_shader(builder, global_renderer.device, info.vertex_shader);
-    add_shader(builder, global_renderer.device, info.fragment_shader);
+    add_shader(builder, global_renderer.device, info.vertex_shader, info.vertex_info);
+    add_shader(builder, global_renderer.device, info.fragment_shader, info.fragment_info);
     if info.vertex_type == {
         case "Standard_Vertex"; add_vertex_type(builder, Standard_Vertex);
         case "UI_Vertex"; add_vertex_type(builder, UI_Vertex);
@@ -275,7 +280,6 @@ from_info :: (builder: *Pipeline_Builder, info: Pipeline_Info) {
 }
 
 build_compute_pipeline :: (path : string) -> *SDL_GPUComputePipeline {
-
     compute_shader, success := read_entire_file(path,, temp);
     assert(success, tprint("Unable to read %", path));
     metadata_path := tprint("%.json", path_strip_extension(path));
