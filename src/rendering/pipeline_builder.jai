@@ -32,9 +32,9 @@ Compute_Metadata :: struct {
     readWriteStorageTextures: u32;
     readWriteStorageBuffers: u32;
     uniformBuffers: u32;
-    threadCountX: u32;
-    threadCountY: u32;
-    threadCountZ: u32;
+    threadCountX: u32 = 1;
+    threadCountY: u32 = 1;
+    threadCountZ: u32 = 1;
 }
 
 Pipeline_Info :: struct {
@@ -48,6 +48,11 @@ Pipeline_Info :: struct {
         blend: bool;
     };
     depth_target: bool;
+}
+
+Compute_Info :: struct {
+    shader: string;
+    metadata: Compute_Metadata;
 }
 
 // Using metadata file, so we don't need to ship dependencies
@@ -301,4 +306,77 @@ build_compute_pipeline :: (path : string) -> *SDL_GPUComputePipeline {
         threadcount_z = metadata.threadCountZ,
     };
     return SDL_NullCheck(SDL_CreateGPUComputePipeline(global_renderer.device, *ci));
+}
+
+build_compute_pipeline :: (info: Compute_Info) -> *SDL_GPUComputePipeline {
+    compute_shader, success := read_entire_file(tprint("res/%.spv", info.shader),, temp);
+    assert(success, tprint("Unable to read %", info.shader));
+    metadata := info.metadata;
+    ci := SDL_GPUComputePipelineCreateInfo.{
+        code_size = xx compute_shader.count,
+        code = compute_shader.data,
+        entrypoint = "main",
+        format =  SDL_GPU_SHADERFORMAT_SPIRV,
+        num_samplers = metadata.samplers,
+        num_readonly_storage_textures  = metadata.readOnlyStorageTextures,
+        num_readonly_storage_buffers   = metadata.readOnlyStorageBuffers,
+        num_readwrite_storage_textures = metadata.readWriteStorageTextures,
+        num_readwrite_storage_buffers  = metadata.readWriteStorageBuffers,
+        num_uniform_buffers            = metadata.uniformBuffers,
+        threadcount_x = metadata.threadCountX,
+        threadcount_y = metadata.threadCountY,
+        threadcount_z = metadata.threadCountZ,
+    };
+    return SDL_NullCheck(SDL_CreateGPUComputePipeline(global_renderer.device, *ci));
+}
+
+#import "Process";
+
+compile_shader :: (path: string) {
+    output_file := tprint("res/%.spv", path);
+    metadata_file := tprint("res/%.json", path);
+    
+    if false {
+        run_command("glslang", "-gVS", "-V", path, "-o", output_file, working_directory = "bin", capture_and_return_output = true, arg_quoting = .QUOTE_IF_NEEDED);
+    } else {
+        result, stdout, stderr := run_command("glslang", "-V", path, "-o", output_file, working_directory = "bin", capture_and_return_output = true);
+        if result.exit_code != 0 {
+            print_color("========\n", color = .RED);
+            print_color("%\n%", stdout, stderr, color = .RED);
+            print_color("========\n", color = .RED);
+            return;
+        }
+    }
+    result, stout, stderr := run_command("shadercross", output_file, "-o", metadata_file, working_directory = "bin", capture_and_return_output = true,, logger = (msg: string, data: *void, info: Log_Info) {});
+    if result.exit_code != 0 {
+        // Shadercross not installed, maybe log it
+    }
+    print_color("%\n", path, color = .GREEN);
+}
+
+export_material :: (name: string, info: Pipeline_Info) {
+    compile_shader(info.vertex_shader);
+    compile_shader(info.fragment_shader);
+    builder: String_Builder;
+    json_write_native(*builder, *info, type_info(type_of(info)));
+
+    write_entire_file(tprint("bin/res/%.mat", name), *builder);
+}
+
+export_pipeline :: (name: string, info: Pipeline_Info) {
+    compile_shader(info.vertex_shader);
+    compile_shader(info.fragment_shader);
+    builder: String_Builder;
+    json_write_native(*builder, *info, type_info(type_of(info)));
+    s := builder_to_string(*builder);
+
+    write_entire_file(tprint("bin/res/%.pipeline", name), s);
+}
+
+export_compute_pipeline :: (name: string, info: Compute_Info) {
+    compile_shader(info.shader);
+    builder: String_Builder;
+    json_write_native(*builder, *info, type_info(type_of(info)));
+    s := builder_to_string(*builder);
+    write_entire_file(tprint("bin/res/%.compute", name), s);
 }

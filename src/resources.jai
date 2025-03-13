@@ -29,6 +29,7 @@ extension_infos := Extension_Info.[
     .{"var", load_var_file, unload_var, get_var_type},
     .{"ttf", load_font_file, unload_font, get_font_type},
     .{"pipeline", load_pipeline, unload_pipeline, get_pipeline_type},
+    .{"compute", load_compute, unload_compute, get_compute_type},
     .{"mat", load_material, unload_material, get_material_type},
     .{"png", load_image, unload_image, get_image_type},
 ];
@@ -253,6 +254,22 @@ unload_pipeline :: (info: *Resource_Info) {
 
 get_pipeline_type :: (path: string) -> string {
     return "*SDL_GPUGraphicsPipeline";
+}
+
+load_compute :: (info: *Resource_Info) -> bool {
+    success, json := json_parse_file(info.path, Compute_Info,, temp);
+    assert(success);
+
+    info.pointer.(**SDL_GPUComputePipeline).* = build_compute_pipeline(json);
+    return true;
+}
+
+unload_compute :: (info: *Resource_Info) {
+    SDL_ReleaseGPUComputePipeline(global_renderer.device, info.pointer.(**SDL_GPUComputePipeline).*);
+}
+
+get_compute_type :: (path: string) -> string {
+    return "*SDL_GPUComputePipeline";
 }
 
 load_material :: (info: *Resource_Info) -> bool {
