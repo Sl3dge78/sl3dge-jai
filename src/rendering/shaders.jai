@@ -60,3 +60,11 @@ PBR_Material :: struct {
     ambient_occlusion: float;
 }
 
+Texture_Binding :: enum {
+    SHADOWMAP :: 0;
+    DIFFUSE;
+    IRRADIANCE;
+    PREFILTERED;
+    BRDF_LUT;
+}
+

@@ -330,12 +330,12 @@ push_fragment_uniform :: (cmd: *SDL_GPUCommandBuffer, binding: int, value: $T) {
     SDL_PushGPUFragmentUniformData(cmd, xx binding, *value, size_of(T));
 }
 
-bind_fragment_texture :: (render_pass: *SDL_GPURenderPass, binding: int, texture: *SDL_GPUTexture) {
+bind_fragment_texture :: (render_pass: *SDL_GPURenderPass, binding: Texture_Binding, texture: *SDL_GPUTexture) {
     sampler_binding := SDL_GPUTextureSamplerBinding.{ texture, global_renderer.sampler };
     SDL_BindGPUFragmentSamplers(render_pass, xx binding, *sampler_binding, 1);
 }
 
-bind_fragment_texture :: (render_pass: *SDL_GPURenderPass, binding: int, texture: *SDL_GPUTexture, sampler: *SDL_GPUSampler) {
+bind_fragment_texture :: (render_pass: *SDL_GPURenderPass, binding: Texture_Binding, texture: *SDL_GPUTexture, sampler: *SDL_GPUSampler) {
     sampler_binding := SDL_GPUTextureSamplerBinding.{ texture, sampler };
     SDL_BindGPUFragmentSamplers(render_pass, xx binding, *sampler_binding, 1);
 }
