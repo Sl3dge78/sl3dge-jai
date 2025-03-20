@@ -42,5 +42,4 @@ File_Watcher :: #import "File_Watcher";
 #load "src/rendering/mesh.jai";
 #load "src/transform.jai";
 // #load "src/rendering/skinned_mesh.jai";
-// #load "src/scene.jai";
 // #load "src/animation.jai";
