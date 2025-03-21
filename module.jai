@@ -12,6 +12,7 @@
 File_Watcher :: #import "File_Watcher";
 
 // Our modules
+#scope_export
 #import "stb_image";
 #load "modules/SDL3/module.jai";
 #import,dir "modules/stb_truetype";

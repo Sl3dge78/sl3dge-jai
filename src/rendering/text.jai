@@ -104,12 +104,14 @@ draw_text :: (immediate: *Immediate, text: string, x: float, y: float, font: *Fo
     return x, y;
 }
 
+/*
 draw_text_right_aligned :: (immediate: *Immediate, text: string, x: float, y: float, font: *Font, color: Vector4 = .{1, 1, 1, 1}) -> x: float, y: float {
 
     size := size_text(text, font);
     x, y := draw_text(immediate, text, immediate.target_w - size, y, font, color);
     return x, y;
 }
+*/
 
 draw_wrapped_text :: (immediate: *Immediate, text: string, x: float, w: float, y: float, font: *Font, color: Vector4 = .{1, 1, 1, 1}, $bind := true) -> x: float, y: float{
     #if bind {

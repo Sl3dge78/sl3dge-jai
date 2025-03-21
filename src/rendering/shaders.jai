@@ -53,7 +53,7 @@ Instance_Data :: struct {
     joint_matrices: [128]Matrix4;
 }
 
-PBR_Material :: struct {
+PBR_Material_Buffer :: struct {
     albedo: Vector3 #align 16;
     metallic: float;
     roughness: float;
@@ -62,9 +62,11 @@ PBR_Material :: struct {
 
 Texture_Binding :: enum {
     SHADOWMAP :: 0;
-    DIFFUSE;
-    IRRADIANCE;
-    PREFILTERED;
-    BRDF_LUT;
+    DIFFUSE :: 1;
+    IRRADIANCE :: 2;
+    PREFILTERED :: 3;
+    BRDF_LUT :: 4;
+    METALLIC_ROUGHNESS :: 5;
+    AMBIENT_OCCLUSION :: 6;
 }
 

@@ -1,3 +1,4 @@
+#scope_export
 GLTF_Data :: struct {
   filepath     : string;
 
