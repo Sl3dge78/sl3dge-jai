@@ -15,7 +15,7 @@ Standard_Vertex :: struct {
     position: Vector3;
     normal: Vector3;
     uv: Vector2;
-    color: Vector4 = .{1, 1, 1, 1};
+    tangent: Vector3;
 }
 
 Skinned_Vertex :: struct {
@@ -57,16 +57,16 @@ PBR_Material_Buffer :: struct {
     albedo: Vector3 #align 16;
     metallic: float;
     roughness: float;
-    ambient_occlusion: float;
 }
 
 Texture_Binding :: enum {
     SHADOWMAP :: 0;
-    DIFFUSE :: 1;
-    IRRADIANCE :: 2;
-    PREFILTERED :: 3;
-    BRDF_LUT :: 4;
-    METALLIC_ROUGHNESS :: 5;
-    AMBIENT_OCCLUSION :: 6;
+    IRRADIANCE;
+    PREFILTERED;
+    BRDF_LUT;
+    DIFFUSE;
+    NORMAL;
+    METALLIC_ROUGHNESS;
+    AMBIENT_OCCLUSION;
 }
 

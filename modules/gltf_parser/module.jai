@@ -420,8 +420,8 @@ gltf_parse_string :: (gltf_buffer: string) -> GLTF_Data {
         }
       }
 
-      metallic_factor  = get_float(material_parsed, "metallicFactor");
-      roughness_factor = get_float(material_parsed, "roughnessFactor");
+      metallic_factor  = get_float(material_parsed, "metallicFactor", 1);
+      roughness_factor = get_float(material_parsed, "roughnessFactor", 1);
     }
 
     normal_texture, has_normal_texture := parse_texture_info(material_parsed, "normalTexture");
