@@ -41,7 +41,7 @@ immediate_bind_texture :: (using immediate: *Immediate, texture: *SDL_GPUTexture
 }
 
 immediate_default_texture :: (using immediate: *Immediate) {
-    immediate_bind_texture(immediate, global_renderer.empty_texture);
+    immediate_bind_texture(immediate, global_renderer.white_texture);
 }
 
 push_vertices :: (imm: *Immediate, vertices: []$T) {

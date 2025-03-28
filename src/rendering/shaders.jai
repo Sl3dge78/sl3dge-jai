@@ -68,5 +68,6 @@ Texture_Binding :: enum {
     NORMAL;
     METALLIC_ROUGHNESS;
     AMBIENT_OCCLUSION;
+    EMISSIVE;
 }
 

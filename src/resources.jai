@@ -225,7 +225,7 @@ get_font_type :: (path: string) -> string {
 
 // .png files
 load_image :: (info: *Resource_Info) -> bool {
-    info.pointer = texture_from_file(info.path);
+    info.pointer = texture_from_file(info.path, .INVALID);
     return true;
 }
 

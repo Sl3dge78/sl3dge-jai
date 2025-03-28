@@ -114,7 +114,8 @@ engine_draw :: (frame_data: Frame_Data) {
     defer immediate_end(*imm);
     console_draw(*imm, *global_engine.default_font);
     if global_engine.draw_perf_overlay {
-        draw_text(*imm, tprint("Frametime: %ms (%fps)", FormatFloat.{ value = global_engine.frame_time, trailing_width = 3}, roundf(1 / global_engine.frame_time)), 0, 8, *global_engine.default_font);
+        ms := global_engine.frame_time * 1000;
+        draw_text(*imm, tprint("Frametime: %ms (%fps)", FormatFloat.{ value = ms, trailing_width = 3}, roundf(1 / ms)), 0, 8, *global_engine.default_font);
     }
 
 }

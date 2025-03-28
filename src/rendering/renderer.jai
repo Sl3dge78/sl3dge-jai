@@ -16,7 +16,9 @@ Renderer :: struct {
     // static_mesh_material: Material;
 
     sampler : *SDL_GPUSampler;
-    empty_texture: Texture;
+    white_texture: Texture;
+    empty_normal: Texture;
+    black_texture: Texture;
 
     immediate_buffer_pool: Buffer_Pool = .{ kind = .VERTEX };
     vertex_buffer_pool:    Buffer_Pool = .{ kind = .VERTEX | .INDEX };
@@ -87,9 +89,9 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
         min_filter = .LINEAR,
         mag_filter = .LINEAR,
         mipmap_mode = .LINEAR,
-        address_mode_u = .CLAMP_TO_EDGE,
-        address_mode_v = .CLAMP_TO_EDGE,
-        address_mode_w = .CLAMP_TO_EDGE,
+        address_mode_u = .REPEAT,
+        address_mode_v = .REPEAT,
+        address_mode_w = .REPEAT,
         mip_lod_bias = 0,
         // max_anisotropy = 16,
         compare_op = .ALWAYS,
@@ -100,8 +102,20 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
     };
     sampler = SDL_NullCheck(SDL_CreateGPUSampler(device, *sampler_ci));
 
-    data := u8.[255, 255, 255, 255];
-    empty_texture = texture_from_data(data.data, 1, 1, 4, u8, "empty_texture");
+    {
+        data := u8.[255, 255, 255, 255];
+        white_texture = texture_from_data(data.data, 1, 1, 4, u8, name = "white_texture");
+    }
+
+    {
+        data := u8.[0, 0, 0, 255];
+        black_texture = texture_from_data(data.data, 1, 1, 4, u8, name = "black_texture");
+    }
+
+    {
+        data := u8.[0x80, 0x80, 0xFF, 0xFF];
+        empty_normal = texture_from_data(data.data, 1, 1, 4, u8, .R8G8B8A8_UNORM, "empty_normal");
+    }
 
     projection = make_projection_matrix(radians(45), cast(float)w/cast(float)h, 0.1, 1000);
 
@@ -133,72 +147,15 @@ renderer_create :: (window: *SDL_Window) -> *Renderer {
 }
 
 destroy :: (using self: *Renderer) {
-    destroy(empty_texture);
+    destroy(white_texture);
+    destroy(black_texture);
+    destroy(empty_normal);
     destroy(shadowmap);
     buffer_pool_reset(*immediate_buffer_pool);
     buffer_pool_reset(*vertex_buffer_pool);
     SDL_ReleaseGPUSampler(device, sampler);
     destroy(depth_stencil_texture);
     SDL_DestroyGPUDevice(device);
-}
-
-
-texture_from_data :: (buffer: *u8, w: u32, h: u32, channels: u32, $type: Type, name: string) -> Texture {
-    size := w * h * channels * size_of(type);
-    tbuf_ci := SDL_GPUTransferBufferCreateInfo.{
-        usage = .UPLOAD,
-        size = size,
-        props = 0,
-    };
-    tbuf := SDL_CreateGPUTransferBuffer(global_renderer.device, *tbuf_ci);
-    defer SDL_ReleaseGPUTransferBuffer(global_renderer.device, tbuf);
-
-    format : SDL_GPUTextureFormat;
-    if channels == {
-        case 1; format = .R8_UNORM;
-        case 4; format = .R8G8B8A8_UNORM_SRGB;
-        case; assert(false, "Unhandled channel count of %.", channels);
-    }
-
-    texture_ci := SDL_GPUTextureCreateInfo.{
-        type = ._2D,
-        format = format,
-        usage = .SAMPLER,
-        width = w,
-        height = h,
-        layer_count_or_depth = 1,
-        num_levels = 1,
-        sample_count = ._1,
-
-        props = 0,
-    };
-    texture := SDL_CreateGPUTexture(global_renderer.device, *texture_ci);
-
-    data := SDL_MapGPUTransferBuffer(global_renderer.device, tbuf, false);
-    SDL_memcpy(data, buffer, size);
-    SDL_UnmapGPUTransferBuffer(global_renderer.device, tbuf);
-
-    cmd := SDL_AcquireGPUCommandBuffer(global_renderer.device);
-    defer SDL_SubmitGPUCommandBuffer(cmd);
-
-    copy_pass := SDL_BeginGPUCopyPass(cmd);
-    defer SDL_EndGPUCopyPass(copy_pass);
-    src := SDL_GPUTextureTransferInfo.{ tbuf, 0, w, h };
-
-    dst := SDL_GPUTextureRegion.{
-        texture,
-        0, 0,
-        0, 0, 0,
-        w, h, 1,
-    };
-    SDL_UploadToGPUTexture(copy_pass, *src, *dst, false);
-    SDL_SetGPUTextureName(global_renderer.device, texture, name.data);
-    return texture;
-}
-
-destroy :: (self: Texture) {
-    assert(self != null);
-    SDL_ReleaseGPUTexture(global_renderer.device, self);
 }
 
 Frame_Data :: struct {

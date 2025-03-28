@@ -31,7 +31,7 @@ font_from_data :: (font_data: string, size: float, resource_name: string) -> Fon
     stbtt_PackFontRange(*pack_context, font_data.data, 0, size, xx self.first_char, 437, self.char_data.data);
     stbtt_PackEnd(*pack_context);
 
-    self.texture = texture_from_data(bitmap.data, 512, 512, 1, u8, resource_name);
+    self.texture = texture_from_data(bitmap.data, 512, 512, 1, u8, name = resource_name);
 
     // Get additional font info
     info : stbtt_fontinfo = ---;
